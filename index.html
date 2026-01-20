@@ -1,0 +1,2471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>事業別ダッシュボード</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.5.0/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/lucide-react@0.263.1/dist/umd/lucide-react.js"></script>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; }
+    .card { background: white; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .summary-card { color: white; border-radius: 14px; padding: 16px; }
+    .business-tab { padding: 10px 18px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+    .business-tab.active { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
+    .business-tab.inactive { background: #e2e8f0; color: #475569; }
+    .business-tab.inactive:hover { background: #cbd5e1; }
+    .period-btn { padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+    .period-btn.active { background: #3b82f6; color: white; }
+    .period-btn.inactive { background: #f1f5f9; color: #64748b; }
+    .upload-zone { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .upload-zone:hover, .upload-zone.active { border-color: #3b82f6; background: #eff6ff; }
+    .input-styled { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; width: 100%; }
+    .input-styled:focus { outline: none; border-color: #3b82f6; }
+    .btn-primary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; }
+    .btn-secondary { background: #f1f5f9; color: #475569; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+
+const { useState, useEffect, useRef, useCallback } = React;
+const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Legend, PieChart, Pie, Cell } = Recharts;
+const { TrendingUp, DollarSign, Users, Activity, Target, Percent, CreditCard, FileText, Calendar, ChevronDown, Upload, Plus, Trash2, Building2, BarChart3, PieChart: PieChartIcon } = lucideReact;
+
+
+// 数値パース関数
+const parseNumber = (val) => {
+  if (val === undefined || val === null || val === '' || val === '-') return null;
+  if (typeof val === 'number') return val;
+  let cleaned = String(val).replace(/[¥￥,、\s]/g, '').replace(/^"/, '').replace(/"$/, '').trim();
+  if (cleaned.endsWith('%')) cleaned = cleaned.replace(/%$/, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+};
+
+// 期間をソートする関数（2026年1月 > 2025年12月 > 2025年11月 の順）
+const sortPeriods = (periods) => {
+  return [...periods].sort((a, b) => {
+    const matchA = a.match(/(\d{4})年(\d{1,2})月/);
+    const matchB = b.match(/(\d{4})年(\d{1,2})月/);
+    if (matchA && matchB) {
+      const yearA = parseInt(matchA[1]), monthA = parseInt(matchA[2]);
+      const yearB = parseInt(matchB[1]), monthB = parseInt(matchB[2]);
+      if (yearA !== yearB) return yearB - yearA;
+      return monthB - monthA;
+    }
+    return b.localeCompare(a);
+  });
+};
+
+// 元amuseデータ（Excelから抽出）
+const MOTO_AMUSE_INITIAL_DATA = {
+  '2025年10月':{サマリー:{'リスト件数':14542.0,'打電数':10579.0,'着電数':1716.0,'LINE登録数':23.0,'アカウント作成数':141.0,'FTP数':82.0,'FTP率':0.5815602837,'FTD数':48.0,'FTD率':0.3404255319,'FTW数':7.0,'FTW率':0.04964539007,'FTDW数':55.0,'FTDW率':0.390070922,'前月リテンション数':75.0,'引継ぎプレイヤー数':153.0,'アクティブユーザー数':294.0,'T/O':1577495817.7,'勝利金':1507184477.51,'RTP':0.9554285093,'GGR(WIN/LOSE)':70311340.19,'LTV(WIN/LOSE)':239154.2183,'回収予定金額':71840329.0,'回収金額':55956778.0,'回収率(全体)':0.7789048126,'回収率(今月)':0.7476,'出金金額':17719827.0,'GGR(回収金額-出金金額)':38174451.0,'LTV(GGR)':129845.0714,'プロバイダーフィー':7263554.56,'NGR':30910896.44,'date':6337611.4,'MS':7129812.825,'人件費':6428256.89,'インセンティブ':1288854.0,'通信費':2663589.51,'ペイメントフィー':2270983.0,'雑費・福利厚生等':1505598.314,'合計経費':14157281.71,'BK':8714215.675,'利益':-5428025.174,'死亡金':62500.0,'凍結制限金':0.0}},
+  '2025年9月':{サマリー:{'GGR(WIN/LOSE)':-2176638.6,'LINE登録数':13.0,'LTV(GGR)':0.0,'LTV(WIN/LOSE)':0.0,'RTP':1.038340917,'T/O':56770645.0,'インセンティブ':694111.143,'ペイメントフィー':2503018.658,'リスト件数':14965.0,'人件費':9563363.21,'凍結制限金':238392.0,'勝利金':58947283.6,'合計経費':12887226.88,'打電数':1035.0,'死亡金':0.0,'着電数':665.0,'雑費・福利厚生等':126733.8732}},
+  '2025年8月':{サマリー:{'BK':7114855.000000001,'FTDW率':0.5087,'FTD数':12.0,'FTD率':0.2044,'FTP数':60.0,'FTP率':0.7676,'FTW率':0.0984,'GGR(WIN/LOSE)':56952667.0,'GGR(回収金額-出金金額)':27019475.0,'LINE登録数':48.0,'LTV(GGR)':92276.37323943662,'LTV(WIN/LOSE)':389548.0,'MS':5821245.0,'NGR':23459499.0,'RTP':0.9735,'T/O':1910465086.0,'date':5174440.0,'アカウント作成数':78.0,'アクティブユーザー数':284.0,'インセンティブ':598292.4885714286,'プロバイダーフィー':3559976.0,'ペイメントフィー':2215288.0,'ボーナス割合(GGR)':0.047452013062167064,'ボーナス割合(T/O)':0.0010859991798596426,'ボーナス割合(WIN/LOSE)':0.030072299778184534,'リスト件数':9997.0,'人件費':9282938.4,'付与ボーナス額':1396616.0,'凍結制限金':30000.0,'出金金額':13154437.0,'利益':2386980.283149061,'前月リテンション数':88.0,'勝利金':1853512419.0,'合計経費':7321812.716850938,'回収予定金額':56467301.0,'回収率(今月)':0.7759,'回収率(全体)':0.7400168639191733,'回収金額':41786755.0,'引継ぎプレイヤー数':206.0,'打電数':9829.0,'死亡金':782985.0,'着電数':3810.0,'通信費':1318555.9710000001,'雑費・福利厚生等':962870.0549999998}},
+  '2025年7月':{サマリー:{'BK':1046146.646,'FTDW数':14.0,'FTDW率':0.208955223880597,'FTD数':11.0,'FTD率':0.16417910447761194,'FTP数':39.0,'FTP率':0.582089552238806,'FTW数':3.0,'FTW率':0.04477611940298507,'GGR(WIN/LOSE)':89408914.42000008,'GGR(回収金額-出金金額)':11754881.9,'LINE登録数':51.0,'LTV(GGR)':34271.25170603676,'LTV(WIN/LOSE)':234669.0667191603,'MS':855938.1645,'NGR':3791600.89,'RTP':0.976180804579324,'T/O':3753649644.37,'date':760833.924,'アカウント作成数':67.0,'アクティブユーザー数':381.0,'インセンティブ':2652236.0,'プロバイダーフィー':7963281.01,'ペイメントフィー':3208612.835,'ボーナス割合(GGR)':0.29803130986739723,'ボーナス割合(T/O)':0.001036723873746916,'ボーナス割合(WIN/LOSE)':0.04352472262127704,'リスト件数':9957.0,'人件費':8251402.2,'付与ボーナス額':3891498.2,'凍結制限金':24154321.0,'出金金額':37542660.0,'利益':-24863723.26,'前月リテンション数':17.0,'勝利金':3664240729.95,'合計経費':25992405.41,'回収予定金額':106737904.30000001,'回収率(今月)':0.668580101586274,'回収率(全体)':0.700354090613338,'回収金額':74754327.9,'引継ぎプレイヤー数':314.0,'打電数':100011.0,'死亡金':0.0,'着電数':3839.0,'雑費・福利厚生等':11880154.38}},
+  '2025年6月':{サマリー:{'BK':19008236.94,'GGR(WIN/LOSE)':106821992.9,'GGR(回収金額-出金金額)':79117068.0,'LINE登録数':367.0,'LTV(GGR)':113348.235,'LTV(WIN/LOSE)':153040.1044,'MS':15552193.86,'NGR':69120861.61,'RTP':0.9716264016,'T/O':3764837698.76,'date':13824172.32,'アクティブユーザー数':698.0,'インセンティブ':2602236.0,'プロバイダーフィー':9996206.39,'ペイメントフィー':4270364.007,'ボーナス割合(GGR)':0.08694462742,'ボーナス割合(T/O)':0.001827118338,'ボーナス割合(WIN/LOSE)':0.06439501654,'リスト件数':9884.0,'人件費':8738253.6,'凍結制限金':3542619.0,'利益':4960444.968,'前月リテンション数':235.0,'勝利金':3658015705.86,'合計経費':15775813.52,'打電数':191066.0,'死亡金':785657.0,'着電数':7980.0,'雑費・福利厚生等':164959.908}},
+  '2025年5月':{サマリー:{'BK':6910039.37525,'FTDW数':119.0,'FTDW率':0.37658227848101267,'FTD数':110.0,'FTD率':0.34810126582278483,'FTP数':0.0,'FTP率':0.0,'FTW数':9.0,'FTW率':0.028481012658227847,'GGR':30822400.0,'LINE登録数':497.0,'LTV(GGR)':40878.51458885942,'LTV(WIN/LOSE)':3348.1976127320954,'MS':5653668.57975,'NGR':21494893.73,'RTP':0.9995339013616793,'T/O':5416323482.72,'WIN/LOSE':2524541.0,'date':5025483.182,'アカウント作成数':316.0,'アクティブユーザー数':754.0,'インセンティブ':2321349.36,'プロバイダーフィー':9327506.27,'ペイメントフィー':6119490.98130618,'ボーナス割合(GGR)':0.2319400825,'ボーナス割合(T/O)':0.001319889778,'ボーナス割合(WIN/LOSE)':2.831782094,'リスト件数':9967.0,'人件費':8490554.8,'付与ボーナス額':7148950.0,'凍結/返済制限金差し引き後':0.0,'出金金額':74028096.0,'利益':-18474517.926806178,'前月リテンション数':119.0,'勝利金':5413798941.72,'合計経費':22380220.51980618,'回収予定金額':127207474.61999999,'回収率(今月)':0.8334792575414466,'回収率(全体)':0.8490640964506556,'回収金額':108007299.5,'引継ぎプレイヤー数':438.0,'打電数':171257.0,'死亡金':0.0,'着電数':6193.0,'通信費':3679851.593,'雑費・福利厚生等':1768973.7854999998}},
+  '2025年4月':{サマリー:{'BK':17221677.536250003,'FTDW数':140.0,'FTDW率':0.6730769230769231,'FTD数':127.0,'FTD率':0.6105769230769231,'FTP数':0.0,'FTP率':0.0,'FTW数':13.0,'FTW率':0.0625,'GGR':69357611.0,'LINE登録数':269.0,'LTV(GGR)':125875.88203266788,'LTV(WIN/LOSE)':146483.1712341196,'MS':14090463.43875,'NGR':62624282.05,'RTP':0.9762702910701644,'T/O':3401315523.45,'WIN/LOSE':80712227.3499999,'date':12524856.39,'アカウント作成数':208.0,'アクティブユーザー数':551.0,'インセンティブ':2171413.456214373,'プロバイダーフィー':6733328.95,'ペイメントフィー':3809073.8074307796,'ボーナス割合(GGR)':0.1120036415,'ボーナス割合(T/O)':0.0022839119,'ボーナス割合(WIN/LOSE)':0.0962469412,'リスト件数':9601.0,'人件費':8664027.12,'付与ボーナス額':7768305.0,'凍結制限金':1069435.0,'出金金額':39921751.0,'利益':-1115819.608045157,'前月リテンション数':74.0,'勝利金':3320603296.1,'合計経費':19903104.293045152,'回収予定金額':122477771.2,'回収率(今月)':0.8932255455674066,'回収率(全体)':0.9380129787992092,'回収金額':114885739.0,'引継ぎプレイヤー数':343.0,'打電数':95781.0,'死亡金':9951.0,'着電数':4488.0,'通信費':4398883.113399999,'雑費・福利厚生等':859706.7959999999}},
+  '2025年3月':{サマリー:{'BK':20231773.1,'FTDW数':110.0,'FTDW率':0.6918238993710691,'FTD数':103.0,'FTD率':0.6477987421383647,'FTP数':0.0,'FTP率':0.0,'FTW数':7.0,'FTW率':0.0440251572327044,'GGR':88303648.0,'LINE登録数':207.0,'LTV(GGR)':194073.95164835165,'LTV(WIN/LOSE)':148976.18692307628,'MS':16553268.9,'NGR':73575372.0,'RTP':0.9736721903859757,'T/O':2574622273.7,'WIN/LOSE':67784165.04999971,'date':14714016.8,'アカウント作成数':159.0,'アクティブユーザー数':455.0,'インセンティブ':2820238.0672227424,'プロバイダーフィー':14728276.0,'ペイメントフィー':3926519.78232346,'ボーナス割合(GGR)':0.0619994431,'ボーナス割合(T/O)':0.002126438917,'ボーナス割合(WIN/LOSE)':0.08076778693,'リスト件数':6976.0,'人件費':8612133.32,'付与ボーナス額':5474777.0,'凍結制限金':1398639.0,'出金金額':45743713.0,'利益':2110802.3558537997,'前月リテンション数':56.0,'勝利金':2506838108.65,'合計経費':19965510.844146203,'回収予定金額':144998394.60000002,'回収率(今月)':0.9392787332281263,'回収率(全体)':0.9576673644081849,'回収金額':138860230.4,'引継ぎプレイヤー数':296.0,'打電数':63823.0,'死亡金':230445.0,'着電数':4040.0,'通信費':2597834.8896000003,'雑費・福利厚生等':2008784.7850000001}},
+  '2025年2月':{サマリー:{'BK':19184425.425,'FTDW数':85.0,'FTDW率':0.7522123893805309,'FTD数':78.0,'FTD率':0.6902654867256637,'FTP数':0.0,'FTP率':0.0,'FTW数':7.0,'FTW率':0.061946902654867256,'GGR':76779202.0,'LINE登録数':223.0,'LTV(GGR)':208073.71815718157,'LTV(WIN/LOSE)':217862.13301707347,'MS':15696348.075000001,'NGR':69761547.49,'RTP':0.9698197160659708,'T/O':2663696844.57,'WIN/LOSE':80391127.08330011,'date':13952309.4,'アカウント作成数':113.0,'アクティブユーザー数':369.0,'インセンティブ':2791896.7479009246,'プロバイダーフィー':7017654.51,'ペイメントフィー':3579173.1690677297,'ボーナス割合(GGR)':0.06294879178,'ボーナス割合(T/O)':0.001814454978,'ボーナス割合(WIN/LOSE)':0.06012054036,'リスト件数':5948.0,'人件費':7698231.538586,'付与ボーナス額':4833158.0,'出金金額':25727451.0,'利益':3069920.2172453403,'前月リテンション数':75.0,'勝利金':2583305717.4867,'合計経費':17858544.372754652,'回収予定金額':105750924.0,'回収率(今月)':0.9311792679939137,'回収率(全体)':0.9939495603839831,'回収金額':105111084.42,'引継ぎプレイヤー数':256.0,'打電数':47811.0,'求人':58240.0,'着電数':4970.0,'管理費':0.0,'通信費':2247465.7452000002,'雑費・福利厚生等':1483537.172}},
+  '2025年1月':{サマリー:{'BK':17486751.425,'FTDW数':123.0,'FTDW率':0.825503355704698,'FTD数':119.0,'FTD率':0.7986577181208053,'FTP数':0.0,'FTP率':0.0,'FTW数':4.0,'FTW率':0.026845637583892617,'GGR':72496605.0,'LINE登録数':213.0,'LTV(GGR)':203071.72268907563,'LTV(WIN/LOSE)':275242.73389355745,'MS':14307342.075000001,'NGR':64523087.0,'RTP':0.9730057316741978,'T/O':3640093327.0,'WIN/LOSE':98261656.0,'date':12717637.4,'アカウント作成数':149.0,'アクティブユーザー数':357.0,'インセンティブ':1423950.8,'プロバイダーフィー':7973518.0,'ペイメントフィー':5257213.0,'ボーナス割合(GGR)':0.06833423441,'ボーナス割合(T/O)':0.001360954117,'ボーナス割合(WIN/LOSE)':0.05041641065,'リスト件数':4231.0,'人件費':4770077.82,'付与ボーナス額':4954000.0,'出金金額':57374896.0,'利益':4305227.432560001,'前月リテンション数':60.0,'勝利金':3541831671.0,'合計経費':15706128.667439999,'回収予定金額':146490822.6,'回収率(今月)':0.906,'回収率(全体)':0.8814224789532993,'回収金額':129120304.0,'引継ぎプレイヤー数':208.0,'打電数':31156.0,'求人':59113.6,'着電数':3724.0,'管理費':100000.0,'通信費':1944598.7299999997,'雑費・福利厚生等':2151174.7174400003}},
+  '2024年12月':{サマリー:{'BK':31267830.687500004,'FTDW数':96.0,'FTDW率':0.8648648648648649,'FTD数':89.0,'FTD率':0.8018018018018018,'FTP数':0.0,'FTP率':0.0,'FTW数':7.0,'FTW率':0.06306306306306306,'GGR':124135759.0,'LINE登録数':177.0,'LTV(GGR)':347719.21288515406,'LTV(WIN/LOSE)':356286.97478991596,'MS':25582770.5625,'NGR':113701202.0,'RTP':0.9824615567257349,'T/O':7252322684.0,'WIN/LOSE':127194450.0,'date':22740240.5,'アカウント作成数':111.0,'アクティブユーザー数':357.0,'インセンティブ':3307845.12,'エージェントフィー':14897141.0,'プロバイダーフィー':10434557.0,'ペイメントフィー':4537279.0,'ボーナス割合(GGR)':0.02582253515,'ボーナス割合(T/O)':0.0004419963286,'ボーナス割合(WIN/LOSE)':0.02520157129,'リスト件数':5492.0,'人件費':5647561.0,'付与ボーナス額':3205500.0,'出金金額':64423375.0,'利益':14835.06419999525,'前月リテンション数':60.0,'勝利金':7125128234.0,'合計経費':34095525.1858,'回収予定金額':200248158.0,'回収率(今月)':0.9631,'回収率(全体)':0.9504456864966518,'回収金額':190324998.0,'引継ぎプレイヤー数':246.0,'打電数':37455.0,'着電数':4104.0,'管理費':271142.0,'通信費':2409571.8628,'雑費・福利厚生等':3024985.2030000007}},
+  '2024年11月':{サマリー:{'BK':13341326.350000001,'FTDW数':128.0,'FTDW率':0.847682119205298,'FTD数':123.0,'FTD率':0.8145695364238411,'FTP数':0.0,'FTP率':0.0,'FTW数':5.0,'FTW率':0.033112582781456956,'GGR':49324294.67999999,'LINE登録数':238.0,'LTV(GGR)':161190.50549019605,'LTV(WIN/LOSE)':210263.38235294117,'MS':10915630.65,'NGR':43746819.67999999,'RTP':0.9732112575773562,'T/O':2401777358.0,'WIN/LOSE':64340595.0,'date':9702782.8,'アカウント作成数':151.0,'アクティブユーザー数':306.0,'インセンティブ':921922.56,'プロバイダーフィー':5577475.0,'ペイメントフィー':3361457.0,'ボーナス割合(GGR)':0.07308771516,'ボーナス割合(T/O)':0.001500971765,'ボーナス割合(WIN/LOSE)':0.05602994501,'リスト件数':34638.0,'人件費':3842181.0,'付与ボーナス額':3605000.0,'出金金額':33439172.0,'利益':-1616452.0224000067,'前月リテンション数':75.0,'勝利金':2337436763.0,'合計経費':11403531.902400002,'回収予定金額':91106410.42,'回収率(今月)':0.936,'回収率(全体)':0.9084263807394113,'回収金額':82763466.67999999,'引継ぎプレイヤー数':155.0,'打電数':41317.0,'求人':0.0,'着電数':4881.0,'管理費':287744.0,'通信費':2186955.4064,'雑費・福利厚生等':803271.936}},
+  '2024年10月':{サマリー:{'BK':8506102.30822,'FTDW数':119.0,'FTDW率':0.7391304347826086,'FTD数':114.0,'FTD率':0.7080745341614907,'FTP数':0.0,'FTP率':0.0,'FTW数':5.0,'FTW率':0.031055900621118012,'GGR':35789786.08,'LINE登録数':266.0,'LTV(GGR)':135055.79652830187,'LTV(WIN/LOSE)':211026.42641509435,'MS':6959538.252179999,'NGR':30881235.08,'RTP':0.9741064695491694,'T/O':2159690163.0,'WIN/LOSE':55922003.0,'date':6186256.224160001,'アカウント作成数':161.0,'アクティブユーザー数':265.0,'インセンティブ':1140583.05,'プロバイダーフィー':4908551.0,'ペイメントフィー':1970099.0,'ボーナス割合(GGR)':0.05057308797,'ボーナス割合(T/O)':0.0008380831802,'ボーナス割合(WIN/LOSE)':0.03236650876,'リスト件数':10278.0,'人件費':2795952.0,'付与ボーナス額':1810000.0,'出金金額':21652354.7,'利益':789247.2186399996,'前月リテンション数':67.0,'勝利金':2103768160.0,'合計経費':8440091.0768,'回収予定金額':70318275.1,'回収率(今月)':0.8791,'回収率(全体)':0.822507253310029,'回収金額':57837291.31,'引継ぎプレイヤー数':104.0,'打電数':35815.0,'求人':0.0,'着電数':4262.0,'管理費':269960.0,'通信費':1536157.6258,'雑費・福利厚生等':727339.401}},
+  '2024年9月':{サマリー:{'BK':-2309131.5562699996,'FTDW数':114.0,'FTDW率':0.7651006711409396,'FTD数':110.0,'FTD率':0.738255033557047,'FTP数':0.0,'FTP率':0.0,'FTW数':4.0,'FTW率':0.026845637583892617,'GGR':-8983894.0,'LINE登録数':198.0,'LTV(GGR)':-43611.1359223301,'LTV(WIN/LOSE)':11391.329417475219,'MS':-1889289.4551299997,'NGR':-9323620.0,'RTP':0.9983143747196472,'T/O':1392132573.8,'WIN/LOSE':2346613.859999895,'date':-1679368.4045600002,'アカウント作成数':149.0,'アクティブユーザー数':206.0,'インセンティブ':0.0,'プロバイダーフィー':339726.0,'ペイメントフィー':555581.0,'ボーナス割合(GGR)':-0.08459583339,'ボーナス割合(T/O)':0.0005459250177,'ボーナス割合(WIN/LOSE)':0.3238709244,'リスト件数':14000.0,'人件費':1342159.0,'付与ボーナス額':760000.0,'出金金額':64758806.0,'利益':-8734465.30404,'前月リテンション数':62.0,'勝利金':1389785959.94,'合計経費':5288634.72,'回収予定金額':66130411.400000006,'回収率(今月)':0.9134,'回収率(全体)':0.8434079089972212,'回収金額':55774912.0,'引継ぎプレイヤー数':57.0,'打電数':12626.0,'求人':362299.0,'着電数':1610.0,'管理費':303595.0,'通信費':2023594.0,'雑費・福利厚生等':701406.72}},
+  '2024年8月':{サマリー:{'BK':6990563.6735000005,'FTDW数':89.0,'FTDW率':0.664179104477612,'FTD数':79.0,'FTD率':0.5895522388059702,'FTP数':0.0,'FTP率':0.0,'FTW数':10.0,'FTW率':0.07462686567164178,'GGR':30099722.0,'LINE登録数':200.0,'LTV(GGR)':242739.6935483871,'LTV(WIN/LOSE)':472282.3306451613,'MS':5719552.0965,'NGR':25420232.0,'RTP':0.9743565934858963,'T/O':2283745296.0,'WIN/LOSE':58563009.0,'date':5084046.308,'アカウント作成数':134.0,'アクティブユーザー数':124.0,'インセンティブ':1028965.2954500001,'プロバイダーフィー':4679490.0,'ペイメントフィー':1135110.0,'リスト件数':16000.0,'人件費':1337726.0,'出金金額':17978411.0,'利益':250449.17340440117,'前月リテンション数':11.0,'勝利金':2225182287.0,'合計経費':7375620.7485956,'回収予定金額':67593085.50999999,'回収率(今月)':0.6736,'回収率(全体)':0.6735696294447797,'回収金額':45528649.56,'引継ぎプレイヤー数':-10.0,'打電数':18177.0,'求人':1580391.0,'着電数':1927.0,'管理費':299012.0,'通信費':1044455.0,'雑費・福利厚生等':949961.4531456}},
+  '2024年7月':{サマリー:{'BK':673606.0,'FTDW数':52.0,'FTDW率':0.7647058823529411,'FTD数':50.0,'FTD率':0.7352941176470589,'FTP数':0.0,'FTP率':0.0,'FTW数':2.0,'FTW率':0.029411764705882353,'GGR':2884957.0,'LINE登録数':130.0,'LTV(GGR)':49740.637931034486,'LTV(WIN/LOSE)':119591.25862068965,'MS':0.0,'NGR':2302646.8,'RTP':0.9464850771770864,'T/O':129614183.0,'WIN/LOSE':6936293.0,'date':0.0,'アカウント作成数':68.0,'アクティブユーザー数':58.0,'インセンティブ':19125.0,'プロバイダーフィー':582310.2,'ペイメントフィー':111317.0,'リスト件数':10000.0,'人件費':1564063.0,'出金金額':1230324.0,'利益':-449753.65000000014,'前月リテンション数':0.0,'勝利金':122677890.0,'合計経費':2078794.45,'回収予定金額':5432157.6,'回収率':0.757577615200266,'回収金額':4115281.0,'引継ぎプレイヤー数':0.0,'打電数':19000.0,'求人':0.0,'着電数':2542.0,'管理費':299012.0,'通信費':67430.0,'雑費・福利厚生等':17847.449999999997}},
+};
+
+const DSC_INITIAL_DATA = {
+  '2026年1月':{サマリー:{'FTDW数':12.0,'FTDW率':0.6,'FTD数':10.0,'FTD率':0.5,'FTP数':16.0,'FTP率':0.8,'FTW数':2.0,'FTW率':0.1,'GGR(WIN/LOSE)':43248155.21,'GGR(回収金額-出金金額)':22191922.0,'LTV(GGR)':128277.0058,'LTV(WIN/LOSE)':249989.3365,'NGR':20776887.34,'RTP':0.9677818663,'T/O':1342354453.62,'アカウント作成数':20.0,'アクティブユーザー数':173.0,'インセンティブ':6560991.0,'プロバイダーフィー':1415034.66,'ペイメントフィー':748513.0,'リスト件数':15000.0,'人件費':1755733.0,'凍結制限金':0.0,'出金金額':12883059.0,'前月リテンション数':0.0,'勝利金':1299106298.41,'合計経費':11136415.2,'回収予定金額':43803701.0,'回収率(全体)':0.800730993,'回収金額':35074981.0,'死亡金':0.0,'通信費':2071178.2}},
+  '2025年12月':{サマリー:{'FTDW数':1.0,'FTD数':1.0,'FTP数':8.0,'FTW数':0.0,'GGR(WIN/LOSE)':53578505.81999993,'GGR(回収金額-出金金額)':38616975.0,'LTV(GGR)':133161.9827586207,'LTV(WIN/LOSE)':184753.46834482736,'MS経費':24956219.12,'NGR':31242527.0,'RTP':0.9646170041907816,'T/O':1514244472.37,'アカウント作成数':27.0,'アクティブユーザー数':292.0,'インセンティブ':213423.0,'スロ天経費':15473688.0,'プロバイダーフィー':7374448.0,'ペイメントフィー':2468559.0,'人件費':8554792.14,'凍結制限金':2350603.0,'出金金額':20555338.0,'前月リテンション数':0.0,'勝利金':1460665966.55,'合計経費':62559986.46,'回収予定金額':73458827.0,'回収率(全体)':0.8381212512418691,'回収金額':61567404.0,'死亡金':44488.0,'通信費':10167741.34,'雑費・福利厚生等':725563.8642}},
+  '2025年11月':{サマリー:{'BK':9242926.55,'FTDW数':62.0,'FTDW率':0.8051948051948052,'FTD数':29.0,'FTD率':0.37662337662337664,'FTP数':61.0,'FTP率':0.7922077922077922,'FTW数':33.0,'FTW率':0.42857142857142855,'GGR(WIN/LOSE)':64900999.09000015,'GGR(回収金額-出金金額)':43448785.0,'LINE登録数':38.0,'LTV(GGR)':191404.3392,'LTV(WIN/LOSE)':285907.48497797427,'MS':7562394.45,'NGR':33610642.28,'RTP':0.9586145030642917,'T/O':1568206349.94,'date':6722128.4,'アカウント作成数':77.0,'アクティブユーザー数':227.0,'インセンティブ':201803.9925,'プロバイダーフィー':9838142.724,'ペイメントフィー':1723439.0,'リスト件数':14867.0,'人件費':7068636.86,'凍結制限金':995000.0,'出金金額':19725328.0,'利益':-5213977.576,'前月リテンション数':82.0,'勝利金':1503305350.85,'合計経費':15297170.45,'回収予定金額':77447062.0,'回収率(今月)':0.7476,'回収率(全体)':0.829128947460912,'回収金額':64213601.0,'引継ぎプレイヤー数':150.0,'打電数':10398.0,'死亡金':44488.0,'着電数':1209.0,'通信費':4349824.944,'雑費・福利厚生等':1953465.656}},
+  '2025年9月':{サマリー:{'BK':8671957.8,'FTDW数':92.0,'FTDW率':0.3948497854077253,'FTD数':73.0,'FTD率':0.3133047210300429,'FTP数':154.0,'FTP率':0.6609442060085837,'FTW数':19.0,'FTW率':0.0815450643776824,'GGR(WIN/LOSE)':74174997.0,'GGR(回収金額-出金金額)':40783402.0,'LINE登録数':161.0,'LTV(GGR)':137774.1711409396,'LTV(WIN/LOSE)':248909.38590604026,'MS':7095238.2,'NGR':31772784.0,'RTP':0.9712296388169991,'T/O':2578173994.0,'date':6306878.4,'アカウント作成数':233.0,'アクティブユーザー数':298.0,'インセンティブ':694111.143,'プロバイダーフィー':9010618.0,'ペイメントフィー':2503018.658,'ボーナス割合(GGR)':0.020361108879103126,'ボーナス割合(T/O)':0.00032424498964983355,'ボーナス割合(WIN/LOSE)':0.011270104938460597,'リスト件数':14807.0,'人件費':9563363.21,'付与ボーナス額':835960.0,'凍結制限金':238392.0,'出金金額':21551493.0,'利益':-6498484.284,'前月リテンション数':21.0,'勝利金':2503998997.0,'合計経費':16197193.88,'回収予定金額':76698566.8,'回収率(全体)':0.8193971624512807,'回収金額':62846588.0,'引継ぎプレイヤー数':65.0,'打電数':12471.0,'死亡金':0.0,'着電数':2418.0,'通信費':3309967.0,'雑費・福利厚生等':126733.8732}},
+  '2025年8月':{サマリー:{'FTDW率':0.3114754098360656,'FTD数':7.0,'FTD率':0.11475409836065574,'FTP数':47.0,'FTP率':0.7704918032786885,'FTW率':0.19672131147540983,'GGR(WIN/LOSE)':10510724.930000067,'GGR(回収金額-出金金額)':-1612843.0,'LINE登録数':9.0,'LTV(GGR)':-11946.985185185185,'LTV(WIN/LOSE)':77857.2217037042,'NGR':-1612843.0,'RTP':0.9831679120186414,'T/O':624445698.1,'アカウント作成数':61.0,'アクティブユーザー数':135.0,'ボーナス割合(GGR)':-0.5183145538654413,'ボーナス割合(T/O)':0.001338723290982025,'ボーナス割合(WIN/LOSE)':0.07953400032513216,'リスト件数':9997.0,'付与ボーナス額':835960.0,'出金金額':3822454.0,'利益':-1612843.0,'前月リテンション数':85.0,'勝利金':613934973.17,'合計経費':0.0,'回収予定金額':10279262.0,'回収率(今月)':0.21495813609965383,'回収率(全体)':0.21495813609965383,'回収金額':2209611.0,'引継ぎプレイヤー数':74.0,'打電数':0.0,'死亡金':0.0,'着電数':56.0}},
+  '2025年7月':{サマリー:{'FTDW数':14.0,'FTDW率':0.208955223880597,'FTD数':11.0,'FTD率':0.16417910447761194,'FTP数':39.0,'FTP率':0.582089552238806,'FTW数':3.0,'FTW率':0.04477611940298507,'GGR(WIN/LOSE)':89408914.42000008,'GGR(回収金額-出金金額)':-1302465.0,'LINE登録数':51.0,'LTV(GGR)':34271.25170603676,'LTV(WIN/LOSE)':234669.0667191603,'NGR':-1758164.69,'RTP':0.976180804579324,'T/O':3753649644.37,'アカウント作成数':67.0,'アクティブユーザー数':381.0,'インセンティブ':2652236.0,'プロバイダーフィー':455699.69,'ペイメントフィー':3208612.835,'ボーナス割合(GGR)':0.29803130986739723,'ボーナス割合(T/O)':0.001036723873746916,'ボーナス割合(WIN/LOSE)':0.04352472262127704,'リスト件数':9957.0,'人件費':8251402.2,'付与ボーナス額':3891498.2,'凍結制限金':24154321.0,'出金金額':37542660.0,'前月リテンション数':17.0,'勝利金':3664240729.95,'合計経費':25992405.41,'回収予定金額':106737904.30000001,'回収率(今月)':0.668580101586274,'回収率(全体)':0.700354090613338,'回収金額':74754327.9,'引継ぎプレイヤー数':314.0,'打電数':100011.0,'死亡金':0.0,'着電数':3839.0,'雑費・福利厚生等':11880154.38}},
+};
+
+// DSCリンク一覧
+const DSC_LINKS = [
+  { category: 'WELCOMELP', name: 'メイン', url: 'https://lp.diamond-secret.club/' },
+  { category: 'WELCOMELP', name: '1', url: 'https://lp.diamond-secret.club/1/' },
+  { category: 'WELCOMELP', name: 'A', url: 'https://lp.diamond-secret.club/A/' },
+  { category: 'WELCOMELP', name: 'BIZ', url: 'https://lp.diamond-secret.club/BIZ/' },
+  { category: 'WELCOMELP', name: 'AR', url: 'https://lp.diamond-secret.club/AR/' },
+  { category: 'WELCOMELP', name: 'NA', url: 'https://lp.diamond-secret.club/NA/' },
+  { category: 'WELCOMELP', name: 'OO', url: 'https://lp.diamond-secret.club/OO/' },
+  { category: 'WELCOMELP', name: 'SK', url: 'https://lp.diamond-secret.club/SK/' },
+  { category: 'WELCOMELP', name: 'TK', url: 'https://lp.diamond-secret.club/TK/' },
+  { category: '開運LP', name: 'メイン', url: 'https://lp.diamond-secret.club/KAIUN/' },
+  { category: '開運LP', name: 'AR', url: 'https://lp.diamond-secret.club/KAIUN/AR' },
+  { category: '開運LP', name: 'NK', url: 'https://lp.diamond-secret.club/KAIUN/NK' },
+  { category: '開運LP', name: 'OO', url: 'https://lp.diamond-secret.club/KAIUN/OO' },
+  { category: '開運LP', name: 'SU', url: 'https://lp.diamond-secret.club/KAIUN/SU' },
+  { category: '開運LP', name: 'TK', url: 'https://lp.diamond-secret.club/KAIUN/TK' },
+  { category: 'クレジットLP', name: 'メイン', url: 'https://lp.diamond-secret.club/2/' },
+  { category: 'UPSLP', name: 'メイン', url: 'https://lp.diamond-secret.club/3/' },
+  { category: '10日間無利息LP', name: 'メイン', url: 'https://lp.diamond-secret.club/10days/' },
+  { category: '10日間無利息LP', name: 'AR', url: 'https://lp.diamond-secret.club/10days/AR/' },
+  { category: '10日間無利息LP', name: 'NK', url: 'https://lp.diamond-secret.club/10days/NK/' },
+  { category: '10日間無利息LP', name: 'OO', url: 'https://lp.diamond-secret.club/10days/OO/' },
+  { category: '10日間無利息LP', name: 'SU', url: 'https://lp.diamond-secret.club/10days/SU/' },
+  { category: '10日間無利息LP', name: 'TK', url: 'https://lp.diamond-secret.club/10days/TK/' },
+  { category: 'キャンペーンLP', name: 'バカラ大会', url: 'https://lp.diamond-secret.club/Amusebacarrat/' },
+  { category: 'キャンペーンLP', name: '勝ちバック', url: 'https://lp.diamond-secret.club/Amusewinboost/' },
+  { category: 'キャンペーンLP', name: '宝くじ', url: 'https://lp.diamond-secret.club/DREEEEAMBIG/' },
+  { category: 'キャンペーンLP', name: 'リボプレイ', url: 'https://lp.diamond-secret.club/RevoPlay/' },
+  { category: 'キャンペーンLP', name: 'スロットカンスト', url: 'https://lp.diamond-secret.club/SlotCanteen/' },
+  { category: 'キャンペーンLP', name: 'バカラ広告用', url: 'https://lp.diamond-secret.club/bacarat300/' },
+  { category: 'キャンペーンLP', name: 'BaccratMillion', url: 'https://lp.diamond-secret.club/BaccratMillion/' },
+  { category: 'キャンペーンLP', name: 'PayPay', url: 'https://lp.diamond-secret.club/PayPay/' },
+  { category: '野球LP', name: 'メイン', url: 'https://lp.diamond-secret.club/baseball/' },
+  { category: '野球LP', name: 'AR', url: 'https://lp.diamond-secret.club/baseball/AR/' },
+  { category: '野球LP', name: 'NK', url: 'https://lp.diamond-secret.club/baseball/NK/' },
+  { category: '野球告知用LP', name: 'メイン', url: 'https://lp.diamond-secret.club/baseballm/' },
+  { category: 'maxkaitori', name: 'メイン', url: 'https://lp.diamond-secret.club/maxkaitori/' },
+  { category: 'maxkaitori', name: 'BIZ', url: 'https://lp.diamond-secret.club/maxkaitori/BIZ/' },
+  { category: 'maxkaitori', name: 'G', url: 'https://lp.diamond-secret.club/maxkaitori/G/' },
+  { category: 'maxkaitori', name: 'T', url: 'https://lp.diamond-secret.club/maxkaitori/T/' },
+  { category: 'maxkaitori', name: 'X', url: 'https://lp.diamond-secret.club/maxkaitori/X/' },
+  { category: 'maxkaitori', name: 'Y', url: 'https://lp.diamond-secret.club/maxkaitori/Y/' },
+  { category: 'ツール', name: 'MOL', url: 'https://lp.diamond-secret.club/MASTEROFLUCK/' },
+  { category: 'ツール', name: 'MOL管理画面', url: 'https://lp.diamond-secret.club/MASTEROFLUCK/admin.html' },
+  { category: 'ツール', name: '暴露ページ', url: 'https://bakurozukan.com/' },
+  { category: 'ツール', name: '入出金プラットフォーム', url: 'https://tking510.github.io/point_exchange_platform/' },
+  { category: 'ツール', name: 'ギャンブル占い', url: 'https://tking510.github.io/uranai/' },
+  { category: 'ツール', name: 'スロット図鑑', url: 'https://tking510.github.io/Slotzukan/' },
+  { category: 'その他', name: 'ゲーム広告用', url: 'https://lp.diamond-secret.club/game/' },
+  { category: 'その他', name: 'SLOTENTEST', url: 'https://lp.diamond-secret.club/SLOTENTEST/' },
+  { category: 'その他', name: '高配当買取', url: 'https://lp.diamond-secret.club/ReplayLink/' },
+  { category: 'その他', name: '5のつく日CB', url: 'https://lp.diamond-secret.club/5day/' },
+  { category: 'その他', name: '9のつく日6確定', url: 'https://lp.diamond-secret.club/9day/' },
+  { category: 'その他', name: 'エージェント向け', url: 'https://lp.diamond-secret.club/agentsimulator/' },
+  { category: 'その他', name: 'ハイレート', url: 'https://lp.diamond-secret.club/Hiratepachi2/' },
+  { category: 'その他', name: '３のつく日', url: 'https://lp.diamond-secret.club/complete/' },
+  { category: 'その他', name: 'ステーキング', url: 'https://lp.diamond-secret.club/staking/' },
+];
+
+// スロ天リンク一覧（162件）
+const SLOTEN_LINKS = [
+  { category: '全部署', name: '管理画面BO', url: 'https://admin.sloten.io/' },
+  { category: '全部署', name: 'シフト', url: 'https://docs.google.com/spreadsheets/d/1tR0hRKy7wyKMc9Nk1MhQ_kOqs3Acg6LoG-nau1VETIA/edit?usp=sharing' },
+  { category: '全部署', name: '公式サイト', url: 'https://sloten.io/' },
+  { category: '全部署', name: 'USPLP①(AFF用)', url: 'https://affiliate2.sloten.io/' },
+  { category: '全部署', name: '開発リクエストテンプレ', url: 'https://docs.google.com/spreadsheets/d/1qjfoPKpugtf9flrfDsdHHsnLQyIM6ARI4EmPJ-_EYGY/edit?usp=sharing' },
+  { category: '全部署', name: 'デザイン依頼', url: 'https://docs.google.com/document/d/1aZeeeN3jeTOtFIPb-w522eUPwqFQa-HA1jtunnlwhI4/edit?usp=sharing' },
+  { category: '全部署', name: 'エラー一覧', url: 'https://docs.google.com/document/d/140p9DoXIrl-g3ARPueRCktRcM6wMtYe0umLsBl_KzJw/edit?usp=sharing' },
+  { category: '全部署', name: 'テンプレ集', url: 'https://drive.google.com/file/d/10Y28qgc_Qy9EdoqUDx7wGJw1_G7zw_Qd/view?usp=sharing' },
+  { category: '全部署', name: 'スロ天操作ガイド', url: 'https://drive.google.com/file/d/1fjtVuJ7sEKVQI8ZojDSniCv-i2L6fIC5/view?usp=sharing' },
+  { category: '全部署', name: 'スロ天管理画面ガイド', url: 'https://drive.google.com/file/d/1dH_Y-cBVIRs1PpOlRc4hrvckWeO5qQzG/view?usp=sharing' },
+  { category: '全部署', name: 'ポイント追加マニュアル', url: 'https://drive.google.com/file/d/1HmiZOhXS9BJIJebxOiLNGHH2VHp0qSiO/view?usp=sharing' },
+  { category: '全部署', name: 'Lottoジャックポット', url: 'https://drive.google.com/file/d/1wuqU_JjlxRHZf6hsKXdPJDuyTJ7smkAN/view?usp=sharing' },
+  { category: '全部署', name: 'DISCORD', url: 'https://discord.gg/7hrDaJfw' },
+  { category: '全部署', name: 'LINE', url: 'https://lin.ee/jTDURj3' },
+  { category: '全部署', name: 'TELEGRAM', url: 'https://t.me/slotheavenbot' },
+  { category: '全部署', name: 'ライセンス', url: 'https://drive.google.com/file/d/1kzH1VXOoUiMXTPhhxF_uTWIjACeEMNBE/view?usp=sharing' },
+  { category: '全部署', name: 'ドリームポット説明', url: 'https://lottojackpot-jkhjm2sm.manus.space' },
+  { category: 'AFF', name: 'Affiliate業務内容', url: 'https://drive.google.com/file/d/1MD17WZ-1_3FPfbSda8ZazXFoHPDBWs5q/view?usp=sharing' },
+  { category: 'AFF', name: 'AFF部門', url: 'https://docs.google.com/spreadsheets/d/1GLaqQEoqEJZSRUUkYHiPKMhPXG7X7gwRmpoCe14FTQ8/edit?usp=sharing' },
+  { category: 'AFF', name: 'AFF管理シート使用方法', url: 'https://drive.google.com/file/d/1ggZL19MNxwF6C3C3uFzocOXiDxIv1OLu/view?usp=sharing' },
+  { category: 'AFF', name: 'アフィリエイト管理画面ガイド', url: 'https://drive.google.com/file/d/1cakCLShY7zL7htExWaTtYsWTvXtQ3cbO/view?usp=sharing' },
+  { category: 'AFF', name: '交渉メッセージ例', url: 'https://docs.google.com/document/d/1wDR8F_PS6d1uOexvzy32z-mGK2R1LvSQlKvjwN2Lbqg/edit?usp=sharing' },
+  { category: 'AFF', name: '想定Q&A', url: 'https://docs.google.com/document/d/17p1U1gxVsVXPyluIi6Df5yXHRPCAlULtfbHMA0sl7Dc/edit?usp=sharing' },
+  { category: 'AFF', name: '法改正稼働AFF', url: 'https://docs.google.com/document/d/1PUDz6gnhQy1JY8wetz6-o7ID1l6teTlX2Up4AmoJ3GY/edit?usp=sharing' },
+  { category: 'AFF', name: 'アフィリエイト交渉マニュアル', url: 'https://drive.google.com/file/d/1Yd45I7jsBpi0z0w64DgEObVBsgwyyjaO/view?usp=sharing' },
+  { category: 'AFF', name: 'アフィリエイト一覧', url: 'https://docs.google.com/spreadsheets/d/1RpzwRIDj9kdLA9IgiDyJp2FglPfFjonsehacHzhZA_Q/edit?usp=sharing' },
+  { category: 'AFF', name: 'アフィリエイト管理シート', url: 'https://docs.google.com/spreadsheets/d/1n_LugVAUAW3wwGvkXXNwl4W4u54Pb527wm_1q4ptZu8/edit?usp=sharing' },
+  { category: 'AFF', name: '特別報酬の場合', url: 'https://drive.google.com/file/d/1w_ymENbPhoiOjb7hie7OoBR0wN9w-MPJ/view?usp=sharing' },
+  { category: 'AFF', name: 'アフィリエイト制度', url: 'https://drive.google.com/file/d/1vwrDJil97_49XN5KgMVnEhyysxtCkj_7/view?usp=sharing' },
+  { category: 'AFF', name: 'アフィリエイター向け営業資料', url: 'https://drive.google.com/file/d/100M986dhIQlDBUu2b9ddtzgC-Oay0BMN/view?usp=sharing' },
+  { category: 'AFF', name: 'アフィリエイト管理画面', url: 'https://asp.sloten.io/login?redirect=/home' },
+  { category: 'AFF', name: 'AFFトークスクリプト', url: 'https://drive.google.com/file/d/18GITRPM_x3BiTQv8KL0v6RsmWvEIZKZ5/view?usp=sharing' },
+  { category: 'AFF', name: '競馬インフルエンサーリスト', url: 'https://docs.google.com/spreadsheets/d/1glOO7LnOfonaRDXqbjQp0olXBx4OCwm1w9oWJk1-mIE/edit?usp=sharing' },
+  { category: 'AFF', name: '競艇インフルエンサーリスト', url: 'https://docs.google.com/spreadsheets/d/10n6lRdEQgjz-szgeqYiIAEbDKHWExG2wVsmv6ca6suk/edit?usp=sharing' },
+  { category: 'AFF', name: 'ポーカーインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1n51wmJVayjYot1MSW5cBSDSDCnT2NiDZfFMOkb1PQoQ/edit?usp=sharing' },
+  { category: 'AFF', name: '宝くじインフルエンサーリスト', url: 'https://docs.google.com/spreadsheets/d/1sVrc6Yhsu9qOF-CiMxM48r1jVxbKQFl08oxRWGtUcmg/edit?usp=sharing' },
+  { category: 'AFF', name: 'パチンコインフルエンサーリスト', url: 'https://docs.google.com/spreadsheets/d/17YCTAGla5a2daKbqm48k7Tr7PZq0ols8yhr38m78V-Y/edit?usp=sharing' },
+  { category: 'AFF', name: '麻雀インフルエンサー', url: 'https://docs.google.com/spreadsheets/d/17qJkfdSvBnuQ1ym-AOACHZc2ZcsbAUAJHD9zej9tlak/edit?usp=sharing' },
+  { category: 'AFF', name: 'カジノインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1IS_kyOhRxbBryaKKys_2_wrQuZeH1rKfSdhtMoXXyFk/edit?usp=sharing' },
+  { category: 'AFF', name: 'FXインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1k9ytUTFIu3S6yeyRMun-QnUN0kM5Ub_cnafyki5VCQo/edit?usp=sharing' },
+  { category: 'AFF', name: 'バイナリーインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/13NkpKKL1c9EommpLHz4s3Acq0ppGesw4JS1_gPe1gAc/edit?usp=sharing' },
+  { category: 'AFF', name: '仮想通貨インフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1BE5L25av_kK4m3Pbrfn3ELrfbsHHtn7Gt_niEpcM3Oc/edit?usp=sharing' },
+  { category: 'AFF', name: 'アフィリエイトとは', url: 'https://drive.google.com/file/d/1sxRBdrnisb2nj9mbJ2VMTdai7OXra_SD/view?usp=sharing' },
+  { category: 'AFF', name: 'ゲーミング未経験マニュアル①', url: 'https://drive.google.com/file/d/1drlObkpN75njpLE0Z-v5cQQ6WwtrvuL9/view?usp=sharing' },
+  { category: 'AFF', name: 'ゲーミング未経験マニュアル②', url: 'https://drive.google.com/file/d/17rMfFcGpwGsjVLNL6Pj9kdituGOHzuZ0/view?usp=sharing' },
+  { category: 'AFF', name: 'ゲーミング経験者マニュアル①', url: 'https://drive.google.com/file/d/1v5GEHQWKwgmsF89IAMR3PRfzQbXt9Cl4/view?usp=sharing' },
+  { category: 'AFF', name: 'ゲーミング経験者マニュアル②', url: 'https://drive.google.com/file/d/10UJ7ZQplHSdl85_tsNwmWjD6SFKe4jrY/view?usp=sharing' },
+  { category: 'AFF', name: '初心者用AFFマニュアル①', url: 'https://drive.google.com/file/d/1CMJn0pV8fJpNNwl1-rVhmOxJvIRYbHj9/view?usp=sharing' },
+  { category: 'AFF', name: '初心者用AFFマニュアル②', url: 'https://drive.google.com/file/d/1EuNc7ikGlVhN1P56FtcPOampg0ZeTkTs/view?usp=sharing' },
+  { category: 'AFF', name: '必達管理', url: 'https://docs.google.com/spreadsheets/d/1sX2tFlm-Fo4vML8HaisPqzLj3sIhYXBzJxHvTLzZxbU/edit?usp=sharing' },
+  { category: 'AFF', name: 'DSCユーザーアフィリ誘導', url: 'https://docs.google.com/spreadsheets/d/1CRkRQrlqEOy0Wn4YPZNwaPHu9VYcEGg7I4CMrqNxGbo/edit?usp=sharing' },
+  { category: 'CS', name: 'CS業務内容', url: 'https://drive.google.com/file/d/1yaJLp77zkMbuRSklo9c5nTsfJTv7pESC/view?usp=sharing' },
+  { category: 'CS', name: 'CS部門', url: 'https://docs.google.com/spreadsheets/d/1lmjDjjwtQvykisZAqUD2OsI9zB_Xru8nTkGIPo5NSsY/edit?usp=sharing' },
+  { category: 'CS', name: 'プレイヤーチェック管理使用方法', url: 'https://drive.google.com/file/d/1MPfM_gxH3QujbA2zJoXC_BvKiVYUjm3y/view?usp=sharing' },
+  { category: 'CS', name: 'プレイヤーチェック管理', url: 'https://docs.google.com/spreadsheets/d/1CvFwZ3HDKjEUvzUjOH5xrKYGq2hwlWwAifxWWdUZRmk/edit?usp=sharing' },
+  { category: 'CS', name: 'エラー事項記載シート', url: 'https://docs.google.com/spreadsheets/d/1vKFFoEYVw7z1C7bU3thgwf_U7scmVSuLpz_xGJPjWpc/edit?usp=sharing' },
+  { category: 'CS', name: 'チャットウッド', url: 'https://im.slot-h.com/app/accounts/3/dashboard' },
+  { category: 'VIP', name: 'VIP業務内容', url: 'https://drive.google.com/file/d/1ifRKr1I94k2YMjJ0x9rfoLOL4lkBxqnq/view?usp=sharing' },
+  { category: 'VIP', name: 'VIP部門', url: 'https://docs.google.com/spreadsheets/d/1UdC202Mx0UP_qzIIJY3tI3DyI4OGAJg88o5C7GIklU0/edit?usp=sharing' },
+  { category: 'VIP', name: 'アップセルトークスクリプト', url: 'https://drive.google.com/file/d/1alGFHvW-gO_1dCv9MeiFEYXZsYfzom1I/view?usp=sharing' },
+  { category: 'VIP', name: '電話リスト', url: 'https://docs.google.com/spreadsheets/d/1TKIejq0QR2bywgZ67xsDQKjH5ZYqn3ijJZRzs4t2y9Y/edit?usp=sharing' },
+  { category: 'VIP', name: 'VIPチェック管理', url: 'https://docs.google.com/spreadsheets/d/1cRDYJQKkPqdzJcSx7zeEy83XMS8pDgLQRcP---lzg-4/edit?usp=sharing' },
+  { category: 'オペ', name: 'オペレーション業務内容', url: 'https://drive.google.com/file/d/161xgqNM94UIKiszi_kr-UGLtfE-9gnJM/view?usp=sharing' },
+  { category: 'オペ', name: 'operation部門', url: 'https://docs.google.com/spreadsheets/d/1-Yov3AcStVcdVIPNh1OicwaYssdg0Ei6mR80qlmUgq4/edit?usp=sharing' },
+  { category: 'オペ', name: 'KPI', url: 'https://docs.google.com/spreadsheets/d/1oGnetFNtGd1ZB-A9YkzzfqIU4Bxh3djsABeEX_bHl8M/edit?usp=sharing' },
+  { category: 'オペ', name: 'LP①計測シート', url: 'https://docs.google.com/spreadsheets/d/18QiN_BoVS-hdP-e4vNOAzjDZaFLTtnWlogJ5AW1hQSY/edit?usp=sharing' },
+  { category: 'オペ', name: 'トーナメント', url: 'https://docs.google.com/spreadsheets/d/1w2bVg5jhKNzkSPrOfdu2siWq1wwRRq3YZGZ5XdhZQBo/edit?usp=sharing' },
+  { category: 'オペ', name: 'メルマガ', url: 'https://docs.google.com/spreadsheets/d/1B0VSScmblCgUszAxIKvFzdTRSUSqxTnzJSv7djSB5DQ/edit?usp=sharing' },
+  { category: 'オペ', name: 'トーナメント企画提案', url: 'https://drive.google.com/file/d/12IG73qt6L8vE2YPdRLSNW418DXhAOTil/view?usp=sharing' },
+  { category: 'オペ', name: 'SocialDog使用マニュアル', url: 'https://drive.google.com/file/d/1IrvtVSvbTeT7qc-UH1cR3D2TY2P0i5oe/view?usp=sharing' },
+  { category: 'オペ', name: 'プロモ作成例', url: 'https://drive.google.com/file/d/1s17K-oe5mmz28O1S5Y_7RIF5S1NwT-AB/view?usp=sharing' },
+  { category: 'オペ', name: 'メルマガシート使用方法', url: 'https://drive.google.com/file/d/1PJqbjZv125x6wzwZjRe01qZxc5NkY2nf/view?usp=sharing' },
+  { category: 'オペ', name: 'トーナメントシート使用方法', url: 'https://drive.google.com/file/d/1VCWfMwo09oAHjw691R-hgLBJJSc2MSLf/view?usp=sharing' },
+  { category: 'オペ', name: 'SMS計測シート', url: 'https://docs.google.com/spreadsheets/d/1_pMLIN8bHkaVUcAZS0PiQQiBCGpJmcWMeywDeIE-TLY/edit?usp=sharing' },
+  { category: 'オペ', name: 'SMS-LP1計測方法①', url: 'https://drive.google.com/file/d/1vHabuP-EWFtGKhyAA5HvcUjcNpGMWcEV/view?usp=sharing' },
+  { category: 'オペ', name: 'SMS-LP1計測方法②', url: 'https://drive.google.com/file/d/132mVbncdAtkabvag_1mVUjaGTMu2hi6G/view?usp=sharing' },
+  { category: 'オペ', name: 'Laffic番号別送信方法', url: 'https://drive.google.com/file/d/1fEFLONFUt1AuL7aRrT_3f9_gMc2j0KP9/view?usp=sharing' },
+  { category: 'オペ', name: 'LP管理シート', url: 'https://lp.diamond-secret.club/reports/secure/click_report_SLOTENTEST.php' },
+  { category: 'オペ', name: 'X計測用', url: 'https://millionheaven.site/' },
+  { category: 'オペ', name: 'TIKTOK計測シート', url: 'https://docs.google.com/spreadsheets/d/1RmVdM24EZKDhKem3htNazU_fod4JJXL-U2bCiJPJmgA/edit?usp=sharing' },
+  { category: 'オペ', name: 'TIKTOK計測用', url: 'https://millionheaven.space/' },
+  { category: 'オペ', name: 'FBアカウント一覧', url: 'https://docs.google.com/spreadsheets/d/1GsPqdAcd2TjRKj4GPk6QzziLsM9IHg4K/edit?usp=sharing' },
+  { category: 'オペ', name: 'メーラー', url: 'https://fviainboxes.com/' },
+  { category: 'ペイメント', name: 'ペイメント業務内容', url: 'https://drive.google.com/file/d/1crHJAlc8zfV-x9jJFoxnDkZ45L0EFEq4/view?usp=sharing' },
+  { category: 'ペイメント', name: 'Payment部門', url: 'https://docs.google.com/spreadsheets/d/1lBgXBn2GrDejUGd_p_SZJzFXIRRUosApgyJv-ns9PVY/edit?usp=sharing' },
+  { category: 'ペイメント', name: 'リスク管理シート', url: 'https://docs.google.com/spreadsheets/d/1XuWNCPtObuebJ1zaPH5TisZzUh8Ro8r0mu1FTcX74is/edit?usp=sharing' },
+  { category: 'ペイメント', name: 'BIGシート使用方法', url: 'https://drive.google.com/file/d/1DD5-OpdLXkW_-RM_eeX_oX-1HtWHy2_n/view?usp=sharing' },
+  { category: 'ペイメント', name: 'PayPayマニュアル', url: 'https://drive.google.com/file/d/1oU-KV0fJDZrxxee-4Bp7Xh8kstX6Eh83/view?usp=sharing' },
+  { category: 'ペイメント', name: 'OKJへの振込手順', url: 'https://drive.google.com/file/d/1dQd_4fR7xczNgZQAARcrh1_UMUKDjqZ6/view?usp=sharing' },
+  { category: 'ペイメント', name: 'セトルルール', url: 'https://drive.google.com/file/d/1utkzLJharn-H7AKGv-4kG_hPEeK_x2zC/view?usp=sharing' },
+  { category: 'ペイメント', name: '入金フロー', url: 'https://drive.google.com/file/d/1S2lkhPgb2CkafeCmisHzmczvYvpDiyEt/view?usp=sharing' },
+  { category: 'ペイメント', name: 'EC発行方法', url: 'https://drive.google.com/file/d/1UYb9OgxGPKSBC-EbVrj7ECJD4H74R3en/view?usp=sharing' },
+  { category: 'ペイメント', name: 'ポイントBO', url: 'https://add.sloten.io/' },
+  { category: 'ペイメント', name: 'EC着金確認', url: 'https://docs.google.com/spreadsheets/d/18KCWtE3_wFStjIE8RYlK47XaeAi3TRwGpvugBwSe3Qk/edit?usp=sharing' },
+  { category: 'ペイメント', name: 'PayPay着金確認', url: 'https://docs.google.com/spreadsheets/d/1a-qM_--jYMaeYgurhRkZRiJH4r9INsrokjTzlzmhSds/edit?usp=sharing' },
+  { category: 'ペイメント', name: '銀行着金確認', url: 'https://docs.google.com/spreadsheets/d/1daNRR0EOVns0surDpfeng5CQ4PMNJ7j7kQ12jiRJkw8/edit?usp=sharing' },
+  { category: 'ペイメント', name: '入出金', url: 'https://drive.google.com/file/d/1UxWGSvb05zWFZ-hkoPTwk-vCd7c_eS6H/view?usp=sharing' },
+  { category: 'ペイメント', name: 'ペイメントコスト', url: 'https://docs.google.com/spreadsheets/d/1wcSLMZ-Yrk3sMN2b1I7hOfUpyGveB7YjeK4o34UkFUE/edit?usp=sharing' },
+  { category: 'ペイメント', name: 'ペイメントフィー', url: 'https://docs.google.com/spreadsheets/d/1KjTPZUD5ymtu9RyBMdpVOmHCh1YONfJ1ZnyVoFd_Tnw/edit?usp=sharing' },
+  { category: 'ペイメント', name: 'ロジック', url: 'https://docs.google.com/spreadsheets/d/1bzncOP78MQz60lIzD-jamDraTXcdDNFfsrG-MZ5Adzw/edit?usp=sharing' },
+  { category: 'ペイメント', name: '入出金集計BO', url: 'https://docs.google.com/spreadsheets/d/1jmEs_orPFe7y5YPnj7_bFT1JHiIs-cCFOptQsNOCqsM/edit?usp=sharing' },
+  { category: 'admin', name: 'スロ天ガチャ', url: 'https://lp.diamond-secret.club/Slotengacha/' },
+  { category: 'admin', name: 'スロ天ルーレット', url: 'https://lp.diamond-secret.club/Slotenroulet/' },
+  { category: 'admin', name: 'イメージ図', url: 'https://drive.google.com/file/d/1dKcSH4B4rhnKKaeGhQvGHGEULyqTqDWO/view?usp=sharing' },
+  { category: 'admin', name: 'VIPテーブル', url: 'https://drive.google.com/file/d/1QyHwFTfKKnUnxPIbBuHz6eEfnqo2a_Je/view?usp=sharing' },
+  { category: 'admin', name: 'アフィリエイトテーブル', url: 'https://drive.google.com/file/d/1osC-bnA6eEEEDj4ly2OqCuzzhRKc8ZT5/view?usp=sharing' },
+  { category: 'admin', name: '一般規約', url: 'https://docs.google.com/document/d/1cnTxy0_CHQeTG3mh4uIdJ7P7vi7KFhrBMmPnb6uhMiw/edit?usp=sharing' },
+  { category: 'admin', name: 'プロモ規約', url: 'https://docs.google.com/document/d/1ULv_r5fZ3VHVHmgCJcA_dyqxUEm5YIGOL6IEXCBuVL8/edit?usp=sharing' },
+  { category: 'admin', name: 'プライバシーポリシー', url: 'https://docs.google.com/document/d/1bhfg4pukcWqb6xm0WlxZXwjY9_4Prl_EbRMKbRp-gmo/edit?tab=t.0' },
+  { category: 'admin', name: '責任あるゲーミング', url: 'https://docs.google.com/document/d/1O8jjHNbPe0sjLFzbE_HRol3zA9L4ZhEU3OtxmLod6Rg/edit?tab=t.0' },
+  { category: 'admin', name: 'SNS運用資料', url: 'https://docs.google.com/presentation/d/1JAZ2xWanHCd_oyCEvth8WPVA0FwJbCKsBEQumXngQg0/edit?usp=sharing' },
+  { category: 'admin', name: '公式SNS投稿スケジュール', url: 'https://docs.google.com/spreadsheets/d/1FHYqOfah4QAELcteQ5D_uh7eaNOxShrs7Uw9FFC22rU/edit?usp=sharing' },
+  { category: 'admin', name: 'SNS管理シート', url: 'https://docs.google.com/spreadsheets/d/1ZSt9uOrxnFWF23BofcYyj4DbS9e78s82iRhTSvodaTs/edit?usp=sharing' },
+  { category: 'admin', name: 'ボーナス期待値計算ツール', url: 'https://docs.google.com/spreadsheets/d/1cD0oANxtYC4L0FCyel28RghP4yJVmCeMGJC-NP0FxG8/edit?usp=sharing' },
+  { category: 'admin', name: 'QAシート', url: 'https://docs.google.com/spreadsheets/d/1TCSDgHmxz6LTs4YDsu4pab0NZxd9vDR7T5q8bX3CJ-c/edit?usp=sharing' },
+  { category: 'admin', name: 'DRIVE', url: 'https://drive.google.com/drive/folders/1rrIyglyY-NpFUH7af8abapHrJOvojKdg?usp=sharing' },
+  { category: 'admin', name: '他社報酬調査結果', url: 'https://drive.google.com/file/d/1bT3HsAMFEL1SDiRb1PsYHslzOxJTVQgF/view?usp=sharing' },
+  { category: 'admin', name: '他社リベート調査結果', url: 'https://docs.google.com/spreadsheets/d/1VwJU_ANdf6VFKUWTA-4CCFDPRF-hFDJLMX_q8BwOiss/edit?usp=sharing' },
+  { category: 'admin', name: 'PSP比較', url: 'https://docs.google.com/spreadsheets/d/14-ucTxEzFpoe-UTfwd81_-jfnkvAzGurSiEv6bF8UFQ/edit?usp=sharing' },
+  { category: 'admin', name: 'チャットBOT内容', url: 'https://drive.google.com/file/d/1FGMBiKX048v58Kap9dC3CBGsmPsLPe_F/view?usp=sharing' },
+  { category: 'admin', name: 'プロバイダーデータ項目', url: 'https://docs.google.com/spreadsheets/d/144u3L0r04508lcfe8quuIr_3oxQ8e5pHxlx2T-HsO4M/edit?usp=sharing' },
+  { category: 'admin', name: 'スロ天LP①計測', url: 'https://lp.diamond-secret.club/SLOTENTEST/' },
+  { category: 'admin', name: 'ドリームポットLP', url: 'https://lp.diamond-secret.club/slotentakarakuji/' },
+  { category: 'admin', name: 'ドリームポットマイページ', url: 'https://lp.diamond-secret.club/takarakuzimypage/' },
+  { category: 'admin', name: 'コール入力システム', url: 'https://script.google.com/macros/s/AKfycbzi6_9-f5aIk1pKxwsQvH-CZ26wLs7GEruchrCIppiiXxRzIwRmgTIcGgSE0PctoksO/exec' },
+  { category: 'admin', name: 'コールシステムadmin', url: 'https://script.google.com/macros/s/AKfycbzi6_9-f5aIk1pKxwsQvH-CZ26wLs7GEruchrCIppiiXxRzIwRmgTIcGgSE0PctoksO/exec?page=admin' },
+  { category: 'admin', name: '経費', url: 'https://docs.google.com/spreadsheets/d/1c0eaV1gVAQTYLgVAC5uhkJ3xfxaJelVPMUeyj6-9qgc/edit?usp=sharing' },
+  { category: 'admin', name: '人件費', url: 'https://docs.google.com/spreadsheets/d/1xllLaq4MBwL74KokaeWHMcnkFPzPJ_y-81gCaSvWlVU/edit?usp=sharing' },
+  { category: 'admin', name: 'テレグラムリッチメニュー装填用', url: 'https://docs.google.com/spreadsheets/d/1-luSPr0s5mb35FwyZQ-ZrbcCdxFxVVAF-sTfOHC9ICs/edit?usp=sharing' },
+  { category: 'admin', name: 'ボーナス期待値計算ツール(複製用)', url: 'https://docs.google.com/spreadsheets/d/1UCdTWGiBjo_ZTYRY1JL_DgyJ0ujuJZO4hFWddREf7UM/edit?usp=sharing' },
+  { category: 'admin', name: 'よくある質問', url: 'https://docs.google.com/spreadsheets/d/1l06gFHmsluPkKBJ6DLj3h5qOmjMoStD_gbHXar2aBZk/edit?usp=sharing' },
+  { category: 'admin', name: '宝くじシステム概要', url: 'https://drive.google.com/file/d/1TCAFxvV2w32vhmBlKv08zCHTjPQD2DMt/view?usp=sharing' },
+  { category: 'admin', name: '他社アフィリエイト報酬形態', url: 'https://docs.google.com/spreadsheets/d/1W3_L4U5y8bt6IPe6GZ8nTSJVh_lWe-kJ_LTUXIbckTI/edit?usp=sharing' },
+  { category: 'admin', name: 'カスタマージャーニー', url: 'https://docs.google.com/spreadsheets/d/16a3Z1PEwhHQ4N3t4b4RLtK19bV9ae_egOwBBteCTq_8/edit?usp=sharing' },
+  { category: 'admin', name: 'テレグラ要約BOT①', url: 'https://docs.google.com/spreadsheets/d/1-Wg3NeLWhqPBhWE7FlMYDcsVfY4ZDZ5DYl9FqQgDPgU/edit?usp=sharing' },
+  { category: 'admin', name: 'テレグラ要約BOT②', url: 'https://docs.google.com/spreadsheets/d/1XpTbyuEPVdFy3SFGqJnC97iHlMnANqbdLjZrEPpFsyU/edit?usp=sharing' },
+  { category: 'その他', name: 'AFF管理画面', url: 'https://casino-affiliate-pulse.lovable.app/' },
+  { category: 'その他', name: 'LP管理', url: 'https://docs.google.com/spreadsheets/d/1yLbPPOr85l5x15CoIPTWMbFQqQV0CQjdeoi1dSauX6U/edit?usp=sharing' },
+  { category: 'その他', name: 'タスクまとめ', url: 'https://docs.google.com/spreadsheets/d/1ZNo_1jd6EYX6O1cccQ9sa3A2xJwInIMU5QinvOUvk2E/edit?usp=sharing' },
+  { category: 'その他', name: 'CLOUD', url: 'https://panel.cloudzy.com/dashboard' },
+  { category: 'その他', name: 'ダッシュボード', url: 'https://sloten-dashboard.manus.space/' },
+  { category: 'その他', name: 'リンク集', url: 'https://sloten-link.manus.space' },
+  { category: 'その他', name: 'メルマガ②', url: 'https://docs.google.com/spreadsheets/d/1-_GzRGpqZqm-lmI32XBA9yhhr4bGm5H0eN04PzRxg-0/edit?usp=sharing' },
+  { category: 'その他', name: 'ヘブンズショット', url: 'https://docs.google.com/spreadsheets/d/1j8-qutGdAON0W0Fn4KIiQdt4HiXmkudMNGQ21Ba0ZMw/edit?gid=0' },
+  { category: 'その他', name: 'SMS送信', url: 'https://docs.google.com/spreadsheets/d/1dZo7cQL1pM1Z2sU8P5qoYIvsyBs0PS16lnKPxtDJ3yE/edit?usp=sharing' },
+  { category: 'その他', name: 'SMS送信本屋', url: 'https://docs.google.com/spreadsheets/d/1yTu17jNIgIGEbgJK639mrbH_lgBWA79vUSfNdACK_dM/edit?usp=sharing' },
+  { category: 'その他', name: 'バカラチャレンジ', url: 'https://docs.google.com/spreadsheets/d/1qGd0hneNNqNNZCNMXbO89wYusHIbB0nnNqZNvjsqnbY/edit?usp=sharing' },
+  { category: 'その他', name: 'みんなの時間割', url: 'https://docs.google.com/spreadsheets/d/1Qh4xxb6pIXP1TMdRY24zcJcjDts-2MFgXcTYfKjHNg8/edit?usp=sharing' },
+  { category: 'その他', name: '無料ゲームサイト', url: 'https://docs.google.com/spreadsheets/d/14nWspAUsHzmCewIySecFwxAROP2xpy56zoVChBRJNYw/edit?usp=sharing' },
+  { category: 'その他', name: '設置状況', url: 'https://docs.google.com/spreadsheets/d/1_Wfe1tqWIyuLWYZ73QQPMYeDL8FInQTWCAvsn0ptogA/edit?usp=sharing' },
+  { category: 'その他', name: 'SMS分析', url: 'https://docs.google.com/spreadsheets/d/1Z-fVjbHWAUXLgajlDba1Pm1fU6Ble52ddbVLBcxFEcU/edit?usp=sharing' },
+  { category: 'その他', name: 'SMSデータ', url: 'https://docs.google.com/spreadsheets/d/1o58Zmm6dhcFbLRfLZajLjsWbeE57DOQqY5ncH1FunUs/edit?usp=sharing' },
+  { category: 'その他', name: '連勝王連敗王', url: 'https://docs.google.com/spreadsheets/d/1tmBj1U_pclbuIFk1lQz8cSTAH0aPOPW9G92j4Mo5tq8/edit?usp=sharing' },
+  { category: 'その他', name: 'DC/ACE', url: 'https://share.dc-ace.com/login?redirect=/folder/DC%2520Lobby/Promo%2520Package/' },
+  { category: 'その他', name: 'ボーナスコード管理', url: 'https://docs.google.com/spreadsheets/d/1c58Oz88Y-8Yg8Xz4yqQYk8KgFIjufZefbC94krz3dwo/edit?usp=sharing' },
+  { category: 'その他', name: 'CSVセグメントツール', url: 'https://crm-segmentation-tool-gnwlkpueqvcdgapck3uv8z.streamlit.app/' },
+  { category: 'その他', name: 'カレンダー', url: 'https://shared-calendar-app-iota.vercel.app/' },
+  { category: 'その他', name: 'SEOツール', url: 'https://nexus-seo-u5uq936q.manus.space/' },
+  { category: 'その他', name: 'スロ天CSVデータ', url: 'https://userdash-eanx4o83.manus.space/?code=C9CEZYMehvBKv3HUVMoNGw' },
+  { category: 'その他', name: '世界の大会', url: 'https://gamblingtourn-abc2g3fa.manus.space/' },
+];
+
+// スロ天データ
+const SLOTEN_INITIAL_DATA = {
+  '2026年1月':{
+    サマリー:{'登録人数':3381,'ログインユーザー数':3459,'FTDのみ入金者数':181,'2ndのみ入金者数':36,'3nd入金以降ユーザー数':32,'4nd入金以降ユーザー数':90,'今月登録のFTD以降ユーザー数':339,'今月登録FTD以降ユーザー割合':0.1002661934,'今月登録のアクティブユーザー数':339,'前月登録のアクティブユーザー数':593,'前々月登録のアクティブユーザー数':61,'3か月以上アクティブプレイヤー数':0,'登録に対して1st使用割合':0.03599546043,'登録に対して2nd使用割合':0.00870977633,'登録に対して3nd使用割合':0.005506187328,'登録に対して4nd使用割合':0.008197898177,'アクティブプレイ人数（ユニーク）':993,'入金者数(デイリーユニーク)':632,'総入金額':70601802,'総出金額':54836317,'総入金回数':4925,'T/O(リアルのみ)':1040015674,'勝利金(リアルのみ)':1009478892,'RTP':0.9730691653,'GGR':30536782.75,'入出金差分':15765485,'GGRLTV':30752.04708},
+    入金方法:{'TOTAL':70601802,'銀行（自動）':16021000,'仮想通貨':6063158,'銀行（手動）':7798951,'EC(コンビニ)':1472000,'PayPay':39246693},
+    出金方法:{'TOTAL':54836317,'銀行（自動）':16360710,'仮想通貨':17794551,'銀行（手動）':19212554,'PayPay':1468502},
+    ゲーム別:{パチンコ:{ユーザー数:1066,TO:25539221,GGR:3124886},パチスロ:{ユーザー数:1090,TO:120877774,GGR:1119651},スロット:{ユーザー数:4792,TO:388796058,GGR:10550937},ライブ:{ユーザー数:2213,TO:407528253,GGR:15111844}},
+    Affiliate:{'AFF数':46,'AFF経由登録者数':925,'AFF経由FTD数':126,'AFF経由FTD率':0.1362,'AFF経由入金額':8022259,'AFF経由出金額':5490590,'AFF経由GGR':2531669}
+  },
+  '2025年12月':{
+    サマリー:{'登録人数':2552,'ログインユーザー数':2399,'FTDのみ入金者数':231,'2nd入金のみユーザー数':66,'3nd入金のみユーザー数':30,'4nd入金以降ユーザー数':45,'今月登録のFTD以降ユーザー数':713,'今月登録FTD以降ユーザー割合':0.1653068759,'今月登録のアクティブユーザー数':768,'前月登録のアクティブユーザー数':76,'前々月登録のアクティブユーザー数':0,'3か月以上アクティブプレイヤー数':0,'登録に対してFTDのみの割合':0.08425045538,'登録に対して2nd使用割合':0.02872426151,'登録に対して3nd使用割合':0.01715161771,'登録に対して4nd使用割合':0.0351805413,'アクティブプレイ人数（ユニーク）':798,'入金者数(デイリーユニーク)':2234,'総入金額':66633871,'総出金額':48341793,'総入金回数':3948,'T/O(リアルのみ)':1120432234,'勝利金(リアルのみ)':1084887870,'RTP':0.9660437644,'GGR':35543975.96,'入出金差分':18292078,'GGRLTV':44541.32326},
+    入金方法:{'TOTAL':66633871,'銀行（自動）':11122808,'仮想通貨':10897654,'銀行（手動）':18865520,'EC(コンビニ)':1121000,'PayPay':7455811},
+    出金方法:{'TOTAL':48341793,'銀行（自動）':0,'仮想通貨':0,'銀行（手動）':0,'PayPay':0},
+    ゲーム別:{パチンコ:{ユーザー数:0,TO:0,GGR:0},パチスロ:{ユーザー数:0,TO:0,GGR:0},スロット:{ユーザー数:0,TO:0,GGR:0},ライブ:{ユーザー数:0,TO:0,GGR:0}},
+    Affiliate:{'AFF数':34,'AFF経由登録者数':1457,'AFF経由FTD数':543,'AFF経由FTD率':0.3727,'AFF経由入金額':55061952,'AFF経由出金額':36735633,'AFF経由GGR':10366161}
+  },
+  '2025年11月':{
+    サマリー:{'登録人数':300,'ログインユーザー数':193,'FTD数':8,'2nd入金以降ユーザー数':10,'3nd入金以降ユーザー数':3,'4nd入金以降ユーザー数':21,'今月登録のFTD以降ユーザー数':42,'今月登録FTD以降ユーザー割合':0.5660971822,'今月登録のアクティブユーザー数':0,'前月登録のアクティブユーザー数':0,'前々月登録のアクティブユーザー数':0,'3か月以上アクティブプレイヤー数':0,'登録に対して1st使用割合':0.06347826087,'登録に対して2nd使用割合':0.1197670807,'登録に対して3nd使用割合':0.01863354037,'登録に対して4nd使用割合':0.3642183003,'アクティブプレイ人数':84,'入金者数(ユニーク)':32,'総入金額':586146,'総出金額':528463,'総入金回数':44,'T/O(リアルのみ)':5043994.2,'勝利金(リアルのみ)':4980421.4,'RTP':3.824506379,'GGR':63572.8,'入出金差分':57683},
+    入金方法:{'TOTAL':586146,'銀行（自動）':0,'仮想通貨':8000,'銀行（手動）':100000,'EC(コンビニ)':10000,'PayPay':410463},
+    出金方法:{'TOTAL':528463,'銀行（自動）':0,'仮想通貨':0,'銀行（手動）':0,'PayPay':0},
+    ゲーム別:{パチンコ:{ユーザー数:0,TO:0,GGR:0},パチスロ:{ユーザー数:0,TO:0,GGR:0},スロット:{ユーザー数:0,TO:0,GGR:0},ライブ:{ユーザー数:0,TO:0,GGR:0}},
+    Affiliate:{'AFF数':8,'AFF経由登録者数':302,'AFF経由FTD数':34,'AFF経由FTD率':0.4797,'AFF経由入金額':0,'AFF経由出金額':0,'AFF経由GGR':0}
+  },
+};
+
+const CARD_COLORS = [
+  { bg: '#dbeafe', text: '#1e40af', accent: '#3b82f6' },
+  { bg: '#dcfce7', text: '#166534', accent: '#22c55e' },
+  { bg: '#fef3c7', text: '#92400e', accent: '#f59e0b' },
+  { bg: '#fce7f3', text: '#9d174d', accent: '#ec4899' },
+  { bg: '#e0e7ff', text: '#3730a3', accent: '#6366f1' },
+  { bg: '#ccfbf1', text: '#115e59', accent: '#14b8a6' },
+  { bg: '#fee2e2', text: '#991b1b', accent: '#ef4444' },
+  { bg: '#f3e8ff', text: '#6b21a8', accent: '#a855f7' },
+];
+
+const formatCurrency = (value) => {
+  if (value === undefined || value === null || isNaN(value)) return '-';
+  const absValue = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+  if (absValue >= 100000000) return `${sign}¥${(absValue / 100000000).toFixed(2)}億`;
+  if (absValue >= 10000) return `${sign}¥${Math.round(absValue / 10000).toLocaleString()}万`;
+  return `${sign}¥${Math.round(absValue).toLocaleString()}`;
+};
+
+const formatNumber = (value) => {
+  if (value === undefined || value === null || isNaN(value)) return '-';
+  return Math.round(value).toLocaleString();
+};
+
+const formatPercent = (value) => {
+  if (value === undefined || value === null || isNaN(value)) return '-';
+  const v = Math.abs(value) > 1 ? value : value * 100;
+  return `${v.toFixed(2)}%`;
+};
+
+// KPIカード
+const KPICard = ({ label, value, subValue, color, icon: Icon }) => (
+  <div style={{ background: 'white', borderRadius: '14px', padding: '16px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderLeft: `4px solid ${color.accent}` }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+      <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: color.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: color.accent }}>
+        <Icon size={16} />
+      </div>
+      <span style={{ fontSize: '11px', fontWeight: '500', color: '#64748b' }}>{label}</span>
+    </div>
+    <div style={{ fontSize: '22px', fontWeight: '700', color: color.text }}>{value}</div>
+    {subValue && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{subValue}</div>}
+  </div>
+);
+
+function BusinessDashboard() {
+  const [businesses, setBusinesses] = useState({
+    '元amuse': { data: MOTO_AMUSE_INITIAL_DATA, periods: sortPeriods(Object.keys(MOTO_AMUSE_INITIAL_DATA)), type: 'samExcel' },
+    'DSC': { data: DSC_INITIAL_DATA, periods: sortPeriods(Object.keys(DSC_INITIAL_DATA)), type: 'samExcel' },
+    'スロ天': { data: SLOTEN_INITIAL_DATA, periods: sortPeriods(Object.keys(SLOTEN_INITIAL_DATA)), type: 'sloten' },
+    '広告': { 
+      data: { '全期間': { サマリー: { 'コスト合計': 946.84, 'インプレッション合計': 74682, 'クリック合計': 2200, '登録合計': 100, '入金合計': 12, 'CTR': 0.0295, 'CVR': 0.0455, '入金率': 0.12, 'CPA(登録)': 9.47, 'CPA(入金)': 78.90, 'データ日数': 12 }, 日別: [] }},
+      periods: ['全期間'], 
+      type: 'ads' 
+    },
+    'バカラツール': { 
+      data: { '全期間': { サマリー: { 'LINE流入': 0, 'Telegram流入': 0, 'Twitter流入': 0, '合計流入': 0, '総ユーザー数': 0, '総入金額': 0, '総GGR': 0, 'コスト': 788525.92, 'NGR': -788525.92 }}},
+      periods: ['全期間'], 
+      type: 'baccara' 
+    },
+  });
+  
+  const [selectedBusiness, setSelectedBusiness] = useState('元amuse');
+  const [selectedPeriod, setSelectedPeriod] = useState('2026年1月');
+  const [showUpload, setShowUpload] = useState(false);
+  const [showAddBusiness, setShowAddBusiness] = useState(false);
+  const [uploadPeriod, setUploadPeriod] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [newBusinessName, setNewBusinessName] = useState('');
+  const [newBusinessType, setNewBusinessType] = useState('samExcel');
+
+  const currentBusiness = businesses[selectedBusiness];
+  const currentData = currentBusiness?.data?.[selectedPeriod]?.サマリー || currentBusiness?.data?.[selectedPeriod] || {};
+
+  // CSVパーサー
+  const parseSAMExcelCSV = (text) => {
+    const lines = text.split('\n').map(line => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') inQuotes = !inQuotes;
+        else if (char === ',' && !inQuotes) { result.push(current.trim().replace(/^"|"$/g, '')); current = ''; }
+        else current += char;
+      }
+      result.push(current.trim().replace(/^"|"$/g, ''));
+      return result;
+    });
+    
+    const data = {};
+    for (let i = 0; i < lines.length; i++) {
+      const row = lines[i];
+      // B列とC列
+      const itemName = (row[1] || '').trim().replace(/（/g, '(').replace(/）/g, ')');
+      const valueC = row[2];
+      if (itemName && valueC && !valueC.startsWith('#') && !itemName.startsWith('0.')) {
+        const val = parseNumber(valueC);
+        if (val !== null) data[itemName] = val;
+      }
+      // D列とE列
+      const itemD = (row[3] || '').trim().replace(/（/g, '(').replace(/）/g, ')');
+      const valueE = row[4];
+      if (itemD && valueE && !valueE.startsWith('#') && !itemD.startsWith('0.')) {
+        const val = parseNumber(valueE);
+        if (val !== null) data[itemD] = val;
+      }
+    }
+    return { サマリー: data };
+  };
+
+  // ファイルアップロード
+  const handleFile = useCallback(async (file) => {
+    if (!file) return;
+    
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    if (isExcel) {
+      // Excel処理 - DSC/AMUSE/スロ天を自動振り分け
+      try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // スロ天形式のシートを検出（YYYYMM形式）
+        const slotenSheets = workbook.SheetNames.filter(name => /^\d{6}$/.test(name));
+        
+        // スロ天形式の場合
+        if (slotenSheets.length > 0) {
+          let slotenData = { ...businesses['スロ天']?.data || {} };
+          let slotenPeriods = [...(businesses['スロ天']?.periods || [])];
+          let slotenCount = 0;
+          
+          slotenSheets.forEach(sheetName => {
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            // YYYYMM → YYYY年M月 に変換
+            const year = sheetName.slice(0, 4);
+            const month = parseInt(sheetName.slice(4, 6));
+            const periodName = `${year}年${month}月`;
+            
+            // スロ天形式: A列=項目名、B列=月次合計
+            const extracted = {};
+            jsonData.forEach((row, idx) => {
+              if (row[0] && row[1] !== undefined && row[1] !== null && row[1] !== '') {
+                const key = String(row[0]).trim().split('/')[0].trim();
+                if (key && key !== '項目名' && key !== '' && !key.includes('プロモーション')) {
+                  const val = parseNumber(row[1]);
+                  if (val !== null && !isNaN(val)) {
+                    extracted[key] = val;
+                  }
+                }
+              }
+            });
+            
+            // 入金方法（行191-197付近）
+            const depositMethods = {};
+            for (let i = 191; i < Math.min(198, jsonData.length); i++) {
+              const row = jsonData[i];
+              if (row && row[0] && row[1] !== undefined) {
+                const key = String(row[0]).trim();
+                if (key && key !== '入金' && key !== '') {
+                  const val = parseNumber(row[1]);
+                  if (val !== null) depositMethods[key] = val;
+                }
+              }
+            }
+            
+            // 出金方法（行199-204付近）
+            const withdrawMethods = {};
+            for (let i = 199; i < Math.min(205, jsonData.length); i++) {
+              const row = jsonData[i];
+              if (row && row[0] && row[1] !== undefined) {
+                const key = String(row[0]).trim();
+                if (key && key !== '出金' && key !== '') {
+                  const val = parseNumber(row[1]);
+                  if (val !== null) withdrawMethods[key] = val;
+                }
+              }
+            }
+            
+            // ゲーム別データ
+            const gameData = {};
+            const gamePositions = [
+              { name: 'パチンコ', start: 114, userRow: 123, toRow: 124, ggrRow: 127 },
+              { name: 'パチスロ', start: 133, userRow: 142, toRow: 143, ggrRow: 146 },
+              { name: 'スロット', start: 152, userRow: 161, toRow: 162, ggrRow: 165 },
+              { name: 'ライブ', start: 171, userRow: 180, toRow: 181, ggrRow: 184 }
+            ];
+            gamePositions.forEach(g => {
+              if (jsonData[g.userRow] && jsonData[g.toRow] && jsonData[g.ggrRow]) {
+                gameData[g.name] = {
+                  ユーザー数: parseNumber(jsonData[g.userRow]?.[1]) || 0,
+                  TO: parseNumber(jsonData[g.toRow]?.[1]) || 0,
+                  GGR: parseNumber(jsonData[g.ggrRow]?.[1]) || 0
+                };
+              }
+            });
+            
+            // Affiliate（行92-111付近）
+            const affData = {};
+            for (let i = 92; i < Math.min(112, jsonData.length); i++) {
+              const row = jsonData[i];
+              if (row && row[0] && row[1] !== undefined) {
+                const key = String(row[0]).trim().split('/')[0].trim();
+                if (key && key.includes('AFF')) {
+                  const val = parseNumber(row[1]);
+                  if (val !== null) affData[key] = val;
+                }
+              }
+            }
+            
+            if (Object.keys(extracted).length > 0) {
+              slotenData[periodName] = {
+                サマリー: extracted,
+                入金方法: Object.keys(depositMethods).length > 0 ? depositMethods : undefined,
+                出金方法: Object.keys(withdrawMethods).length > 0 ? withdrawMethods : undefined,
+                ゲーム別: Object.keys(gameData).length > 0 ? gameData : undefined,
+                Affiliate: Object.keys(affData).length > 0 ? affData : undefined
+              };
+              if (!slotenPeriods.includes(periodName)) {
+                slotenPeriods.push(periodName);
+              }
+              slotenCount++;
+            }
+          });
+          
+          slotenPeriods = sortPeriods(slotenPeriods);
+          
+          setBusinesses(prev => ({
+            ...prev,
+            'スロ天': {
+              ...prev['スロ天'],
+              data: slotenData,
+              periods: slotenPeriods,
+              type: 'sloten'
+            }
+          }));
+          
+          setSelectedBusiness('スロ天');
+          if (slotenPeriods.length > 0) {
+            setSelectedPeriod(slotenPeriods[0]);
+          }
+          setShowUpload(false);
+          setLastUpdate(new Date());
+          alert(`スロ天データをインポート！\n${slotenCount}件の月次シート`);
+          return;
+        }
+        
+        // バカラツール形式
+        if (workbook.SheetNames.includes('ダッシュボード') && workbook.SheetNames.includes('コスト')) {
+          const dashSheet = workbook.Sheets['ダッシュボード'];
+          const costSheet = workbook.Sheets['コスト'];
+          
+          const dashData = XLSX.utils.sheet_to_json(dashSheet, { header: 1 });
+          const costData = XLSX.utils.sheet_to_json(costSheet, { header: 1 });
+          
+          // ダッシュボードからデータ抽出
+          let extractedData = {};
+          dashData.forEach(row => {
+            if (row[0] && row[1] !== undefined) {
+              const label = String(row[0]).trim();
+              const value = row[1];
+              if (label.includes('LINE流入')) extractedData['LINE流入'] = value || 0;
+              if (label.includes('Telegram流入')) extractedData['Telegram流入'] = value || 0;
+              if (label.includes('Twitter流入')) extractedData['Twitter流入'] = value || 0;
+              if (label.includes('合計流入')) extractedData['合計流入'] = value || 0;
+              if (label.includes('総ユーザー')) extractedData['総ユーザー数'] = value || 0;
+              if (label.includes('総入金額')) extractedData['総入金額'] = value || 0;
+              if (label.includes('総GGR')) extractedData['総GGR'] = value || 0;
+              if (label === 'コスト') extractedData['コスト'] = value || 0;
+              if (label === 'NGR') extractedData['NGR'] = value || 0;
+            }
+          });
+          
+          // コストシートから合計を取得
+          let totalCost = 0;
+          costData.forEach(row => {
+            if (row[0] === '合計' && row[2]) {
+              totalCost = parseFloat(row[2]) || 0;
+            }
+          });
+          if (totalCost > 0) extractedData['コスト'] = totalCost;
+          
+          const businessName = 'バカラツール';
+          const periodName = '全期間';
+          
+          setBusinesses(prev => ({
+            ...prev,
+            [businessName]: {
+              data: { [periodName]: { サマリー: extractedData } },
+              periods: [periodName],
+              type: 'baccara'
+            }
+          }));
+          
+          setSelectedBusiness(businessName);
+          setSelectedPeriod(periodName);
+          setShowUpload(false);
+          setLastUpdate(new Date());
+          alert(`バカラツールデータをインポート！\nコスト: ¥${totalCost.toLocaleString()}\nNGR: ¥${(extractedData['NGR'] || 0).toLocaleString()}`);
+          return;
+        }
+        
+        // SAM形式（収益シート）
+        const revenueSheets = workbook.SheetNames.filter(name => 
+          name.includes('収益') && !name.includes('import') && name !== 'データテンプレート'
+        );
+        
+        // DSCとAMUSEを分離
+        let amuseData = { ...businesses['元amuse']?.data || {} };
+        let amusePeriods = [...(businesses['元amuse']?.periods || [])];
+        let dscData = { ...businesses['DSC']?.data || {} };
+        let dscPeriods = [...(businesses['DSC']?.periods || [])];
+        
+        let amuseCount = 0;
+        let dscCount = 0;
+        
+        revenueSheets.forEach(sheetName => {
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          // 分類ルール: Dで終わる → DSC、それ以外 → 元amuse
+          const isDSC = sheetName.endsWith('D');
+          // 期間名を決定（「収益」と末尾の「D」を除去）
+          let periodName = sheetName.replace('収益', '').replace(/D$/, '');
+          
+          // データを抽出
+          const extracted = {};
+          jsonData.forEach(row => {
+            if (row[1] && row[2] !== undefined && row[2] !== null && row[2] !== '') {
+              const key = String(row[1]).trim().replace(/（/g, '(').replace(/）/g, ')');
+              const val = parseNumber(row[2]);
+              if (val !== null && !String(row[2]).startsWith('#') && !key.startsWith('0.')) {
+                extracted[key] = val;
+              }
+            }
+            // D/E列も取得
+            if (row[3] && row[4] !== undefined && row[4] !== null && row[4] !== '') {
+              const key = String(row[3]).trim().replace(/（/g, '(').replace(/）/g, ')');
+              const val = parseNumber(row[4]);
+              if (val !== null && !String(row[4]).startsWith('#') && !key.startsWith('0.')) {
+                extracted[key] = val;
+              }
+            }
+          });
+          
+          if (Object.keys(extracted).length > 0) {
+            if (isDSC) {
+              dscData[periodName] = { サマリー: extracted };
+              if (!dscPeriods.includes(periodName)) {
+                dscPeriods.push(periodName);
+              }
+              dscCount++;
+            } else {
+              amuseData[periodName] = { サマリー: extracted };
+              if (!amusePeriods.includes(periodName)) {
+                amusePeriods.push(periodName);
+              }
+              amuseCount++;
+            }
+          }
+        });
+        
+        amusePeriods = sortPeriods(amusePeriods);
+        dscPeriods = sortPeriods(dscPeriods);
+        
+        setBusinesses(prev => ({
+          ...prev,
+          '元amuse': {
+            ...prev['元amuse'],
+            data: amuseData,
+            periods: amusePeriods,
+            type: 'samExcel'
+          },
+          'DSC': {
+            ...prev['DSC'],
+            data: dscData,
+            periods: dscPeriods,
+            type: 'samExcel'
+          }
+        }));
+        
+        // 現在選択中の事業の最新期間を選択
+        if (selectedBusiness === 'DSC' && dscPeriods.length > 0) {
+          setSelectedPeriod(dscPeriods[0]);
+        } else if (amusePeriods.length > 0) {
+          setSelectedPeriod(amusePeriods[0]);
+        }
+        
+        setShowUpload(false);
+        setLastUpdate(new Date());
+        alert(`インポート完了！\n元amuse: ${amuseCount}件\nDSC: ${dscCount}件`);
+        
+      } catch (error) {
+        console.error('Excel読み込みエラー:', error);
+        alert('Excelファイルの読み込みに失敗しました: ' + error.message);
+      }
+    } else {
+      // CSV処理 - ファイル名から自動判別
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        const fileName = file.name;
+        
+        // ファイル名から判別
+        const isDSC = fileName.includes('D.csv') || fileName.endsWith('D.csv') || fileName.includes('リストD');
+        const targetBusiness = isDSC ? 'DSC' : '元amuse';
+        
+        // 期間名を抽出（2025年10月 形式）
+        let periodName = uploadPeriod.trim();
+        if (!periodName) {
+          const match = fileName.match(/(\d{4}).*?(\d{1,2})月/);
+          if (match) {
+            periodName = `${match[1]}年${match[2]}月`;
+          } else {
+            const match2 = fileName.match(/(\d{4})#U5e74(\d{1,2})/);
+            if (match2) {
+              periodName = `${match2[1]}年${match2[2]}月`;
+            }
+          }
+        }
+        
+        // CSVの種類を判別
+        let csvType = 'unknown';
+        if (fileName.includes('顧客リスト')) {
+          csvType = 'customerList';
+        } else if (fileName.includes('ボーナス') || fileName.includes('#U30dc#U30fc#U30ca#U30b9')) {
+          csvType = 'bonus';
+        } else if (fileName.includes('未回収') || fileName.includes('#U672a#U56de#U53ce')) {
+          csvType = 'uncollected';
+        } else if (fileName.includes('遅れ回収') || fileName.includes('#U9045#U308c#U56de#U53ce')) {
+          csvType = 'delayed';
+        } else if (fileName.includes('エージェント') || fileName.includes('#U30a8#U30fc#U30b8#U30a7#U30f3#U30c8')) {
+          csvType = 'agent';
+        } else if (fileName.includes('日报') || fileName.includes('日本数据') || fileName.includes('広告')) {
+          csvType = 'ads';
+        } else if (periodName) {
+          csvType = 'monthly'; // 顧客管理シート月別
+        }
+        
+        // CSVをパース
+        const lines = text.split('\n').filter(line => line.trim());
+        const rows = lines.map(line => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          for (const char of line) {
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        });
+        
+        // 数値パース（¥や,を除去）
+        const parseVal = (v) => {
+          if (!v || v === '-' || v === '#DIV/0!' || v === '#REF!') return null;
+          const num = parseFloat(String(v).replace(/[¥,\s]/g, ''));
+          return isNaN(num) ? null : num;
+        };
+        
+        let extractedData = {};
+        let tantoshaData = []; // 担当者別データ
+        
+        if (csvType === 'customerList') {
+          // 顧客リストシート: 個別ユーザーデータから集計
+          // ヘッダー: 行3（インデックス3）、データ: 行4以降
+          // カラム: [0]担当者, [1]FULLNAME1, [4]リスト, [5]Resideceday, [7]credit, [8]トータル回収額, 
+          //         [9]トータル出金額, [10]トータル差分利益, [15]事前精算割合, [16]事前精算回数, 
+          //         [17]事前精算金額, [18]入金回数, [19]出金回数, [20]NGR, [21]ボーナス付与総金額
+          
+          let listStats = {}; // リスト別統計
+          let totalStats = {
+            総登録数: 0,
+            総回収額: 0,
+            総出金額: 0,
+            総差分利益: 0,
+            総NGR: 0,
+            事前精算者数: 0,
+            事前精算回数合計: 0,
+            事前精算金額合計: 0,
+            ボーナス付与者数: 0,
+            ボーナス金額合計: 0,
+            FTP数: 0,  // プレイのみ（入金なし）
+            FTD数: 0,  // 入金あり
+            FTW数: 0,  // 出金あり
+            FTDW数: 0, // 入金かつ出金あり
+            creditList: [],
+          };
+          
+          // データ行をループ（行4以降）
+          for (let i = 4; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length < 10) continue;
+            
+            const リスト = row[4] || 'なし';
+            const credit = parseVal(row[7]);
+            const 回収 = parseVal(row[8]);
+            const 出金 = parseVal(row[9]);
+            const 差分 = parseVal(row[10]);
+            const 事前精算割合 = parseVal(row[15]);
+            const 事前精算回数 = parseVal(row[16]);
+            const 事前精算金額 = parseVal(row[17]);
+            const 入金回数 = parseVal(row[18]);
+            const 出金回数 = parseVal(row[19]);
+            const NGR = parseVal(row[20]);
+            const ボーナス = parseVal(row[21]);
+            
+            // 登録があるかどうか（担当者名があれば登録とみなす）
+            if (!row[0] && !row[1]) continue;
+            
+            totalStats.総登録数++;
+            if (回収) totalStats.総回収額 += 回収;
+            if (出金) totalStats.総出金額 += 出金;
+            if (差分) totalStats.総差分利益 += 差分;
+            if (NGR) totalStats.総NGR += NGR;
+            if (credit && credit > 0) totalStats.creditList.push(credit);
+            
+            // 事前精算
+            if (事前精算回数 && 事前精算回数 > 0) {
+              totalStats.事前精算者数++;
+              totalStats.事前精算回数合計 += 事前精算回数;
+              if (事前精算金額) totalStats.事前精算金額合計 += 事前精算金額;
+            }
+            
+            // ボーナス
+            if (ボーナス && ボーナス > 0) {
+              totalStats.ボーナス付与者数++;
+              totalStats.ボーナス金額合計 += ボーナス;
+            }
+            
+            // FTP/FTD/FTW/FTDW判定
+            const hasDeposit = 入金回数 && 入金回数 > 0;
+            const hasWithdraw = 出金回数 && 出金回数 > 0;
+            
+            if (hasDeposit) {
+              totalStats.FTD数++;
+              if (hasWithdraw) {
+                totalStats.FTDW数++;
+              }
+            }
+            if (hasWithdraw) {
+              totalStats.FTW数++;
+            }
+            // FTP: 入金なしでプレイあり（回収 > 0 だがクレジットプレイ）
+            if (!hasDeposit && credit && credit > 0) {
+              totalStats.FTP数++;
+            }
+            
+            // リスト別統計
+            if (!listStats[リスト]) {
+              listStats[リスト] = {
+                count: 0, creditList: [], 回収合計: 0, 出金合計: 0, 差分合計: 0, NGR合計: 0,
+                事前精算者: 0, 事前精算回数: 0, 事前精算金額: 0,
+                ボーナス者: 0, ボーナス金額: 0,
+                FTP: 0, FTD: 0, FTW: 0, FTDW: 0
+              };
+            }
+            const ls = listStats[リスト];
+            ls.count++;
+            if (credit && credit > 0) ls.creditList.push(credit);
+            if (回収) ls.回収合計 += 回収;
+            if (出金) ls.出金合計 += 出金;
+            if (差分) ls.差分合計 += 差分;
+            if (NGR) ls.NGR合計 += NGR;
+            if (事前精算回数 && 事前精算回数 > 0) {
+              ls.事前精算者++;
+              ls.事前精算回数 += 事前精算回数;
+              if (事前精算金額) ls.事前精算金額 += 事前精算金額;
+            }
+            if (ボーナス && ボーナス > 0) {
+              ls.ボーナス者++;
+              ls.ボーナス金額 += ボーナス;
+            }
+            if (hasDeposit) { ls.FTD++; if (hasWithdraw) ls.FTDW++; }
+            if (hasWithdraw) ls.FTW++;
+            if (!hasDeposit && credit && credit > 0) ls.FTP++;
+          }
+          
+          // Credit統計計算
+          const calcStats = (arr) => {
+            if (!arr || arr.length === 0) return { avg: 0, median: 0 };
+            const sorted = [...arr].sort((a, b) => a - b);
+            const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+            const mid = Math.floor(sorted.length / 2);
+            const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+            return { avg, median };
+          };
+          
+          const creditStats = calcStats(totalStats.creditList);
+          
+          // extractedDataに格納
+          extractedData = {
+            '総登録数': totalStats.総登録数,
+            '総回収額': totalStats.総回収額,
+            '総出金額': totalStats.総出金額,
+            '回収出金差分': totalStats.総回収額 - totalStats.総出金額,
+            '総差分利益': totalStats.総差分利益,
+            '総NGR': totalStats.総NGR,
+            'Credit平均': creditStats.avg,
+            'Credit中央値': creditStats.median,
+            '事前精算者数': totalStats.事前精算者数,
+            '事前精算率': totalStats.総登録数 > 0 ? totalStats.事前精算者数 / totalStats.総登録数 : 0,
+            '事前精算回数合計': totalStats.事前精算回数合計,
+            '事前精算金額合計': totalStats.事前精算金額合計,
+            'ボーナス付与者数': totalStats.ボーナス付与者数,
+            'ボーナス付与率': totalStats.総登録数 > 0 ? totalStats.ボーナス付与者数 / totalStats.総登録数 : 0,
+            'ボーナス金額合計': totalStats.ボーナス金額合計,
+            'FTP数': totalStats.FTP数,
+            'FTP率': totalStats.総登録数 > 0 ? totalStats.FTP数 / totalStats.総登録数 : 0,
+            'FTD数': totalStats.FTD数,
+            'FTD率': totalStats.総登録数 > 0 ? totalStats.FTD数 / totalStats.総登録数 : 0,
+            'FTW数': totalStats.FTW数,
+            'FTW率': totalStats.総登録数 > 0 ? totalStats.FTW数 / totalStats.総登録数 : 0,
+            'FTDW数': totalStats.FTDW数,
+            'FTDW率': totalStats.総登録数 > 0 ? totalStats.FTDW数 / totalStats.総登録数 : 0,
+          };
+          
+          // リスト別データを整形
+          let listDataArray = Object.entries(listStats).map(([name, ls]) => {
+            const cs = calcStats(ls.creditList);
+            return {
+              name,
+              count: ls.count,
+              creditAvg: cs.avg,
+              creditMedian: cs.median,
+              回収合計: ls.回収合計,
+              出金合計: ls.出金合計,
+              差分合計: ls.差分合計,
+              NGR合計: ls.NGR合計,
+              事前精算率: ls.count > 0 ? ls.事前精算者 / ls.count : 0,
+              事前精算回数: ls.事前精算回数,
+              事前精算金額: ls.事前精算金額,
+              ボーナス率: ls.count > 0 ? ls.ボーナス者 / ls.count : 0,
+              ボーナス金額: ls.ボーナス金額,
+              FTP率: ls.count > 0 ? ls.FTP / ls.count : 0,
+              FTD率: ls.count > 0 ? ls.FTD / ls.count : 0,
+              FTW率: ls.count > 0 ? ls.FTW / ls.count : 0,
+              FTDW率: ls.count > 0 ? ls.FTDW / ls.count : 0,
+            };
+          }).sort((a, b) => b.count - a.count);
+          
+          extractedData._listData = listDataArray;
+          
+          // 選択中の事業の最新期間を使用（累計タブは作らない）
+          const currentPeriods = businesses[targetBusiness]?.periods || [];
+          periodName = currentPeriods[0] || '2025年10月';
+          
+        } else if (csvType === 'monthly' && periodName) {
+          // 顧客管理シート月別: 行数、集計値を取得
+          const dataRows = rows.slice(1); // ヘッダー除く
+          extractedData = {
+            'リスト件数': dataRows.length,
+          };
+          
+          // ヘッダーからカラムインデックスを特定
+          const header = rows[0] || [];
+          const colIndex = {};
+          header.forEach((col, idx) => {
+            if (col.includes('アカウント作成')) colIndex['アカウント作成'] = idx;
+            if (col.includes('回収予定金額')) colIndex['回収予定金額'] = idx;
+            if (col.includes('回収金額') && !col.includes('見込み') && !col.includes('完了')) colIndex['回収金額'] = idx;
+            if (col.includes('回収済金額')) colIndex['回収済金額'] = idx;
+            if (col.includes('出金済金額')) colIndex['出金済金額'] = idx;
+            if (col.includes('信用枠金額')) colIndex['信用枠金額'] = idx;
+          });
+          
+          // 集計
+          let accountCreated = 0;
+          let totalExpected = 0;
+          let totalCollected = 0;
+          let totalWithdraw = 0;
+          let totalCredit = 0;
+          
+          dataRows.forEach(row => {
+            if (colIndex['アカウント作成'] !== undefined) {
+              const v = parseVal(row[colIndex['アカウント作成']]);
+              if (v && v > 0) accountCreated++;
+            }
+            if (colIndex['回収予定金額'] !== undefined) {
+              const v = parseVal(row[colIndex['回収予定金額']]);
+              if (v) totalExpected += v;
+            }
+            if (colIndex['回収済金額'] !== undefined) {
+              const v = parseVal(row[colIndex['回収済金額']]);
+              if (v) totalCollected += v;
+            }
+            if (colIndex['出金済金額'] !== undefined) {
+              const v = parseVal(row[colIndex['出金済金額']]);
+              if (v) totalWithdraw += v;
+            }
+            if (colIndex['信用枠金額'] !== undefined) {
+              const v = parseVal(row[colIndex['信用枠金額']]);
+              if (v) totalCredit += v;
+            }
+          });
+          
+          if (accountCreated > 0) extractedData['アカウント作成数_CSV'] = accountCreated;
+          if (totalExpected > 0) extractedData['回収予定金額_CSV'] = totalExpected;
+          if (totalCollected > 0) extractedData['回収金額_CSV'] = totalCollected;
+          if (totalWithdraw > 0) extractedData['出金金額_CSV'] = totalWithdraw;
+          if (totalCredit > 0) extractedData['総信用枠_CSV'] = totalCredit;
+          
+        } else if (csvType === 'bonus') {
+          // ボーナスシート
+          const dataRows = rows.slice(1);
+          let totalBonus = 0;
+          let totalDeposit = 0;
+          let totalNGR = 0;
+          
+          const header = rows[0] || [];
+          const colIndex = {};
+          header.forEach((col, idx) => {
+            if (col.includes('総ボーナス付与金額')) colIndex['bonus'] = idx;
+            if (col.includes('トータル入金額')) colIndex['deposit'] = idx;
+            if (col.includes('実NGR')) colIndex['ngr'] = idx;
+          });
+          
+          dataRows.forEach(row => {
+            if (colIndex['bonus'] !== undefined) {
+              const v = parseVal(row[colIndex['bonus']]);
+              if (v) totalBonus += v;
+            }
+            if (colIndex['deposit'] !== undefined) {
+              const v = parseVal(row[colIndex['deposit']]);
+              if (v) totalDeposit += v;
+            }
+            if (colIndex['ngr'] !== undefined) {
+              const v = parseVal(row[colIndex['ngr']]);
+              if (v) totalNGR += v;
+            }
+          });
+          
+          extractedData = {
+            'ボーナス対象者数': dataRows.length,
+            '総ボーナス付与金額_CSV': totalBonus,
+            'ボーナス対象入金額_CSV': totalDeposit,
+            'ボーナス対象NGR_CSV': totalNGR,
+          };
+          periodName = periodName || '最新';
+          
+        } else if (csvType === 'uncollected') {
+          // 未回収シート
+          const dataRows = rows.slice(1);
+          let totalUncollected = 0;
+          
+          const header = rows[0] || [];
+          const colIndex = {};
+          header.forEach((col, idx) => {
+            if (col.includes('残未回収金額')) colIndex['uncollected'] = idx;
+          });
+          
+          dataRows.forEach(row => {
+            if (colIndex['uncollected'] !== undefined) {
+              const v = parseVal(row[colIndex['uncollected']]);
+              if (v) totalUncollected += v;
+            }
+          });
+          
+          extractedData = {
+            '未回収者数': dataRows.length,
+            '残未回収金額_CSV': totalUncollected,
+          };
+          periodName = periodName || '最新';
+        } else if (csvType === 'agent') {
+          // エージェントシート（AMUSEVIP）
+          // 合算行（日付形式の行）だけを抽出
+          // パターン1: col7に日付、col17に値（旧形式）
+          // パターン2: col7が空、col12に日付（新形式）
+          
+          let weeklyData = [];
+          let totals = {
+            入金合計: 0,
+            出金合計: 0,
+            収益合計: 0,
+            TO合計: 0,
+            ローリング合計: 0,
+            大阪合計: 0,
+          };
+          
+          for (let i = 2; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length < 17) continue;
+            
+            const col7 = (row[7] || '').trim();
+            const col12 = (row[12] || '').trim();
+            const col17 = (row[17] || '').trim();
+            
+            // 合算行を判定
+            const isOldFormat = col7.includes('/') && !col7.toLowerCase().includes('kyoto') && col17;
+            const isNewFormat = col7 === '' && col12.includes('/');
+            
+            if (isOldFormat || isNewFormat) {
+              const 日付 = isOldFormat ? col7 : col12;
+              const 入金 = parseVal(row[8]) || 0;
+              const 出金 = parseVal(row[9]) || 0;
+              const 収益 = parseVal(row[11]) || 0;
+              const TO = parseVal(row[13]) || 0;
+              const ローリング = parseVal(row[14]) || 0;
+              const 大阪 = parseVal(row[16]) || 0;
+              const ローリング報酬 = ローリング + 大阪;
+              const NGR = 収益 - ローリング報酬;
+              
+              totals.入金合計 += 入金;
+              totals.出金合計 += 出金;
+              totals.収益合計 += 収益;
+              totals.TO合計 += TO;
+              totals.ローリング合計 += ローリング;
+              totals.大阪合計 += 大阪;
+              
+              weeklyData.push({
+                日付, 入金, 出金, 収益, 'T/O': TO, ローリング, 大阪, ローリング報酬, NGR
+              });
+            }
+          }
+          
+          const ローリング報酬合計 = totals.ローリング合計 + totals.大阪合計;
+          const NGR合計 = totals.収益合計 - ローリング報酬合計;
+          
+          extractedData = {
+            '入金合計': totals.入金合計,
+            '出金合計': totals.出金合計,
+            '収益合計': totals.収益合計,
+            'T/O合計': totals.TO合計,
+            'ローリング合計': totals.ローリング合計,
+            '大阪合計': totals.大阪合計,
+            'ローリング報酬': ローリング報酬合計,
+            'NGR': NGR合計,
+            '精算回数': weeklyData.length,
+          };
+          
+          extractedData._weeklyData = weeklyData;
+          
+          // AMUSEVIP事業として登録
+          const businessName = 'AMUSEVIP';
+          periodName = '全期間';
+          
+          setBusinesses(prev => {
+            return {
+              ...prev,
+              [businessName]: {
+                data: {
+                  [periodName]: {
+                    サマリー: extractedData,
+                    週別: weeklyData
+                  }
+                },
+                periods: [periodName],
+                type: 'agent'
+              }
+            };
+          });
+          
+          setSelectedBusiness(businessName);
+          setSelectedPeriod(periodName);
+          setShowUpload(false);
+          setUploadPeriod('');
+          setLastUpdate(new Date());
+          
+          alert(`エージェントシートをインポート！\n事業: ${businessName}\n精算回数: ${weeklyData.length}回\n収益合計: ¥${totals.収益合計.toLocaleString()}\nNGR: ¥${NGR合計.toLocaleString()}`);
+          return; // 早期リターン
+        } else if (csvType === 'ads') {
+          // 広告データシート
+          // カラム: Date, コスト, インプレッション数, クリック数, 登録数, 入金数, ...
+          
+          let dailyData = [];
+          let totals = {
+            コスト: 0,
+            インプレッション: 0,
+            クリック: 0,
+            登録: 0,
+            入金: 0,
+          };
+          
+          // ヘッダー行を取得
+          const header = rows[0] || [];
+          const colIdx = {};
+          header.forEach((col, idx) => {
+            if (col.includes('Date') || col.includes('日付')) colIdx.date = idx;
+            if (col.includes('コスト')) colIdx.cost = idx;
+            if (col.includes('インプレッション')) colIdx.imp = idx;
+            if (col.includes('クリック')) colIdx.click = idx;
+            if (col === '登録数') colIdx.reg = idx;
+            if (col === '入金数') colIdx.dep = idx;
+          });
+          
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length < 5) continue;
+            
+            const date = row[colIdx.date] || row[0] || '';
+            const cost = parseVal((row[colIdx.cost] || row[1] || '').replace('$', '')) || 0;
+            const imp = parseVal(row[colIdx.imp] || row[2]) || 0;
+            const click = parseVal(row[colIdx.click] || row[3]) || 0;
+            const reg = parseVal(row[colIdx.reg] || row[4]) || 0;
+            const dep = parseVal(row[colIdx.dep] || row[5]) || 0;
+            
+            totals.コスト += cost;
+            totals.インプレッション += imp;
+            totals.クリック += click;
+            totals.登録 += reg;
+            totals.入金 += dep;
+            
+            if (cost > 0 || reg > 0 || dep > 0) {
+              dailyData.push({ 日付: date, コスト: cost, インプレッション: imp, クリック: click, 登録: reg, 入金: dep });
+            }
+          }
+          
+          // KPI計算
+          const ctr = totals.インプレッション > 0 ? totals.クリック / totals.インプレッション : 0;
+          const cvr = totals.クリック > 0 ? totals.登録 / totals.クリック : 0;
+          const depRate = totals.登録 > 0 ? totals.入金 / totals.登録 : 0;
+          const cpaReg = totals.登録 > 0 ? totals.コスト / totals.登録 : 0;
+          const cpaDep = totals.入金 > 0 ? totals.コスト / totals.入金 : 0;
+          
+          extractedData = {
+            'コスト合計': totals.コスト,
+            'インプレッション合計': totals.インプレッション,
+            'クリック合計': totals.クリック,
+            '登録合計': totals.登録,
+            '入金合計': totals.入金,
+            'CTR': ctr,
+            'CVR': cvr,
+            '入金率': depRate,
+            'CPA(登録)': cpaReg,
+            'CPA(入金)': cpaDep,
+            'データ日数': dailyData.length,
+          };
+          
+          // 広告事業として登録
+          const businessName = '広告';
+          periodName = '全期間';
+          
+          setBusinesses(prev => {
+            return {
+              ...prev,
+              [businessName]: {
+                data: {
+                  [periodName]: {
+                    サマリー: extractedData,
+                    日別: dailyData
+                  }
+                },
+                periods: [periodName],
+                type: 'ads'
+              }
+            };
+          });
+          
+          setSelectedBusiness(businessName);
+          setSelectedPeriod(periodName);
+          setShowUpload(false);
+          setUploadPeriod('');
+          setLastUpdate(new Date());
+          
+          alert(`広告データをインポート！\n事業: ${businessName}\nデータ日数: ${dailyData.length}日\nコスト合計: $${totals.コスト.toFixed(2)}\n登録: ${totals.登録}件\n入金: ${totals.入金}件`);
+          return; // 早期リターン
+        }
+        
+        if (Object.keys(extractedData).length > 0 && periodName) {
+          // _で始まる内部データを分離
+          const listData = extractedData._listData || [];
+          const monthlyFTData = extractedData._monthlyFTData || {};
+          delete extractedData._listData;
+          delete extractedData._monthlyFTData;
+          
+          // 既存データにマージ
+          setBusinesses(prev => {
+            const existingData = prev[targetBusiness]?.data?.[periodName]?.サマリー || 
+                                prev[targetBusiness]?.data?.[periodName] || {};
+            const mergedSummary = { ...existingData, ...extractedData };
+            
+            const newPeriods = prev[targetBusiness]?.periods?.includes(periodName)
+              ? prev[targetBusiness].periods
+              : sortPeriods([...(prev[targetBusiness]?.periods || []), periodName]);
+            
+            // 担当者データ、リスト別データ、月別FTデータを保存
+            const newData = {
+              ...prev[targetBusiness]?.data,
+              [periodName]: { 
+                サマリー: mergedSummary,
+                ...(tantoshaData.length > 0 ? { 担当者別: tantoshaData } : {}),
+                ...(listData.length > 0 ? { リスト別: listData } : {}),
+                ...(Object.keys(monthlyFTData).length > 0 ? { 月別FT: monthlyFTData } : {})
+              }
+            };
+            
+            return {
+              ...prev,
+              [targetBusiness]: {
+                ...prev[targetBusiness],
+                data: newData,
+                periods: newPeriods,
+                type: 'samExcel'
+              }
+            };
+          });
+          
+          setSelectedBusiness(targetBusiness);
+          setSelectedPeriod(periodName);
+          setShowUpload(false);
+          setUploadPeriod('');
+          setLastUpdate(new Date());
+          
+          const typeLabel = csvType === 'customerList' ? '顧客リスト' :
+                           csvType === 'monthly' ? '顧客管理シート' : 
+                           csvType === 'bonus' ? 'ボーナスシート' :
+                           csvType === 'uncollected' ? '未回収シート' : 'CSV';
+          const tantoshaInfo = tantoshaData.length > 0 ? `\n担当者: ${tantoshaData.length}名` : '';
+          const listInfo = listData.length > 0 ? `\nリスト種類: ${listData.length}種` : '';
+          alert(`${typeLabel}をインポート！\n事業: ${targetBusiness}\n期間: ${periodName}${tantoshaInfo}${listInfo}\n取得項目: ${Object.keys(extractedData).filter(k => !k.startsWith('_')).length}件`);
+        } else {
+          alert('CSVからデータを抽出できませんでした。\nファイル名に年月が含まれているか確認してください。');
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+  }, [selectedBusiness, uploadPeriod, businesses]);
+
+  const handleDrag = (e) => { e.preventDefault(); e.stopPropagation(); if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true); else if (e.type === 'dragleave') setDragActive(false); };
+  const handleDrop = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]); };
+
+  const deletePeriod = () => {
+    if (currentBusiness?.periods?.length > 1 && window.confirm(`「${selectedPeriod}」を削除しますか？`)) {
+      const newPeriods = currentBusiness.periods.filter(p => p !== selectedPeriod);
+      const newData = { ...currentBusiness.data };
+      delete newData[selectedPeriod];
+      setBusinesses(prev => ({ ...prev, [selectedBusiness]: { ...prev[selectedBusiness], periods: newPeriods, data: newData } }));
+      setSelectedPeriod(newPeriods[0]);
+    }
+  };
+
+  const addBusiness = () => {
+    if (!newBusinessName.trim()) return;
+    setBusinesses(prev => ({ ...prev, [newBusinessName]: { data: {}, periods: [], type: newBusinessType } }));
+    setSelectedBusiness(newBusinessName);
+    setSelectedPeriod('');
+    setNewBusinessName('');
+    setShowAddBusiness(false);
+  };
+
+  const deleteBusiness = (name) => {
+    const msg = Object.keys(businesses).length === 1 
+      ? `「${name}」を削除しますか？\n（最後の事業です。削除後は空になります）` 
+      : `「${name}」を削除しますか？`;
+    if (window.confirm(msg)) {
+      const newBusinesses = { ...businesses };
+      delete newBusinesses[name];
+      setBusinesses(newBusinesses);
+      if (selectedBusiness === name) {
+        const remaining = Object.keys(newBusinesses);
+        if (remaining.length > 0) {
+          setSelectedBusiness(remaining[0]);
+          setSelectedPeriod(newBusinesses[remaining[0]]?.periods?.[0] || '');
+        } else {
+          setSelectedBusiness('');
+          setSelectedPeriod('');
+        }
+      }
+    }
+  };
+
+  // KPIセクションレンダリング
+  const renderKPISection = (title, items, icon, bgColor) => {
+    const percentItems = ['FTP率', 'FTD率', 'FTW率', 'FTDW率', 'RTP', '回収率(全体)', '回収率(今月)', '回収率', 'ボーナス割合(WIN/LOSE)', 'ボーナス割合(GGR)', 'ボーナス割合(T/O)'];
+    const currencyItems = ['T/O', '勝利金', 'GGR(WIN/LOSE)', 'GGR', 'WIN/LOSE', 'LTV(WIN/LOSE)', '回収予定金額', '回収金額', '出金金額', 'GGR(回収金額-出金金額)', 'LTV(GGR)', 'NGR', '付与ボーナス額', 'プロバイダーフィー', '人件費', '合計経費', '通信費', 'インセンティブ', 'ペイメントフィー', '凍結制限金', '死亡金', '雑費・福利厚生等', 'BK', '利益', 'date', 'MS', 'MS経費', 'スロ天経費', 'エージェントフィー', '管理費', '求人'];
+    
+    const formatValue = (key, value) => {
+      if (value === null || value === undefined || isNaN(value)) return '-';
+      if (percentItems.includes(key)) return formatPercent(value);
+      if (currencyItems.includes(key)) return formatCurrency(value);
+      return formatNumber(value);
+    };
+
+    const availableItems = items.filter(key => currentData[key] !== undefined && currentData[key] !== null);
+    if (availableItems.length === 0) return null;
+
+    return (
+      <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+        <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {icon}
+          {title}
+        </h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px' }}>
+          {availableItems.map(key => (
+            <div key={key} style={{ background: bgColor || '#f8fafc', borderRadius: '10px', padding: '12px' }}>
+              <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{key}</div>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: currentData[key] < 0 ? '#dc2626' : '#1e293b' }}>
+                {formatValue(key, currentData[key])}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // カテゴリ別項目（コンポーネントレベルで定義）- SAM + スロ天対応
+  const eigyoKPI = ['リスト件数', '登録人数', '打電数', '着電数', 'LINE登録数', 'アカウント作成数', 'ログインユーザー数', 'SMS認証'];
+  const tenkanKPI = ['FTP数', 'FTP率', 'FTD数', 'FTD率', 'FTW数', 'FTW率', 'FTDW数', 'FTDW率', 'FTDのみ入金者数', 'FTDコンバージョン率', '2nd継続率', '今月登録のFTD以降ユーザー数'];
+  const keizokuKPI = ['前月リテンション数', '引継ぎプレイヤー数', 'アクティブユーザー数', 'アクティブプレイ人数（ユニーク）', 'アクティブプレイ人数', '今月登録のアクティブユーザー数', '前月登録のアクティブユーザー数'];
+  const shuekiKPI = ['T/O', 'T/O(リアルのみ)', '勝利金', '勝利金(リアルのみ)', 'RTP', 'GGR(WIN/LOSE)', 'GGR', 'WIN/LOSE', 'LTV(WIN/LOSE)', 'GGRLTV'];
+  const kaishuKPI = ['回収予定金額', '回収金額', '回収率(全体)', '回収率(今月)', '回収率', '出金金額', 'GGR(回収金額-出金金額)', 'LTV(GGR)', 'NGR', '総入金額', '総出金額', '入出金差分', '総入金回数', '総出金回数', '入金者数(デイリーユニーク)'];
+  const bonusKPI = ['付与ボーナス額', 'ボーナス割合(WIN/LOSE)', 'ボーナス割合(GGR)', 'ボーナス割合(T/O)', 'ARPU(全登録ユーザー)', 'ARPPU(課金ユーザー)'];
+  const keihiKPI = ['合計経費', 'プロバイダーフィー', '人件費', '通信費', 'インセンティブ', 'ペイメントフィー', '雑費・福利厚生等', '管理費', '求人', 'MS経費', 'スロ天経費', 'エージェントフィー'];
+  const sonotaKPI = ['凍結制限金', '死亡金', 'BK', '利益', 'date', 'MS'];
+  
+  // CSV補完データ
+  const csvDataKPI = [
+    '総顧客数', '担当者数', 'リスト種類数', '総登録数', '総FTD数', '総信用枠', '総GGR', '総NGR',
+    '担当者TOTAL_登録数', '担当者TOTAL_FTD数', '担当者TOTAL_信用枠', '担当者TOTAL_GGR', '担当者TOTAL_NGR',
+    'リストTOTAL_登録数', 'リストTOTAL_FTD数', 'リストTOTAL_信用枠', 'リストTOTAL_GGR', 'リストTOTAL_NGR',
+    '合計信用枠額', '合計人数', '回収完了額', '出金完了額', '月別GGR', '月別T/O',
+    '10月FTP', '10月FTD', '10月FTW', '10月FTDW',
+    'リスト件数', 'アカウント作成数_CSV', '回収予定金額_CSV', '回収金額_CSV', '出金金額_CSV', '総信用枠_CSV', 
+    'ボーナス対象者数', '総ボーナス付与金額_CSV', 'ボーナス対象入金額_CSV', 'ボーナス対象NGR_CSV', 
+    '未回収者数', '残未回収金額_CSV'
+  ];
+
+  // メインレンダリング
+  const renderSAMExcel = () => {
+    // AMUSEVIP（エージェント）専用レンダリング
+    if (currentBusiness?.type === 'agent') {
+      const weeklyData = currentBusiness.data[selectedPeriod]?.週別 || [];
+      return (
+        <>
+          {/* サマリーカード */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>入金合計</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['入金合計'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>出金合計</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['出金合計'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>収益合計</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['収益合計'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>ローリング報酬</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['ローリング報酬'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>NGR（収益-報酬）</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['NGR'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #64748b, #475569)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>T/O合計</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['T/O合計'] || 0)}</div>
+            </div>
+          </div>
+          
+          {/* 詳細サマリー */}
+          <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#92400e' }}>
+              <Target size={18} style={{ color: '#f59e0b' }} />ローリング内訳
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px' }}>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ fontSize: '11px', color: '#92400e', marginBottom: '4px' }}>ローリング</div>
+                <div style={{ fontSize: '16px', fontWeight: '700' }}>{formatCurrency(currentData['ローリング合計'] || 0)}</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ fontSize: '11px', color: '#92400e', marginBottom: '4px' }}>大阪</div>
+                <div style={{ fontSize: '16px', fontWeight: '700' }}>{formatCurrency(currentData['大阪合計'] || 0)}</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ fontSize: '11px', color: '#92400e', marginBottom: '4px' }}>精算回数</div>
+                <div style={{ fontSize: '16px', fontWeight: '700' }}>{currentData['精算回数'] || 0}回</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* 週別データテーブル */}
+          {weeklyData.length > 0 && (
+            <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#3730a3' }}>
+                <Calendar size={18} style={{ color: '#6366f1' }} />週別精算データ
+              </h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                  <thead>
+                    <tr style={{ background: '#e0e7ff' }}>
+                      <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #6366f1' }}>日付</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>入金</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>出金</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>収益</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>T/O</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>ローリング</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>大阪</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>報酬計</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #6366f1', fontWeight: '700' }}>NGR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weeklyData.map((w, idx) => (
+                      <tr key={idx} style={{ background: idx % 2 === 0 ? 'white' : '#eef2ff' }}>
+                        <td style={{ padding: '8px', fontWeight: '600' }}>{w.日付}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(w.入金)}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(w.出金)}</td>
+                        <td style={{ padding: '8px', textAlign: 'right', color: w.収益 >= 0 ? '#059669' : '#dc2626' }}>{formatCurrency(w.収益)}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(w['T/O'])}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(w.ローリング)}</td>
+                        <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(w.大阪)}</td>
+                        <td style={{ padding: '8px', textAlign: 'right', color: '#f59e0b' }}>{formatCurrency(w.ローリング報酬)}</td>
+                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: w.NGR >= 0 ? '#059669' : '#dc2626' }}>{formatCurrency(w.NGR)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#c7d2fe', fontWeight: '700' }}>
+                      <td style={{ padding: '8px' }}>合計</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(currentData['入金合計'] || 0)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(currentData['出金合計'] || 0)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: '#059669' }}>{formatCurrency(currentData['収益合計'] || 0)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(currentData['T/O合計'] || 0)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(currentData['ローリング合計'] || 0)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{formatCurrency(currentData['大阪合計'] || 0)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: '#f59e0b' }}>{formatCurrency(currentData['ローリング報酬'] || 0)}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: '#8b5cf6' }}>{formatCurrency(currentData['NGR'] || 0)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      );
+    }
+    
+    // 広告事業専用レンダリング
+    if (currentBusiness?.type === 'ads') {
+      const dailyData = currentBusiness.data[selectedPeriod]?.日別 || [];
+      const formatUSD = (v) => `$${(v || 0).toFixed(2)}`;
+      return (
+        <>
+          {/* サマリーカード */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>コスト合計</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatUSD(currentData['コスト合計'])}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>インプレッション</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatNumber(currentData['インプレッション合計'])}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>クリック</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatNumber(currentData['クリック合計'])}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>登録</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatNumber(currentData['登録合計'])}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>入金</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatNumber(currentData['入金合計'])}</div>
+            </div>
+          </div>
+          
+          {/* KPIカード */}
+          <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#065f46' }}>
+              <TrendingUp size={18} style={{ color: '#10b981' }} />広告KPI
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px', borderLeft: '4px solid #3b82f6' }}>
+                <div style={{ fontSize: '11px', color: '#475569', marginBottom: '4px' }}>CTR</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#3b82f6' }}>{formatPercent(currentData['CTR'])}</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px', borderLeft: '4px solid #8b5cf6' }}>
+                <div style={{ fontSize: '11px', color: '#475569', marginBottom: '4px' }}>CVR（登録）</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#8b5cf6' }}>{formatPercent(currentData['CVR'])}</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px', borderLeft: '4px solid #10b981' }}>
+                <div style={{ fontSize: '11px', color: '#475569', marginBottom: '4px' }}>入金率</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#10b981' }}>{formatPercent(currentData['入金率'])}</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px', borderLeft: '4px solid #ef4444' }}>
+                <div style={{ fontSize: '11px', color: '#475569', marginBottom: '4px' }}>CPA（登録）</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#ef4444' }}>{formatUSD(currentData['CPA(登録)'])}</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px', borderLeft: '4px solid #f59e0b' }}>
+                <div style={{ fontSize: '11px', color: '#475569', marginBottom: '4px' }}>CPA（入金）</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#f59e0b' }}>{formatUSD(currentData['CPA(入金)'])}</div>
+              </div>
+              <div style={{ background: 'white', borderRadius: '10px', padding: '12px', borderLeft: '4px solid #64748b' }}>
+                <div style={{ fontSize: '11px', color: '#475569', marginBottom: '4px' }}>データ日数</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#64748b' }}>{currentData['データ日数'] || 0}日</div>
+              </div>
+            </div>
+          </div>
+          
+          {/* 日別データテーブル */}
+          {dailyData.length > 0 && (
+            <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#92400e' }}>
+                <Calendar size={18} style={{ color: '#f59e0b' }} />日別データ
+              </h3>
+              <div style={{ overflowX: 'auto', maxHeight: '400px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                  <thead style={{ position: 'sticky', top: 0 }}>
+                    <tr style={{ background: '#fef3c7' }}>
+                      <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #f59e0b' }}>日付</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #f59e0b' }}>コスト</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #f59e0b' }}>Imp</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #f59e0b' }}>Click</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #f59e0b' }}>登録</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #f59e0b' }}>入金</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #f59e0b' }}>CTR</th>
+                      <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #f59e0b' }}>CVR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dailyData.map((d, idx) => {
+                      const dayCTR = d.インプレッション > 0 ? d.クリック / d.インプレッション : 0;
+                      const dayCVR = d.クリック > 0 ? d.登録 / d.クリック : 0;
+                      return (
+                        <tr key={idx} style={{ background: idx % 2 === 0 ? 'white' : '#fffbeb' }}>
+                          <td style={{ padding: '8px', fontWeight: '600' }}>{d.日付}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>{formatUSD(d.コスト)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>{formatNumber(d.インプレッション)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>{formatNumber(d.クリック)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', color: '#10b981', fontWeight: '600' }}>{d.登録}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', color: '#f59e0b', fontWeight: '600' }}>{d.入金}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>{formatPercent(dayCTR)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>{formatPercent(dayCVR)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      );
+    }
+    
+    // バカラツール専用レンダリング
+    if (currentBusiness?.type === 'baccara') {
+      return (
+        <>
+          {/* サマリーカード */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>合計流入</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatNumber(currentData['合計流入'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>総ユーザー数</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatNumber(currentData['総ユーザー数'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>総入金額</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['総入金額'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>総GGR</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['総GGR'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>コスト</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['コスト'] || 0)}</div>
+            </div>
+            <div className="summary-card" style={{ background: (currentData['NGR'] || 0) >= 0 ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
+              <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>NGR</div>
+              <div style={{ fontSize: '22px', fontWeight: '700' }}>{formatCurrency(currentData['NGR'] || 0)}</div>
+            </div>
+          </div>
+          
+          {/* 流入元内訳 */}
+          <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#3730a3' }}>
+              <Users size={18} style={{ color: '#6366f1' }} />流入元内訳
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
+              {[
+                { key: 'LINE流入', label: 'LINE', color: '#06c755' },
+                { key: 'Telegram流入', label: 'Telegram', color: '#0088cc' },
+                { key: 'Twitter流入', label: 'Twitter', color: '#1da1f2' },
+              ].map(item => (
+                <div key={item.key} style={{ background: 'white', borderRadius: '10px', padding: '12px', borderLeft: `4px solid ${item.color}` }}>
+                  <div style={{ fontSize: '11px', color: '#475569', marginBottom: '4px' }}>{item.label}</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: item.color }}>{formatNumber(currentData[item.key] || 0)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      );
+    }
+    
+    const ggrWinLose = currentData['GGR(WIN/LOSE)'] || currentData['GGR'] || currentData['WIN/LOSE'] || 0;
+    const ggrReal = currentData['GGR(回収金額-出金金額)'] || 0;
+    const profit = currentData['利益'] || 0;
+
+    // 月次推移データ（グラフ用）
+    const trendData = currentBusiness?.periods?.slice(0, 6).reverse().map(period => {
+      const d = currentBusiness.data[period]?.サマリー || currentBusiness.data[period] || {};
+      return {
+        period: period.replace('年', '/').replace('月', ''),
+        'GGR': (d['GGR(WIN/LOSE)'] || d['GGR'] || d['WIN/LOSE'] || 0) / 10000,
+        'NGR': (d['NGR'] || 0) / 10000,
+        '利益': (d['利益'] || 0) / 10000,
+      };
+    }) || [];
+
+    // スロ天対応のT/O取得
+    const turnover = currentData['T/O'] || currentData['T/O(リアルのみ)'] || 0;
+    const totalDeposit = currentData['総入金額'] || 0;
+    const totalWithdraw = currentData['総出金額'] || 0;
+    const depositDiff = currentData['入出金差分'] || (totalDeposit - totalWithdraw);
+    const isSloten = currentBusiness?.type === 'sloten';
+
+    return (
+      <>
+        {/* サマリーカード - 事業タイプ別 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+          <div className="summary-card">
+            <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>T/O</div>
+            <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatCurrency(turnover)}</div>
+          </div>
+          {isSloten ? (
+            <>
+              {/* スロ天用: GGR, 入出金差分, RTP */}
+              <div className="summary-card" style={{ background: (currentData['GGR'] || 0) >= 0 ? 'linear-gradient(135deg, #22c55e 0%, #14b8a6 100%)' : 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)' }}>
+                <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>GGR</div>
+                <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatCurrency(currentData['GGR'])}</div>
+              </div>
+              <div className="summary-card" style={{ background: depositDiff >= 0 ? 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
+                <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>入出金差分</div>
+                <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatCurrency(depositDiff)}</div>
+              </div>
+              <div className="summary-card" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #eab308 100%)' }}>
+                <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>RTP</div>
+                <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatPercent(currentData['RTP'])}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* DSC/AMUSE用: WIN/LOSE, 回収率, 入出金差分(回収-出金) */}
+              <div className="summary-card" style={{ background: ggrWinLose >= 0 ? 'linear-gradient(135deg, #22c55e 0%, #14b8a6 100%)' : 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)' }}>
+                <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>WIN/LOSE</div>
+                <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatCurrency(ggrWinLose)}</div>
+              </div>
+              <div className="summary-card" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)' }}>
+                <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>回収率</div>
+                <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatPercent(currentData['回収率(全体)'] || currentData['回収率'])}</div>
+              </div>
+              <div className="summary-card" style={{ background: ggrReal >= 0 ? 'linear-gradient(135deg, #f59e0b 0%, #eab308 100%)' : 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' }}>
+                <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '4px' }}>入出金差分</div>
+                <div style={{ fontSize: '24px', fontWeight: '700' }}>{formatCurrency(ggrReal)}</div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* クイックKPI - 事業タイプ別 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+          {currentBusiness?.type === 'sloten' ? (
+            <>
+              {/* スロ天用 */}
+              <KPICard label="登録人数" value={formatNumber(currentData['登録人数'])} color={CARD_COLORS[0]} icon={Users} />
+              <KPICard label="FTD以上ユーザー" value={formatNumber(currentData['今月登録のFTD以降ユーザー数'])} subValue={currentData['今月登録FTD以降ユーザー割合'] ? `率: ${formatPercent(currentData['今月登録FTD以降ユーザー割合'])}` : null} color={CARD_COLORS[1]} icon={DollarSign} />
+              <KPICard label="アクティブ" value={formatNumber(currentData['アクティブプレイ人数（ユニーク）'] || currentData['アクティブプレイ人数'])} color={CARD_COLORS[2]} icon={Activity} />
+              <KPICard label="総入金額" value={formatCurrency(currentData['総入金額'])} color={CARD_COLORS[3]} icon={Wallet} />
+              <KPICard label="GGR" value={formatCurrency(currentData['GGR'])} color={CARD_COLORS[5]} icon={TrendingUp} />
+              <KPICard label="入出金差分" value={formatCurrency(currentData['入出金差分'])} color={CARD_COLORS[4]} icon={Target} />
+            </>
+          ) : (
+            <>
+              {/* DSC/AMUSE用 */}
+              <KPICard label="リスト件数" value={formatNumber(currentData['リスト件数'])} color={CARD_COLORS[0]} icon={Users} />
+              <KPICard label="FTD数" value={formatNumber(currentData['FTD数'])} subValue={currentData['FTD率'] ? `率: ${formatPercent(currentData['FTD率'])}` : null} color={CARD_COLORS[1]} icon={DollarSign} />
+              <KPICard label="アクティブ" value={formatNumber(currentData['アクティブユーザー数'])} color={CARD_COLORS[2]} icon={Activity} />
+              <KPICard label="回収率" value={formatPercent(currentData['回収率(全体)'] || currentData['回収率'])} color={CARD_COLORS[4]} icon={Target} />
+              <KPICard label="WIN/LOSE" value={formatCurrency(currentData['GGR(WIN/LOSE)'] || currentData['WIN/LOSE'])} color={CARD_COLORS[5]} icon={TrendingUp} />
+              <KPICard label="入出金差分" value={formatCurrency(currentData['GGR(回収金額-出金金額)'])} color={CARD_COLORS[3]} icon={Wallet} />
+            </>
+          )}
+        </div>
+
+        {/* 月次推移グラフ */}
+        {trendData.length > 1 && (
+          <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TrendingUp size={18} style={{ color: '#3b82f6' }} />月次推移（単位: 万円）
+            </h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v.toLocaleString()}`} />
+                <Tooltip formatter={(v) => [`¥${Math.round(v).toLocaleString()}万`, '']} />
+                <Legend />
+                <Line type="monotone" dataKey="GGR" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} name="GGR" />
+                <Line type="monotone" dataKey="NGR" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} name="NGR" />
+                <Line type="monotone" dataKey="利益" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} name="利益" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* 詳細セクション */}
+        {renderKPISection('営業KPI', eigyoKPI, <Phone size={18} style={{ color: '#3b82f6' }} />, '#eff6ff')}
+        {currentBusiness?.type !== 'sloten' && renderKPISection('転換KPI', tenkanKPI, <TrendingUp size={18} style={{ color: '#22c55e' }} />, '#f0fdf4')}
+        {currentBusiness?.type !== 'sloten' && renderKPISection('継続KPI', keizokuKPI, <Activity size={18} style={{ color: '#8b5cf6' }} />, '#faf5ff')}
+        {renderKPISection('収益KPI', shuekiKPI, <DollarSign size={18} style={{ color: '#f59e0b' }} />, '#fffbeb')}
+        {renderKPISection('回収KPI', kaishuKPI, <Wallet size={18} style={{ color: '#ef4444' }} />, '#fef2f2')}
+        {renderKPISection('ボーナスKPI', bonusKPI, <Target size={18} style={{ color: '#ec4899' }} />, '#fdf2f8')}
+        
+        {/* 顧客リスト分析（CSVから） */}
+        {currentBusiness?.type === 'samExcel' && currentData['総登録数'] !== undefined && (
+          <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#065f46' }}>
+              <FileText size={18} style={{ color: '#10b981' }} />顧客リスト分析
+            </h3>
+            
+            {/* 全体サマリー */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+              {[
+                { key: '総登録数', label: '総登録数', format: 'number' },
+                { key: 'Credit平均', label: 'Credit平均', format: 'currency' },
+                { key: 'Credit中央値', label: 'Credit中央値', format: 'currency' },
+                { key: '総回収額', label: '総回収額', format: 'currency' },
+                { key: '総出金額', label: '総出金額', format: 'currency' },
+                { key: '回収出金差分', label: '回収-出金', format: 'currency' },
+                { key: '総差分利益', label: '差分利益', format: 'currency' },
+                { key: '総NGR', label: '総NGR', format: 'currency' },
+              ].filter(item => currentData[item.key] !== undefined).map(item => (
+                <div key={item.key} style={{ background: 'white', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <div style={{ fontSize: '10px', color: '#065f46', marginBottom: '3px' }}>{item.label}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: item.key.includes('差分') && currentData[item.key] < 0 ? '#dc2626' : '#1e293b' }}>
+                    {item.format === 'currency' ? formatCurrency(currentData[item.key]) : formatNumber(currentData[item.key])}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* 事前精算・ボーナス分析 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+              {[
+                { key: '事前精算者数', label: '事前精算者', format: 'number' },
+                { key: '事前精算率', label: '事前精算率', format: 'percent' },
+                { key: '事前精算回数合計', label: '事前精算回数', format: 'number' },
+                { key: '事前精算金額合計', label: '事前精算金額', format: 'currency' },
+                { key: 'ボーナス付与者数', label: 'ボーナス付与者', format: 'number' },
+                { key: 'ボーナス付与率', label: 'ボーナス率', format: 'percent' },
+                { key: 'ボーナス金額合計', label: 'ボーナス金額', format: 'currency' },
+              ].filter(item => currentData[item.key] !== undefined).map(item => (
+                <div key={item.key} style={{ background: '#fef3c7', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <div style={{ fontSize: '10px', color: '#92400e', marginBottom: '3px' }}>{item.label}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>
+                    {item.format === 'currency' ? formatCurrency(currentData[item.key]) : 
+                     item.format === 'percent' ? formatPercent(currentData[item.key]) : formatNumber(currentData[item.key])}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* FTP/FTD/FTW分析 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+              {[
+                { key: 'FTP数', label: 'FTP（プレイのみ）', format: 'number', color: '#9333ea' },
+                { key: 'FTP率', label: 'FTP率', format: 'percent', color: '#9333ea' },
+                { key: 'FTD数', label: 'FTD（入金）', format: 'number', color: '#2563eb' },
+                { key: 'FTD率', label: 'FTD率', format: 'percent', color: '#2563eb' },
+                { key: 'FTW数', label: 'FTW（出金）', format: 'number', color: '#059669' },
+                { key: 'FTW率', label: 'FTW率', format: 'percent', color: '#059669' },
+                { key: 'FTDW数', label: 'FTDW（入出金）', format: 'number', color: '#dc2626' },
+                { key: 'FTDW率', label: 'FTDW率', format: 'percent', color: '#dc2626' },
+              ].filter(item => currentData[item.key] !== undefined).map(item => (
+                <div key={item.key} style={{ background: 'white', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: `4px solid ${item.color}` }}>
+                  <div style={{ fontSize: '10px', color: '#475569', marginBottom: '3px' }}>{item.label}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: item.color }}>
+                    {item.format === 'percent' ? formatPercent(currentData[item.key]) : formatNumber(currentData[item.key])}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* リスト別データ（顧客リストCSVから） */}
+        {currentBusiness?.type === 'samExcel' && currentBusiness.data[selectedPeriod]?.リスト別?.length > 0 && (
+          <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#3730a3' }}>
+              <Database size={18} style={{ color: '#6366f1' }} />リスト別分析
+            </h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                  <tr style={{ background: '#e0e7ff' }}>
+                    <th style={{ padding: '6px', textAlign: 'left', borderBottom: '2px solid #6366f1' }}>リスト</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>件数</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>Credit平均</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>Credit中央</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>回収計</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>出金計</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>差分</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>事前精算率</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>ボーナス率</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>FTP率</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>FTD率</th>
+                    <th style={{ padding: '6px', textAlign: 'right', borderBottom: '2px solid #6366f1' }}>FTW率</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentBusiness.data[selectedPeriod].リスト別
+                    .sort((a, b) => b.count - a.count)
+                    .map((l, idx) => (
+                    <tr key={l.name} style={{ background: idx % 2 === 0 ? 'white' : '#eef2ff' }}>
+                      <td style={{ padding: '6px', fontWeight: '600' }}>{l.name}</td>
+                      <td style={{ padding: '6px', textAlign: 'right' }}>{formatNumber(l.count)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right' }}>{formatCurrency(l.creditAvg || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right' }}>{formatCurrency(l.creditMedian || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right' }}>{formatCurrency(l.回収合計 || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right' }}>{formatCurrency(l.出金合計 || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right', color: (l.差分合計 || 0) >= 0 ? '#059669' : '#dc2626' }}>{formatCurrency(l.差分合計 || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right' }}>{formatPercent(l.事前精算率 || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right' }}>{formatPercent(l.ボーナス率 || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right', color: '#9333ea' }}>{formatPercent(l.FTP率 || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right', color: '#2563eb' }}>{formatPercent(l.FTD率 || 0)}</td>
+                      <td style={{ padding: '6px', textAlign: 'right', color: '#059669' }}>{formatPercent(l.FTW率 || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        
+        {/* DSC専用リンク一覧 */}
+        {selectedBusiness === 'DSC' && (
+          <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#92400e' }}>
+              <FileText size={18} style={{ color: '#f59e0b' }} />LP・ツール一覧（{DSC_LINKS.length}件）
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+              {(() => {
+                const categories = {};
+                DSC_LINKS.forEach(link => {
+                  if (!categories[link.category]) categories[link.category] = [];
+                  categories[link.category].push(link);
+                });
+                return Object.entries(categories).map(([cat, links]) => (
+                  <div key={cat} style={{ background: 'white', borderRadius: '8px', padding: '10px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '600', color: '#92400e', marginBottom: '6px', borderBottom: '1px solid #fde68a', paddingBottom: '4px' }}>{cat}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {links.map((link, idx) => (
+                        <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '10px', color: '#1d4ed8', textDecoration: 'none', padding: '2px 6px', background: '#dbeafe', borderRadius: '4px' }}>
+                          {link.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+        
+        {/* スロ天専用リンク一覧 */}
+        {selectedBusiness === 'スロ天' && (
+          <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#1e40af' }}>
+              <FileText size={18} style={{ color: '#3b82f6' }} />リンク一覧（{SLOTEN_LINKS.length}件）
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+              {(() => {
+                const categories = {};
+                SLOTEN_LINKS.forEach(link => {
+                  if (!categories[link.category]) categories[link.category] = [];
+                  categories[link.category].push(link);
+                });
+                return Object.entries(categories).map(([cat, links]) => (
+                  <div key={cat} style={{ background: 'white', borderRadius: '8px', padding: '10px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: '600', color: '#1e40af', marginBottom: '6px', borderBottom: '1px solid #bfdbfe', paddingBottom: '4px' }}>{cat}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {links.map((link, idx) => (
+                        <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '10px', color: '#1d4ed8', textDecoration: 'none', padding: '2px 6px', background: '#eff6ff', borderRadius: '4px' }}>
+                          {link.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+        
+        {/* スロ天専用セクション */}
+        {currentBusiness?.type === 'sloten' && currentBusiness.data[selectedPeriod]?.入金方法 && (
+          <>
+            {/* 転換ファンネル */}
+            <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <TrendingUp size={18} style={{ color: '#22c55e' }} />転換ファンネル
+              </h3>
+              {(() => {
+                const d = currentData;
+                const registration = d['登録人数'] || 0;
+                const ftd = d['FTDのみ入金者数'] || 0;
+                const second = d['2ndのみ入金者数'] || d['2nd入金のみユーザー数'] || d['2nd入金以降ユーザー数'] || 0;
+                const third = d['3nd入金以降ユーザー数'] || d['3nd入金のみユーザー数'] || 0;
+                const fourth = d['4nd入金以降ユーザー数'] || 0;
+                const ftdAbove = d['今月登録のFTD以降ユーザー数'] || 0;
+                const active = d['今月登録のアクティブユーザー数'] || d['アクティブプレイ人数（ユニーク）'] || d['アクティブプレイ人数'] || 0;
+                
+                // 登録からの割合
+                const ftdRate = d['登録に対して1st使用割合'] || (registration > 0 ? ftd / registration : 0);
+                const secondRate = d['登録に対して2nd使用割合'] || (registration > 0 ? second / registration : 0);
+                const thirdRate = d['登録に対して3nd使用割合'] || (registration > 0 ? third / registration : 0);
+                const fourthRate = d['登録に対して4nd使用割合'] || (registration > 0 ? fourth / registration : 0);
+                const ftdAboveRate = d['今月登録FTD以降ユーザー割合'] || (registration > 0 ? ftdAbove / registration : 0);
+                
+                // 転移率
+                const ftdTo2nd = ftd > 0 ? second / ftd : 0;
+                const secondTo3rd = second > 0 ? third / second : 0;
+                const thirdTo4th = third > 0 ? fourth / third : 0;
+                
+                const funnelData = [
+                  { label: '登録', value: registration, rate: 1, color: '#3b82f6' },
+                  { label: 'FTD', value: ftd, rate: ftdRate, transfer: null, color: '#22c55e' },
+                  { label: '2nd入金', value: second, rate: secondRate, transfer: ftdTo2nd, color: '#f59e0b' },
+                  { label: '3rd入金', value: third, rate: thirdRate, transfer: secondTo3rd, color: '#ec4899' },
+                  { label: '4th入金+', value: fourth, rate: fourthRate, transfer: thirdTo4th, color: '#8b5cf6' },
+                  { label: 'FTD以上', value: ftdAbove, rate: ftdAboveRate, transfer: null, color: '#14b8a6' },
+                ];
+                
+                return (
+                  <div>
+                    {/* ファンネル表示 */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '8px', marginBottom: '20px' }}>
+                      {funnelData.map((item, idx) => (
+                        <div key={item.label} style={{ textAlign: 'center' }}>
+                          <div style={{ 
+                            background: `${item.color}20`, 
+                            borderRadius: '10px', 
+                            padding: '12px 8px',
+                            border: `2px solid ${item.color}`,
+                            marginBottom: '8px'
+                          }}>
+                            <div style={{ fontSize: '11px', color: item.color, fontWeight: '600', marginBottom: '4px' }}>{item.label}</div>
+                            <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>{formatNumber(item.value)}</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>登録比: {formatPercent(item.rate)}</div>
+                          </div>
+                          {idx > 0 && idx < 5 && item.transfer !== null && (
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>
+                              転移率: <span style={{ fontWeight: '600', color: item.color }}>{formatPercent(item.transfer)}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* 詳細テーブル */}
+                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px' }}>
+                      <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                            <th style={{ textAlign: 'left', padding: '8px', color: '#64748b' }}>ステージ</th>
+                            <th style={{ textAlign: 'right', padding: '8px', color: '#64748b' }}>人数</th>
+                            <th style={{ textAlign: 'right', padding: '8px', color: '#64748b' }}>登録比</th>
+                            <th style={{ textAlign: 'right', padding: '8px', color: '#64748b' }}>転移率</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {funnelData.map((item, idx) => (
+                            <tr key={item.label} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '8px', fontWeight: '500', color: item.color }}>{item.label}</td>
+                              <td style={{ textAlign: 'right', padding: '8px', fontWeight: '600' }}>{formatNumber(item.value)}</td>
+                              <td style={{ textAlign: 'right', padding: '8px' }}>{formatPercent(item.rate)}</td>
+                              <td style={{ textAlign: 'right', padding: '8px' }}>{item.transfer !== null ? formatPercent(item.transfer) : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 継続KPI */}
+            <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={18} style={{ color: '#8b5cf6' }} />継続KPI
+              </h3>
+              {(() => {
+                const d = currentData;
+                const registration = d['登録人数'] || 0;
+                const ftdAbove = d['今月登録のFTD以降ユーザー数'] || 0;
+                
+                // アクティブユーザー数
+                const activeThisMonth = d['今月登録のアクティブユーザー数'] || 0;
+                const activePrevMonth = d['前月登録のアクティブユーザー数'] || 0;
+                const activePrev2Month = d['前々月登録のアクティブユーザー数'] || 0;
+                const active3MonthPlus = d['3か月以上アクティブプレイヤー数'] || 0;
+                const totalActive = d['アクティブプレイ人数（ユニーク）'] || d['アクティブプレイ人数'] || 0;
+                
+                // 前月データから継続率を計算
+                const periods = currentBusiness?.periods || [];
+                const currentIdx = periods.indexOf(selectedPeriod);
+                const prevPeriod = currentIdx < periods.length - 1 ? periods[currentIdx + 1] : null;
+                const prevData = prevPeriod ? (currentBusiness.data[prevPeriod]?.サマリー || {}) : {};
+                
+                const prevRegistration = prevData['登録人数'] || 0;
+                const prevFtdAbove = prevData['今月登録のFTD以降ユーザー数'] || 0;
+                
+                // 登録に対しての継続率
+                const retentionFromReg = prevRegistration > 0 ? activePrevMonth / prevRegistration : 0;
+                // FTD以降に対しての継続率
+                const retentionFromFtd = prevFtdAbove > 0 ? activePrevMonth / prevFtdAbove : 0;
+                
+                return (
+                  <div>
+                    {/* アクティブユーザー内訳 */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                      <div style={{ background: '#dbeafe', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#1e40af', marginBottom: '4px' }}>今月登録</div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#1e40af' }}>{formatNumber(activeThisMonth)}</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>登録比: {formatPercent(registration > 0 ? activeThisMonth / registration : 0)}</div>
+                      </div>
+                      <div style={{ background: '#dcfce7', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#166534', marginBottom: '4px' }}>前月登録</div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#166534' }}>{formatNumber(activePrevMonth)}</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>継続率: {formatPercent(retentionFromReg)}</div>
+                      </div>
+                      <div style={{ background: '#fef3c7', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#92400e', marginBottom: '4px' }}>前々月登録</div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#92400e' }}>{formatNumber(activePrev2Month)}</div>
+                      </div>
+                      <div style={{ background: '#fce7f3', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#9d174d', marginBottom: '4px' }}>3か月以上</div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#9d174d' }}>{formatNumber(active3MonthPlus)}</div>
+                      </div>
+                      <div style={{ background: '#e0e7ff', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#3730a3', marginBottom: '4px' }}>合計アクティブ</div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#3730a3' }}>{formatNumber(totalActive)}</div>
+                      </div>
+                    </div>
+                    
+                    {/* 継続率詳細 */}
+                    <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '16px' }}>
+                      <h4 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: '#475569' }}>継続率分析（前月→今月）</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>登録に対しての継続率</div>
+                          <div style={{ fontSize: '24px', fontWeight: '700', color: '#3b82f6' }}>{formatPercent(retentionFromReg)}</div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>前月登録 {formatNumber(prevRegistration)}人 → 今月アクティブ {formatNumber(activePrevMonth)}人</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>FTD以降に対しての継続率</div>
+                          <div style={{ fontSize: '24px', fontWeight: '700', color: '#22c55e' }}>{formatPercent(retentionFromFtd)}</div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>前月FTD以降 {formatNumber(prevFtdAbove)}人 → 今月アクティブ {formatNumber(activePrevMonth)}人</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 決済方法 */}
+            <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Wallet size={18} style={{ color: '#3b82f6' }} />決済方法
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                {/* 入金方法 */}
+                <div>
+                  <h4 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: '#22c55e' }}>入金内訳</h4>
+                  {(() => {
+                    const deposit = currentBusiness.data[selectedPeriod]?.入金方法 || {};
+                    const total = deposit['TOTAL'] || 1;
+                    const methods = ['PayPay', '銀行（自動）', '銀行（手動）', '仮想通貨', 'EC(コンビニ)'];
+                    return methods.map(m => {
+                      const val = deposit[m] || 0;
+                      const pct = ((val / total) * 100).toFixed(1);
+                      return (
+                        <div key={m} style={{ marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
+                            <span>{m}</span>
+                            <span style={{ fontWeight: '600' }}>{formatCurrency(val)} ({pct}%)</span>
+                          </div>
+                          <div style={{ background: '#e2e8f0', borderRadius: '4px', height: '8px' }}>
+                            <div style={{ background: '#22c55e', borderRadius: '4px', height: '100%', width: `${pct}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+                {/* 出金方法 */}
+                <div>
+                  <h4 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: '#ef4444' }}>出金内訳</h4>
+                  {(() => {
+                    const withdraw = currentBusiness.data[selectedPeriod]?.出金方法 || {};
+                    const total = withdraw['TOTAL'] || 1;
+                    const methods = ['銀行（手動）', '仮想通貨', '銀行（自動）', 'PayPay'];
+                    return methods.map(m => {
+                      const val = withdraw[m] || 0;
+                      const pct = ((val / total) * 100).toFixed(1);
+                      return (
+                        <div key={m} style={{ marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '4px' }}>
+                            <span>{m}</span>
+                            <span style={{ fontWeight: '600' }}>{formatCurrency(val)} ({pct}%)</span>
+                          </div>
+                          <div style={{ background: '#e2e8f0', borderRadius: '4px', height: '8px' }}>
+                            <div style={{ background: '#ef4444', borderRadius: '4px', height: '100%', width: `${pct}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* ゲーム別 */}
+            <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={18} style={{ color: '#8b5cf6' }} />ゲーム別
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+                {(() => {
+                  const games = currentBusiness.data[selectedPeriod]?.ゲーム別 || {};
+                  const gameNames = ['パチンコ', 'パチスロ', 'スロット', 'ライブ'];
+                  const colors = ['#f59e0b', '#3b82f6', '#22c55e', '#ec4899'];
+                  return gameNames.map((name, idx) => {
+                    const g = games[name] || {};
+                    return (
+                      <div key={name} style={{ background: `${colors[idx]}10`, borderRadius: '12px', padding: '14px', border: `1px solid ${colors[idx]}30` }}>
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: colors[idx], marginBottom: '10px' }}>{name}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>ユーザー数</div>
+                        <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px' }}>{formatNumber(g.ユーザー数)}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>T/O</div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>{formatCurrency(g.TO)}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>GGR</div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: (g.GGR || 0) >= 0 ? '#22c55e' : '#ef4444' }}>{formatCurrency(g.GGR)}</div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Affiliate */}
+            <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Users size={18} style={{ color: '#f59e0b' }} />Affiliate
+              </h3>
+              {(() => {
+                const aff = currentBusiness.data[selectedPeriod]?.Affiliate || {};
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '12px' }}>
+                    <div style={{ background: '#fef3c7', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ fontSize: '11px', color: '#92400e', marginBottom: '4px' }}>AFF数</div>
+                      <div style={{ fontSize: '18px', fontWeight: '700', color: '#92400e' }}>{formatNumber(aff['AFF数'])}</div>
+                    </div>
+                    <div style={{ background: '#dbeafe', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ fontSize: '11px', color: '#1e40af', marginBottom: '4px' }}>AFF経由登録者数</div>
+                      <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e40af' }}>{formatNumber(aff['AFF経由登録者数'])}</div>
+                    </div>
+                    <div style={{ background: '#dcfce7', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ fontSize: '11px', color: '#166534', marginBottom: '4px' }}>AFF経由FTD数</div>
+                      <div style={{ fontSize: '18px', fontWeight: '700', color: '#166534' }}>{formatNumber(aff['AFF経由FTD数'])}</div>
+                      <div style={{ fontSize: '10px', color: '#166534' }}>率: {formatPercent(aff['AFF経由FTD率'])}</div>
+                    </div>
+                    <div style={{ background: '#e0e7ff', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ fontSize: '11px', color: '#3730a3', marginBottom: '4px' }}>AFF経由入金額</div>
+                      <div style={{ fontSize: '16px', fontWeight: '700', color: '#3730a3' }}>{formatCurrency(aff['AFF経由入金額'])}</div>
+                    </div>
+                    <div style={{ background: '#fce7f3', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ fontSize: '11px', color: '#9d174d', marginBottom: '4px' }}>AFF経由出金額</div>
+                      <div style={{ fontSize: '16px', fontWeight: '700', color: '#9d174d' }}>{formatCurrency(aff['AFF経由出金額'])}</div>
+                    </div>
+                    <div style={{ background: (aff['AFF経由GGR'] || 0) >= 0 ? '#dcfce7' : '#fee2e2', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ fontSize: '11px', color: (aff['AFF経由GGR'] || 0) >= 0 ? '#166534' : '#991b1b', marginBottom: '4px' }}>AFF経由GGR</div>
+                      <div style={{ fontSize: '16px', fontWeight: '700', color: (aff['AFF経由GGR'] || 0) >= 0 ? '#166534' : '#991b1b' }}>{formatCurrency(aff['AFF経由GGR'])}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </>
+        )}
+      </>
+    );
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%)', color: '#1e293b', fontFamily: '"Noto Sans JP", sans-serif', padding: '20px' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+        .card { background: white; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: none; border-radius: 10px; padding: 10px 18px; color: white; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+        .btn-secondary { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 18px; color: #475569; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+        .btn-danger { background: #fee2e2; border: none; border-radius: 8px; padding: 8px 12px; color: #dc2626; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 12px; }
+        .business-tab { padding: 8px 18px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 500; border: none; }
+        .business-tab.active { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; }
+        .business-tab.inactive { background: white; color: #64748b; border: 1px solid #e2e8f0; }
+        .period-select { background: white; border: 2px solid #3b82f6; border-radius: 10px; padding: 10px 36px 10px 14px; color: #1e293b; font-size: 14px; font-weight: 600; cursor: pointer; appearance: none; min-width: 140px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 16px; }
+        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 16px; padding: 36px; text-align: center; cursor: pointer; background: #f8fafc; }
+        .upload-zone:hover, .upload-zone.active { border-color: #3b82f6; background: #eff6ff; }
+        .input-styled { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; color: #1e293b; font-size: 13px; width: 100%; }
+        .select-styled { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; color: #1e293b; font-size: 13px; }
+        .summary-card { background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); border-radius: 14px; padding: 18px; color: white; }
+      `}</style>
+
+      {/* ヘッダー */}
+      <header style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#0f172a', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Database size={26} style={{ color: '#3b82f6' }} />収益管理ダッシュボード
+            </h1>
+            <p style={{ color: '#64748b', fontSize: '12px' }}>最終更新: {lastUpdate.toLocaleString('ja-JP')}</p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn-primary" onClick={() => setShowUpload(!showUpload)}><Upload size={15} />ファイルアップロード</button>
+            <button className="btn-secondary" onClick={() => setShowAddBusiness(!showAddBusiness)}><Plus size={15} />事業追加</button>
+          </div>
+        </div>
+      </header>
+
+      {/* 事業追加パネル */}
+      {showAddBusiness && (
+        <div className="card" style={{ padding: '18px', marginBottom: '16px' }}>
+          <h3 style={{ marginBottom: '14px', fontWeight: '600', fontSize: '15px' }}>新規事業追加</h3>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1', minWidth: '140px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: '#475569' }}>事業名</label>
+              <input type="text" className="input-styled" placeholder="例: 新事業" value={newBusinessName} onChange={(e) => setNewBusinessName(e.target.value)} />
+            </div>
+            <button className="btn-primary" onClick={addBusiness}>追加</button>
+            <button className="btn-secondary" onClick={() => setShowAddBusiness(false)}>キャンセル</button>
+          </div>
+        </div>
+      )}
+
+      {/* アップロードパネル */}
+      {showUpload && (
+        <div className="card" style={{ padding: '20px', marginBottom: '16px' }}>
+          <h3 style={{ marginBottom: '14px', fontWeight: '600', fontSize: '15px' }}>ファイルをアップロード</h3>
+          <div style={{ background: '#eff6ff', borderRadius: '10px', padding: '12px', marginBottom: '14px', fontSize: '12px', color: '#1e40af' }}>
+            <strong>📋 対応形式:</strong><br/>
+            • <strong>Excel - 収益管理</strong> - 元amuse/DSC月次データ<br/>
+            • <strong>Excel - バカラツール</strong> - 流入数、ユーザー、GGR、コスト<br/>
+            • <strong>CSV - エージェント</strong> - AMUSEVIP週別精算<br/>
+            • <strong>CSV - 広告データ</strong> - コスト、Imp、Click、登録、入金<br/>
+            • <strong>CSV - 顧客リスト</strong> - リスト別分析<br/>
+            <div style={{ marginTop: '8px', padding: '8px', background: '#dbeafe', borderRadius: '6px' }}>
+              💡 <strong>自動判別:</strong> シート名・ファイル名から自動で事業を判別
+            </div>
+          </div>
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', color: '#475569' }}>期間名（自動検出できない場合のみ入力）</label>
+            <input type="text" className="input-styled" placeholder="例: 2025年9月" value={uploadPeriod} onChange={(e) => setUploadPeriod(e.target.value)} style={{ maxWidth: '280px' }} />
+          </div>
+          <div className={`upload-zone ${dragActive ? 'active' : ''}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => document.getElementById('file-input').click()}>
+            <Upload size={44} style={{ color: '#94a3b8', marginBottom: '10px' }} />
+            <p style={{ color: '#64748b', fontSize: '14px', fontWeight: '500', marginBottom: '6px' }}>Excel/CSVファイルをドラッグ＆ドロップ</p>
+            <p style={{ color: '#94a3b8', fontSize: '12px' }}>または クリックしてファイルを選択</p>
+            <input id="file-input" type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => handleFile(e.target.files[0])} />
+          </div>
+          <button className="btn-secondary" style={{ marginTop: '12px' }} onClick={() => setShowUpload(false)}>閉じる</button>
+        </div>
+      )}
+
+      {/* 事業・期間選択 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {Object.entries(businesses).map(([name, business]) => (
+            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button className={`business-tab ${selectedBusiness === name ? 'active' : 'inactive'}`} onClick={() => { setSelectedBusiness(name); setSelectedPeriod(business.periods?.[0] || ''); }}>
+                {name}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); deleteBusiness(name); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }} title="事業を削除"><Trash2 size={14} /></button>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Calendar size={18} style={{ color: '#3b82f6' }} />
+          <select className="period-select" value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)}>
+            {currentBusiness?.periods?.length > 0 ? currentBusiness.periods.map((period) => (<option key={period} value={period}>{period}</option>)) : (<option value="">CSVをアップロードしてください</option>)}
+          </select>
+          {currentBusiness?.periods?.length > 1 && (<button className="btn-danger" onClick={deletePeriod}><Trash2 size={14} />削除</button>)}
+        </div>
+      </div>
+
+      {/* メインコンテンツ */}
+      {currentBusiness?.periods?.length > 0 ? renderSAMExcel() : (
+        <div className="card" style={{ padding: '50px', textAlign: 'center' }}>
+          <Upload size={56} style={{ color: '#cbd5e1', marginBottom: '14px' }} />
+          <h3 style={{ color: '#64748b', marginBottom: '8px' }}>データがありません</h3>
+          <p style={{ color: '#94a3b8', fontSize: '13px' }}>「CSVアップロード」ボタンからCSVファイルをアップロードしてください</p>
+        </div>
+      )}
+
+      <footer style={{ marginTop: '28px', textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>
+        <p>収益管理ダッシュボード | 元amuse・DSC対応</p>
+      </footer>
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<BusinessDashboard />);
+  </script>
+</body>
+</html>
