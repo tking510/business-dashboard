@@ -2464,8 +2464,18 @@ function BusinessDashboard() {
 }
 
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<BusinessDashboard />);
+try {
+  console.log('Starting app initialization...');
+  const rootElement = document.getElementById('root');
+  console.log('Root element found:', rootElement);
+  const root = ReactDOM.createRoot(rootElement);
+  console.log('Root created, rendering...');
+  root.render(<BusinessDashboard />);
+  console.log('App rendered successfully!');
+} catch (error) {
+  console.error('Error rendering app:', error);
+  document.getElementById('root').innerHTML = '<div style="padding: 20px; color: red;"><h1>エラーが発生しました</h1><pre>' + error.message + '</pre></div>';
+}
   </script>
 </body>
 </html>
