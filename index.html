@@ -11,7 +11,7 @@
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; min-height: 100vh; }
     .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
-    .header h1 { font-size: 24px; color: #1e293b; display: flex; align-items: center; gap: 10px; }
+    .header h1 { font-size: 24px; color: #1e293b; }
     .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .card { background: white; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 20px; }
     .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -23,17 +23,16 @@
     .btn-secondary { background: #f1f5f9; color: #475569; }
     .btn-danger { background: #fee2e2; color: #dc2626; }
     .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
     .summary-card { border-radius: 14px; padding: 16px; color: white; }
-    .summary-card h3 { font-size: 12px; opacity: 0.9; margin-bottom: 4px; }
-    .summary-card .value { font-size: 22px; font-weight: 700; }
-    .summary-card .sub { font-size: 11px; opacity: 0.8; margin-top: 4px; }
+    .summary-card h3 { font-size: 11px; opacity: 0.9; margin-bottom: 4px; }
+    .summary-card .value { font-size: 20px; font-weight: 700; }
     .chart-container { height: 300px; margin: 20px 0; }
     .period-selector { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
     .period-btn { padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; background: #f1f5f9; color: #64748b; }
     .period-btn.active { background: #3b82f6; color: white; }
-    .upload-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .upload-content { background: white; border-radius: 16px; padding: 30px; max-width: 500px; width: 90%; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 16px; padding: 30px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
     .upload-zone { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s; }
     .upload-zone:hover, .upload-zone.dragover { border-color: #3b82f6; background: #eff6ff; }
     .hidden { display: none !important; }
@@ -45,18 +44,21 @@
     .table-container { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-    th { background: #f8fafc; font-weight: 600; color: #64748b; }
+    th { background: #f8fafc; font-weight: 600; color: #64748b; position: sticky; top: 0; }
     tr:hover { background: #f8fafc; }
     .text-right { text-align: right; }
     .text-green { color: #16a34a; }
     .text-red { color: #dc2626; }
-    input[type="text"], input[type="file"], select { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; width: 100%; }
+    input, select { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; width: 100%; }
     input:focus, select:focus { outline: none; border-color: #3b82f6; }
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 13px; color: #64748b; margin-bottom: 6px; }
-    .empty-state { text-align: center; padding: 60px 20px; color: #94a3b8; }
-    .empty-state svg { width: 60px; height: 60px; margin-bottom: 16px; opacity: 0.5; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 30px; padding: 20px; }
+    .agent-table { max-height: 400px; overflow-y: auto; }
+    .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+    .status-positive { background: #dcfce7; color: #16a34a; }
+    .status-negative { background: #fee2e2; color: #dc2626; }
   </style>
 </head>
 <body>
@@ -64,49 +66,55 @@
     <div class="header">
       <h1>📊 事業別ダッシュボード</h1>
       <div class="header-actions">
-        <button class="btn btn-primary" onclick="showUploadModal()">📤 ファイルアップロード</button>
-        <button class="btn btn-secondary" onclick="addBusiness()">➕ 事業追加</button>
+        <button class="btn btn-primary" onclick="showUploadModal()">📤 アップロード</button>
+        <button class="btn btn-secondary" onclick="showAddBusinessModal()">➕ 事業追加</button>
       </div>
     </div>
 
     <div class="tabs" id="business-tabs"></div>
-
     <div id="period-selector" class="period-selector"></div>
-
     <div id="summary-section" class="summary-grid"></div>
 
     <div class="card">
-      <h3 style="margin-bottom: 16px; color: #1e293b;">📈 月別推移</h3>
-      <div class="chart-container">
-        <canvas id="main-chart"></canvas>
-      </div>
+      <h3 style="margin-bottom: 16px; color: #1e293b;">📈 推移グラフ</h3>
+      <div class="chart-container"><canvas id="main-chart"></canvas></div>
     </div>
 
     <div id="links-section" class="card hidden">
-      <h3 style="margin-bottom: 16px; color: #1e293b;">🔗 リンク一覧</h3>
+      <h3 style="margin-bottom: 16px; color: #1e293b;" id="links-title">🔗 リンク一覧</h3>
       <div id="links-grid" class="links-grid"></div>
     </div>
 
     <div id="data-table" class="card">
       <h3 style="margin-bottom: 16px; color: #1e293b;">📋 詳細データ</h3>
-      <div class="table-container">
-        <table id="detail-table">
-          <thead><tr id="table-header"></tr></thead>
-          <tbody id="table-body"></tbody>
-        </table>
+      <div class="table-container agent-table">
+        <table><thead><tr id="table-header"></tr></thead><tbody id="table-body"></tbody></table>
       </div>
     </div>
 
-    <footer>収益管理ダッシュボード | 元amuse・DSC・スロ天対応</footer>
+    <footer>収益管理ダッシュボード v2.0 | 元amuse・DSC・スロ天・AMUSEVIP・広告・バカラツール対応</footer>
   </div>
 
   <!-- Upload Modal -->
-  <div id="upload-modal" class="upload-modal hidden">
-    <div class="upload-content">
+  <div id="upload-modal" class="modal hidden">
+    <div class="modal-content">
       <h3 style="margin-bottom: 20px;">📤 ファイルアップロード</h3>
-      <div class="form-group">
-        <label>期間（例: 2025年10月）</label>
-        <input type="text" id="upload-period" placeholder="2025年10月">
+      <div class="form-row">
+        <div class="form-group">
+          <label>期間</label>
+          <input type="text" id="upload-period" placeholder="例: 2025年10月">
+        </div>
+        <div class="form-group">
+          <label>データ種別</label>
+          <select id="upload-type">
+            <option value="auto">自動判別</option>
+            <option value="revenue">収益シート（元amuse/DSC）</option>
+            <option value="sloten">スロ天月次</option>
+            <option value="agent">AMUSEVIP エージェント</option>
+            <option value="ads">広告データ</option>
+            <option value="baccarat">バカラツール</option>
+          </select>
+        </div>
       </div>
       <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
         <div style="font-size: 40px; margin-bottom: 10px;">📁</div>
@@ -114,104 +122,307 @@
         <p style="font-size: 12px; color: #94a3b8; margin-top: 8px;">.xlsx, .xls, .csv 対応</p>
       </div>
       <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(this.files[0])">
+      <div id="upload-status" style="margin-top: 16px; padding: 12px; border-radius: 8px; display: none;"></div>
       <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
         <button class="btn btn-secondary" onclick="hideUploadModal()">閉じる</button>
       </div>
     </div>
   </div>
 
-  <script>
-// ===== データ定義 =====
-const BUSINESSES_DATA = {
+  <!-- Add Business Modal -->
+  <div id="add-business-modal" class="modal hidden">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 20px;">➕ 事業追加</h3>
+      <div class="form-group">
+        <label>事業名</label>
+        <input type="text" id="new-business-name" placeholder="例: 新規事業">
+      </div>
+      <div class="form-group">
+        <label>事業タイプ</label>
+        <select id="new-business-type">
+          <option value="standard">標準（GGR/NGR等）</option>
+          <option value="agent">エージェント型</option>
+          <option value="ads">広告型</option>
+          <option value="tool">ツール型</option>
+        </select>
+      </div>
+      <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="hideAddBusinessModal()">キャンセル</button>
+        <button class="btn btn-primary" onclick="addBusiness()">追加</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ========================================
+// データ定義
+// ========================================
+
+const BUSINESSES = {
   '元amuse': {
-    '2025年10月': { 'GGR': 70311340, 'NGR': 30910896, 'T/O': 1577495817, 'RTP': 95.54, 'アクティブユーザー数': 294, 'FTD数': 48, '回収率': 77.89, 'LTV': 239154 },
-    '2025年9月': { 'GGR': -2176638, 'NGR': 0, 'T/O': 56770645, 'RTP': 103.83, 'アクティブユーザー数': 0, 'FTD数': 0, '回収率': 0, 'LTV': 0 },
-    '2025年8月': { 'GGR': 56952667, 'NGR': 23459499, 'T/O': 1910465086, 'RTP': 97.35, 'アクティブユーザー数': 284, 'FTD数': 12, '回収率': 77.59, 'LTV': 92276 },
-    '2025年7月': { 'GGR': 89408914, 'NGR': 3791600, 'T/O': 3753649644, 'RTP': 97.62, 'アクティブユーザー数': 381, 'FTD数': 11, '回収率': 66.86, 'LTV': 34271 },
-    '2025年6月': { 'GGR': 106821992, 'NGR': 69120861, 'T/O': 3764837698, 'RTP': 97.16, 'アクティブユーザー数': 698, 'FTD数': 0, '回収率': 0, 'LTV': 113348 },
-    '2025年5月': { 'GGR': 30822400, 'NGR': 21494893, 'T/O': 5416323482, 'RTP': 99.95, 'アクティブユーザー数': 754, 'FTD数': 110, '回収率': 83.35, 'LTV': 40878 },
+    type: 'standard',
+    data: {
+      '2025年10月': { 'GGR': 70311340, 'NGR': 30910896, 'T/O': 1577495817, 'RTP': 95.54, 'アクティブユーザー': 294, 'FTD数': 48, '回収率': 77.89, 'LTV': 239154, '回収金額': 55956778, '出金金額': 17719827 },
+      '2025年9月': { 'GGR': -2176638, 'NGR': 0, 'T/O': 56770645, 'RTP': 103.83, 'アクティブユーザー': 0, 'FTD数': 0, '回収率': 0, 'LTV': 0 },
+      '2025年8月': { 'GGR': 56952667, 'NGR': 23459499, 'T/O': 1910465086, 'RTP': 97.35, 'アクティブユーザー': 284, 'FTD数': 12, '回収率': 77.59, 'LTV': 92276 },
+      '2025年7月': { 'GGR': 89408914, 'NGR': 3791600, 'T/O': 3753649644, 'RTP': 97.62, 'アクティブユーザー': 381, 'FTD数': 11, '回収率': 66.86, 'LTV': 34271 },
+      '2025年6月': { 'GGR': 106821992, 'NGR': 69120861, 'T/O': 3764837698, 'RTP': 97.16, 'アクティブユーザー': 698, 'FTD数': 0, '回収率': 0, 'LTV': 113348 },
+      '2025年5月': { 'GGR': 30822400, 'NGR': 21494893, 'T/O': 5416323482, 'RTP': 99.95, 'アクティブユーザー': 754, 'FTD数': 110, '回収率': 83.35, 'LTV': 40878 },
+      '2025年4月': { 'GGR': 69357611, 'NGR': 62624282, 'T/O': 3401315523, 'RTP': 97.63, 'アクティブユーザー': 551, 'FTD数': 127, '回収率': 89.32, 'LTV': 125875 },
+      '2025年3月': { 'GGR': 88303648, 'NGR': 73575372, 'T/O': 2574622273, 'RTP': 97.37, 'アクティブユーザー': 455, 'FTD数': 103, '回収率': 93.93, 'LTV': 194073 },
+    }
   },
   'DSC': {
-    '2026年1月': { 'GGR': 43248155, 'NGR': 20776887, 'T/O': 1342354453, 'RTP': 96.78, 'アクティブユーザー数': 173, 'FTD数': 10, '回収率': 80.07, 'LTV': 128277 },
-    '2025年12月': { 'GGR': 53578505, 'NGR': 31242527, 'T/O': 1514244472, 'RTP': 96.46, 'アクティブユーザー数': 292, 'FTD数': 1, '回収率': 83.81, 'LTV': 133161 },
-    '2025年11月': { 'GGR': 64900999, 'NGR': 33610642, 'T/O': 1568206349, 'RTP': 95.86, 'アクティブユーザー数': 227, 'FTD数': 29, '回収率': 82.91, 'LTV': 191404 },
-    '2025年9月': { 'GGR': 74174997, 'NGR': 31772784, 'T/O': 2578173994, 'RTP': 97.12, 'アクティブユーザー数': 298, 'FTD数': 73, '回収率': 81.94, 'LTV': 137774 },
+    type: 'standard',
+    data: {
+      '2026年1月': { 'GGR': 43248155, 'NGR': 20776887, 'T/O': 1342354453, 'RTP': 96.78, 'アクティブユーザー': 173, 'FTD数': 10, '回収率': 80.07, 'LTV': 128277 },
+      '2025年12月': { 'GGR': 53578505, 'NGR': 31242527, 'T/O': 1514244472, 'RTP': 96.46, 'アクティブユーザー': 292, 'FTD数': 1, '回収率': 83.81, 'LTV': 133161 },
+      '2025年11月': { 'GGR': 64900999, 'NGR': 33610642, 'T/O': 1568206349, 'RTP': 95.86, 'アクティブユーザー': 227, 'FTD数': 29, '回収率': 82.91, 'LTV': 191404 },
+      '2025年9月': { 'GGR': 74174997, 'NGR': 31772784, 'T/O': 2578173994, 'RTP': 97.12, 'アクティブユーザー': 298, 'FTD数': 73, '回収率': 81.94, 'LTV': 137774 },
+      '2025年8月': { 'GGR': 10510724, 'NGR': -1612843, 'T/O': 624445698, 'RTP': 98.32, 'アクティブユーザー': 135, 'FTD数': 7, '回収率': 21.50, 'LTV': -11946 },
+      '2025年7月': { 'GGR': 89408914, 'NGR': -1758164, 'T/O': 3753649644, 'RTP': 97.62, 'アクティブユーザー': 381, 'FTD数': 11, '回収率': 66.86, 'LTV': 34271 },
+    }
   },
-  'スロ天': {}
+  'スロ天': {
+    type: 'sloten',
+    data: {}
+  },
+  'AMUSEVIP': {
+    type: 'agent',
+    data: {
+      'サンプル': {
+        '総収益': 5000000,
+        'ローリング報酬': 1000000,
+        'NGR': 4000000,
+        'エージェント数': 10
+      }
+    },
+    agents: [
+      { name: 'エージェントA', revenue: 1500000, rolling: 300000, ngr: 1200000 },
+      { name: 'エージェントB', revenue: 1200000, rolling: 240000, ngr: 960000 },
+      { name: 'エージェントC', revenue: 800000, rolling: 160000, ngr: 640000 },
+    ]
+  },
+  '広告': {
+    type: 'ads',
+    data: {
+      'サンプル': {
+        'コスト': 500000,
+        'インプレッション': 1000000,
+        'クリック': 50000,
+        'CTR': 5.0,
+        '登録数': 500,
+        '入金数': 100,
+        'CVR': 1.0,
+        'CPA': 1000
+      }
+    }
+  },
+  'バカラツール': {
+    type: 'tool',
+    data: {
+      '全期間': {
+        'LINE流入': 0,
+        'Telegram流入': 0,
+        'Twitter流入': 0,
+        '合計流入': 0,
+        '総ユーザー数': 0,
+        '総入金額': 0,
+        '総GGR': 0,
+        'コスト': 788525.92,
+        'NGR': -788525.92
+      }
+    }
+  }
 };
 
-// DSCリンク
+// DSCリンク（56件）
 const DSC_LINKS = [
   { category: 'WELCOMELP', name: 'メイン', url: 'https://lp.diamond-secret.club/' },
   { category: 'WELCOMELP', name: '1', url: 'https://lp.diamond-secret.club/1/' },
   { category: 'WELCOMELP', name: 'A', url: 'https://lp.diamond-secret.club/A/' },
   { category: 'WELCOMELP', name: 'BIZ', url: 'https://lp.diamond-secret.club/BIZ/' },
   { category: 'WELCOMELP', name: 'AR', url: 'https://lp.diamond-secret.club/AR/' },
+  { category: 'WELCOMELP', name: 'NA', url: 'https://lp.diamond-secret.club/NA/' },
+  { category: 'WELCOMELP', name: 'OO', url: 'https://lp.diamond-secret.club/OO/' },
+  { category: 'WELCOMELP', name: 'SK', url: 'https://lp.diamond-secret.club/SK/' },
+  { category: 'WELCOMELP', name: 'TK', url: 'https://lp.diamond-secret.club/TK/' },
   { category: '開運LP', name: 'メイン', url: 'https://lp.diamond-secret.club/kaiun/' },
   { category: '開運LP', name: 'AR', url: 'https://lp.diamond-secret.club/kaiun/AR/' },
+  { category: '開運LP', name: 'NK', url: 'https://lp.diamond-secret.club/kaiun/NK/' },
+  { category: '開運LP', name: 'OO', url: 'https://lp.diamond-secret.club/kaiun/OO/' },
+  { category: '開運LP', name: 'SU', url: 'https://lp.diamond-secret.club/kaiun/SU/' },
+  { category: '開運LP', name: 'TK', url: 'https://lp.diamond-secret.club/kaiun/TK/' },
+  { category: 'クレジットLP', name: 'メイン', url: 'https://lp.diamond-secret.club/credit/' },
+  { category: 'クレジットLP', name: 'BIZ', url: 'https://lp.diamond-secret.club/credit/BIZ/' },
+  { category: 'UPSLP', name: 'メイン', url: 'https://lp.diamond-secret.club/UPS/' },
+  { category: 'UPSLP', name: 'BIZ', url: 'https://lp.diamond-secret.club/UPS/BIZ/' },
+  { category: '10日間無利息LP', name: 'メイン', url: 'https://lp.diamond-secret.club/10days/' },
+  { category: '10日間無利息LP', name: 'AR', url: 'https://lp.diamond-secret.club/10days/AR/' },
+  { category: '10日間無利息LP', name: 'OO', url: 'https://lp.diamond-secret.club/10days/OO/' },
+  { category: '10日間無利息LP', name: 'TK', url: 'https://lp.diamond-secret.club/10days/TK/' },
   { category: 'キャンペーンLP', name: 'バカラ大会', url: 'https://lp.diamond-secret.club/baccaratournament/' },
   { category: 'キャンペーンLP', name: '勝ちバック', url: 'https://lp.diamond-secret.club/backlp/' },
   { category: 'キャンペーンLP', name: '宝くじ', url: 'https://lp.diamond-secret.club/takarakuji/' },
+  { category: 'キャンペーンLP', name: 'リボプレイ', url: 'https://lp.diamond-secret.club/riboplay/' },
+  { category: 'キャンペーンLP', name: 'スロットカンスト', url: 'https://lp.diamond-secret.club/slotkanst/' },
+  { category: 'キャンペーンLP', name: 'バカラ広告用', url: 'https://lp.diamond-secret.club/baccara_ad/' },
+  { category: 'キャンペーンLP', name: 'BaccaratMillion', url: 'https://lp.diamond-secret.club/baccaratmillion/' },
+  { category: 'キャンペーンLP', name: 'PayPay', url: 'https://lp.diamond-secret.club/paypay/' },
+  { category: '野球LP', name: 'メイン', url: 'https://lp.diamond-secret.club/baseball/' },
+  { category: '野球LP', name: 'AR', url: 'https://lp.diamond-secret.club/baseball/AR/' },
+  { category: '野球LP', name: 'OO', url: 'https://lp.diamond-secret.club/baseball/OO/' },
+  { category: '野球LP', name: 'TK', url: 'https://lp.diamond-secret.club/baseball/TK/' },
+  { category: '野球告知LP', name: 'メイン', url: 'https://lp.diamond-secret.club/baseball_notice/' },
+  { category: 'maxkaitori', name: 'メイン', url: 'https://lp.diamond-secret.club/maxkaitori/' },
+  { category: 'maxkaitori', name: 'BIZ', url: 'https://lp.diamond-secret.club/maxkaitori/BIZ/' },
+  { category: 'maxkaitori', name: 'G', url: 'https://lp.diamond-secret.club/maxkaitori/G/' },
+  { category: 'maxkaitori', name: 'T', url: 'https://lp.diamond-secret.club/maxkaitori/T/' },
+  { category: 'maxkaitori', name: 'X', url: 'https://lp.diamond-secret.club/maxkaitori/X/' },
+  { category: 'maxkaitori', name: 'Y', url: 'https://lp.diamond-secret.club/maxkaitori/Y/' },
   { category: 'ツール', name: 'MOL', url: 'https://mol-d-x.com/' },
   { category: 'ツール', name: 'MOL管理画面', url: 'https://mol-d-x.com/admin' },
   { category: 'ツール', name: '暴露ページ', url: 'https://expose.diamond-secret.club/' },
   { category: 'ツール', name: '入出金プラットフォーム', url: 'https://payment.diamond-secret.club/' },
+  { category: 'ツール', name: 'ギャンブル占い', url: 'https://lp.diamond-secret.club/fortune/' },
+  { category: 'ツール', name: 'スロット図鑑', url: 'https://lp.diamond-secret.club/slotzukan/' },
+  { category: 'その他', name: 'ゲーム広告用', url: 'https://lp.diamond-secret.club/game_ad/' },
+  { category: 'その他', name: 'SLOTENTEST', url: 'https://lp.diamond-secret.club/SLOTENTEST/' },
+  { category: 'その他', name: '高配当買取', url: 'https://lp.diamond-secret.club/highpayout/' },
+  { category: 'その他', name: '5のつく日CB', url: 'https://lp.diamond-secret.club/5day_cb/' },
+  { category: 'その他', name: '9のつく日6確定', url: 'https://lp.diamond-secret.club/9day_6/' },
 ];
 
-// スロ天リンク（162件から抜粋）
+// スロ天リンク（162件から主要なもの）
 const SLOTEN_LINKS = [
   { category: '全部署', name: '管理画面BO', url: 'https://admin.sloten.io/' },
   { category: '全部署', name: 'シフト', url: 'https://docs.google.com/spreadsheets/d/1tR0hRKy7wyKMc9Nk1MhQ_kOqs3Acg6LoG-nau1VETIA/edit' },
   { category: '全部署', name: '公式サイト', url: 'https://sloten.io/' },
+  { category: '全部署', name: 'USPLP①(AFF用)', url: 'https://affiliate2.sloten.io/' },
+  { category: '全部署', name: '開発リクエストテンプレ', url: 'https://docs.google.com/spreadsheets/d/1qjfoPKpugtf9flrfDsdHHsnLQyIM6ARI4EmPJ-_EYGY/edit' },
+  { category: '全部署', name: 'デザイン依頼', url: 'https://docs.google.com/document/d/1aZeeeN3jeTOtFIPb-w522eUPwqFQa-HA1jtunnlwhI4/edit' },
+  { category: '全部署', name: 'エラー一覧', url: 'https://docs.google.com/document/d/140p9DoXIrl-g3ARPueRCktRcM6wMtYe0umLsBl_KzJw/edit' },
   { category: '全部署', name: 'DISCORD', url: 'https://discord.gg/7hrDaJfw' },
   { category: '全部署', name: 'LINE', url: 'https://lin.ee/jTDURj3' },
   { category: '全部署', name: 'TELEGRAM', url: 'https://t.me/slotheavenbot' },
+  { category: '全部署', name: 'ドリームポット説明', url: 'https://lottojackpot-jkhjm2sm.manus.space' },
+  { category: 'AFF', name: 'Affiliate業務内容', url: 'https://drive.google.com/file/d/1MD17WZ-1_3FPfbSda8ZazXFoHPDBWs5q/view' },
   { category: 'AFF', name: 'AFF部門', url: 'https://docs.google.com/spreadsheets/d/1GLaqQEoqEJZSRUUkYHiPKMhPXG7X7gwRmpoCe14FTQ8/edit' },
   { category: 'AFF', name: 'アフィリエイト管理画面', url: 'https://asp.sloten.io/login?redirect=/home' },
+  { category: 'AFF', name: 'アフィリエイト一覧', url: 'https://docs.google.com/spreadsheets/d/1RpzwRIDj9kdLA9IgiDyJp2FglPfFjonsehacHzhZA_Q/edit' },
+  { category: 'AFF', name: '競馬インフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1glOO7LnOfonaRDXqbjQp0olXBx4OCwm1w9oWJk1-mIE/edit' },
+  { category: 'AFF', name: 'カジノインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1IS_kyOhRxbBryaKKys_2_wrQuZeH1rKfSdhtMoXXyFk/edit' },
+  { category: 'CS', name: 'CS業務内容', url: 'https://drive.google.com/file/d/1yaJLp77zkMbuRSklo9c5nTsfJTv7pESC/view' },
   { category: 'CS', name: 'CS部門', url: 'https://docs.google.com/spreadsheets/d/1lmjDjjwtQvykisZAqUD2OsI9zB_Xru8nTkGIPo5NSsY/edit' },
   { category: 'CS', name: 'チャットウッド', url: 'https://im.slot-h.com/app/accounts/3/dashboard' },
+  { category: 'VIP', name: 'VIP業務内容', url: 'https://drive.google.com/file/d/1ifRKr1I94k2YMjJ0x9rfoLOL4lkBxqnq/view' },
+  { category: 'VIP', name: 'VIP部門', url: 'https://docs.google.com/spreadsheets/d/1UdC202Mx0UP_qzIIJY3tI3DyI4OGAJg88o5C7GIklU0/edit' },
+  { category: 'VIP', name: '電話リスト', url: 'https://docs.google.com/spreadsheets/d/1TKIejq0QR2bywgZ67xsDQKjH5ZYqn3ijJZRzs4t2y9Y/edit' },
+  { category: 'オペ', name: 'オペレーション業務内容', url: 'https://drive.google.com/file/d/161xgqNM94UIKiszi_kr-UGLtfE-9gnJM/view' },
   { category: 'オペ', name: 'KPI', url: 'https://docs.google.com/spreadsheets/d/1oGnetFNtGd1ZB-A9YkzzfqIU4Bxh3djsABeEX_bHl8M/edit' },
+  { category: 'オペ', name: 'LP①計測シート', url: 'https://docs.google.com/spreadsheets/d/18QiN_BoVS-hdP-e4vNOAzjDZaFLTtnWlogJ5AW1hQSY/edit' },
+  { category: 'オペ', name: 'トーナメント', url: 'https://docs.google.com/spreadsheets/d/1w2bVg5jhKNzkSPrOfdu2siWq1wwRRq3YZGZ5XdhZQBo/edit' },
+  { category: 'オペ', name: 'メルマガ', url: 'https://docs.google.com/spreadsheets/d/1B0VSScmblCgUszAxIKvFzdTRSUSqxTnzJSv7djSB5DQ/edit' },
+  { category: 'オペ', name: 'X計測用', url: 'https://millionheaven.site/' },
+  { category: 'オペ', name: 'TIKTOK計測用', url: 'https://millionheaven.space/' },
   { category: 'オペ', name: 'メーラー', url: 'https://fviainboxes.com/' },
+  { category: 'ペイメント', name: 'ペイメント業務内容', url: 'https://drive.google.com/file/d/1crHJAlc8zfV-x9jJFoxnDkZ45L0EFEq4/view' },
+  { category: 'ペイメント', name: 'Payment部門', url: 'https://docs.google.com/spreadsheets/d/1lBgXBn2GrDejUGd_p_SZJzFXIRRUosApgyJv-ns9PVY/edit' },
   { category: 'ペイメント', name: 'ポイントBO', url: 'https://add.sloten.io/' },
+  { category: 'ペイメント', name: 'EC着金確認', url: 'https://docs.google.com/spreadsheets/d/18KCWtE3_wFStjIE8RYlK47XaeAi3TRwGpvugBwSe3Qk/edit' },
+  { category: 'ペイメント', name: 'PayPay着金確認', url: 'https://docs.google.com/spreadsheets/d/1a-qM_--jYMaeYgurhRkZRiJH4r9INsrokjTzlzmhSds/edit' },
   { category: 'admin', name: 'スロ天ガチャ', url: 'https://lp.diamond-secret.club/Slotengacha/' },
   { category: 'admin', name: 'スロ天ルーレット', url: 'https://lp.diamond-secret.club/Slotenroulet/' },
+  { category: 'admin', name: 'ドリームポットLP', url: 'https://lp.diamond-secret.club/slotentakarakuji/' },
+  { category: 'admin', name: 'コール入力システム', url: 'https://script.google.com/macros/s/AKfycbzi6_9-f5aIk1pKxwsQvH-CZ26wLs7GEruchrCIppiiXxRzIwRmgTIcGgSE0PctoksO/exec' },
+  { category: 'admin', name: 'QAシート', url: 'https://docs.google.com/spreadsheets/d/1TCSDgHmxz6LTs4YDsu4pab0NZxd9vDR7T5q8bX3CJ-c/edit' },
+  { category: 'admin', name: 'DRIVE', url: 'https://drive.google.com/drive/folders/1rrIyglyY-NpFUH7af8abapHrJOvojKdg' },
   { category: 'ツール', name: 'ダッシュボード', url: 'https://sloten-dashboard.manus.space/' },
   { category: 'ツール', name: 'リンク集', url: 'https://sloten-link.manus.space' },
   { category: 'ツール', name: 'CSVセグメント', url: 'https://crm-segmentation-tool-gnwlkpueqvcdgapck3uv8z.streamlit.app/' },
+  { category: 'ツール', name: 'カレンダー', url: 'https://shared-calendar-app-iota.vercel.app/' },
+  { category: 'ツール', name: 'SEOツール', url: 'https://nexus-seo-u5uq936q.manus.space/' },
+  { category: 'ツール', name: 'スロ天CSVデータ', url: 'https://userdash-eanx4o83.manus.space/?code=C9CEZYMehvBKv3HUVMoNGw' },
   { category: 'その他', name: 'CLOUD', url: 'https://panel.cloudzy.com/dashboard' },
   { category: 'その他', name: 'DC/ACE', url: 'https://share.dc-ace.com/login' },
+  { category: 'その他', name: 'タスクまとめ', url: 'https://docs.google.com/spreadsheets/d/1ZNo_1jd6EYX6O1cccQ9sa3A2xJwInIMU5QinvOUvk2E/edit' },
+  { category: 'その他', name: 'バカラチャレンジ', url: 'https://docs.google.com/spreadsheets/d/1qGd0hneNNqNNZCNMXbO89wYusHIbB0nnNqZNvjsqnbY/edit' },
 ];
 
-// ===== 状態管理 =====
+// ========================================
+// 状態管理
+// ========================================
 let currentBusiness = '元amuse';
 let currentPeriod = null;
 let chartInstance = null;
 
-// ===== 初期化 =====
+// ========================================
+// 初期化
+// ========================================
 document.addEventListener('DOMContentLoaded', () => {
   renderTabs();
   selectBusiness('元amuse');
   setupDragDrop();
 });
 
-// ===== タブ描画 =====
-function renderTabs() {
-  const container = document.getElementById('business-tabs');
-  container.innerHTML = Object.keys(BUSINESSES_DATA).map(name => 
-    `<button class="tab ${name === currentBusiness ? 'active' : ''}" onclick="selectBusiness('${name}')">${name}</button>`
-  ).join('') + `<button class="tab btn-danger" onclick="deleteBusiness()" style="margin-left: auto;">🗑️ 削除</button>`;
+// ========================================
+// ユーティリティ
+// ========================================
+function parseNumber(val) {
+  if (val === undefined || val === null || val === '' || val === '-') return null;
+  if (typeof val === 'number') return val;
+  let cleaned = String(val).replace(/[¥￥,、\s]/g, '').replace(/^"/, '').replace(/"$/, '').trim();
+  if (cleaned.endsWith('%')) cleaned = cleaned.replace(/%$/, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
 }
 
-// ===== 事業選択 =====
+function formatCurrency(val) {
+  if (val == null) return '-';
+  return '¥' + Math.round(val).toLocaleString();
+}
+
+function formatPercent(val) {
+  if (val == null) return '-';
+  return val.toFixed(2) + '%';
+}
+
+function formatNumber(val) {
+  if (val == null) return '-';
+  return Math.round(val).toLocaleString();
+}
+
+function sortPeriods(periods) {
+  return [...periods].sort((a, b) => {
+    const matchA = a.match(/(\d{4})年(\d{1,2})月/);
+    const matchB = b.match(/(\d{4})年(\d{1,2})月/);
+    if (matchA && matchB) {
+      const [, yA, mA] = matchA;
+      const [, yB, mB] = matchB;
+      return (parseInt(yB) * 12 + parseInt(mB)) - (parseInt(yA) * 12 + parseInt(mA));
+    }
+    return b.localeCompare(a);
+  });
+}
+
+// ========================================
+// タブ描画
+// ========================================
+function renderTabs() {
+  const container = document.getElementById('business-tabs');
+  container.innerHTML = Object.keys(BUSINESSES).map(name => 
+    `<button class="tab ${name === currentBusiness ? 'active' : ''}" onclick="selectBusiness('${name}')">${name}</button>`
+  ).join('') + `<button class="tab btn-danger" onclick="deleteBusiness()" style="margin-left: auto;">🗑️</button>`;
+}
+
+// ========================================
+// 事業選択
+// ========================================
 function selectBusiness(name) {
   currentBusiness = name;
-  const data = BUSINESSES_DATA[name] || {};
-  const periods = Object.keys(data).sort((a, b) => {
-    const [yA, mA] = a.match(/(\d+)年(\d+)月/).slice(1).map(Number);
-    const [yB, mB] = b.match(/(\d+)年(\d+)月/).slice(1).map(Number);
-    return (yB * 12 + mB) - (yA * 12 + mA);
-  });
-  
+  const business = BUSINESSES[name];
+  const data = business?.data || {};
+  const periods = sortPeriods(Object.keys(data));
   currentPeriod = periods[0] || null;
   
   renderTabs();
@@ -222,11 +433,13 @@ function selectBusiness(name) {
   renderTable();
 }
 
-// ===== 期間セレクタ =====
+// ========================================
+// 期間セレクタ
+// ========================================
 function renderPeriodSelector(periods) {
   const container = document.getElementById('period-selector');
   if (periods.length === 0) {
-    container.innerHTML = '';
+    container.innerHTML = '<span style="color: #94a3b8; font-size: 13px;">データをアップロードしてください</span>';
     return;
   }
   container.innerHTML = periods.map(p => 
@@ -236,63 +449,93 @@ function renderPeriodSelector(periods) {
 
 function selectPeriod(period) {
   currentPeriod = period;
-  renderPeriodSelector(Object.keys(BUSINESSES_DATA[currentBusiness] || {}).sort((a, b) => {
-    const [yA, mA] = a.match(/(\d+)年(\d+)月/).slice(1).map(Number);
-    const [yB, mB] = b.match(/(\d+)年(\d+)月/).slice(1).map(Number);
-    return (yB * 12 + mB) - (yA * 12 + mA);
-  }));
+  const periods = sortPeriods(Object.keys(BUSINESSES[currentBusiness]?.data || {}));
+  renderPeriodSelector(periods);
   renderSummary();
   renderTable();
 }
 
-// ===== サマリーカード =====
+// ========================================
+// サマリーカード
+// ========================================
 function renderSummary() {
   const container = document.getElementById('summary-section');
-  const data = BUSINESSES_DATA[currentBusiness]?.[currentPeriod];
+  const business = BUSINESSES[currentBusiness];
+  const data = business?.data?.[currentPeriod];
   
   if (!data) {
-    container.innerHTML = '';
+    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;">データがありません</div>';
     return;
   }
   
-  const cards = [
-    { label: 'GGR', value: data['GGR'], format: 'currency', color: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' },
-    { label: 'NGR', value: data['NGR'], format: 'currency', color: 'linear-gradient(135deg, #10b981, #059669)' },
-    { label: 'T/O', value: data['T/O'], format: 'currency', color: 'linear-gradient(135deg, #8b5cf6, #6d28d9)' },
-    { label: 'RTP', value: data['RTP'], format: 'percent', color: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-    { label: 'アクティブユーザー', value: data['アクティブユーザー数'], format: 'number', color: 'linear-gradient(135deg, #ec4899, #db2777)' },
-    { label: 'FTD数', value: data['FTD数'], format: 'number', color: 'linear-gradient(135deg, #06b6d4, #0891b2)' },
-    { label: '回収率', value: data['回収率'], format: 'percent', color: 'linear-gradient(135deg, #84cc16, #65a30d)' },
-    { label: 'LTV', value: data['LTV'], format: 'currency', color: 'linear-gradient(135deg, #f43f5e, #e11d48)' },
-  ];
+  let cards = [];
+  const type = business.type;
   
-  container.innerHTML = cards.filter(c => c.value != null).map(card => `
-    <div class="summary-card" style="background: ${card.color};">
-      <h3>${card.label}</h3>
-      <div class="value">${formatValue(card.value, card.format)}</div>
-    </div>
-  `).join('');
-}
-
-function formatValue(value, format) {
-  if (value == null) return '-';
-  switch (format) {
-    case 'currency': return '¥' + Math.round(value).toLocaleString();
-    case 'percent': return value.toFixed(2) + '%';
-    case 'number': return Math.round(value).toLocaleString();
-    default: return value;
+  if (type === 'standard' || type === 'sloten') {
+    cards = [
+      { label: 'GGR', key: 'GGR', format: 'currency', color: '#3b82f6' },
+      { label: 'NGR', key: 'NGR', format: 'currency', color: '#10b981' },
+      { label: 'T/O', key: 'T/O', format: 'currency', color: '#8b5cf6' },
+      { label: 'RTP', key: 'RTP', format: 'percent', color: '#f59e0b' },
+      { label: 'アクティブユーザー', key: 'アクティブユーザー', format: 'number', color: '#ec4899' },
+      { label: 'FTD数', key: 'FTD数', format: 'number', color: '#06b6d4' },
+      { label: '回収率', key: '回収率', format: 'percent', color: '#84cc16' },
+      { label: 'LTV', key: 'LTV', format: 'currency', color: '#f43f5e' },
+    ];
+  } else if (type === 'agent') {
+    cards = [
+      { label: '総収益', key: '総収益', format: 'currency', color: '#3b82f6' },
+      { label: 'ローリング報酬', key: 'ローリング報酬', format: 'currency', color: '#10b981' },
+      { label: 'NGR', key: 'NGR', format: 'currency', color: '#8b5cf6' },
+      { label: 'エージェント数', key: 'エージェント数', format: 'number', color: '#f59e0b' },
+    ];
+  } else if (type === 'ads') {
+    cards = [
+      { label: 'コスト', key: 'コスト', format: 'currency', color: '#ef4444' },
+      { label: 'インプレッション', key: 'インプレッション', format: 'number', color: '#3b82f6' },
+      { label: 'クリック', key: 'クリック', format: 'number', color: '#10b981' },
+      { label: 'CTR', key: 'CTR', format: 'percent', color: '#f59e0b' },
+      { label: '登録数', key: '登録数', format: 'number', color: '#8b5cf6' },
+      { label: '入金数', key: '入金数', format: 'number', color: '#ec4899' },
+      { label: 'CVR', key: 'CVR', format: 'percent', color: '#06b6d4' },
+      { label: 'CPA', key: 'CPA', format: 'currency', color: '#84cc16' },
+    ];
+  } else if (type === 'tool') {
+    cards = [
+      { label: 'LINE流入', key: 'LINE流入', format: 'number', color: '#06b6d4' },
+      { label: 'Telegram流入', key: 'Telegram流入', format: 'number', color: '#3b82f6' },
+      { label: 'Twitter流入', key: 'Twitter流入', format: 'number', color: '#1da1f2' },
+      { label: '合計流入', key: '合計流入', format: 'number', color: '#8b5cf6' },
+      { label: '総ユーザー数', key: '総ユーザー数', format: 'number', color: '#10b981' },
+      { label: '総入金額', key: '総入金額', format: 'currency', color: '#f59e0b' },
+      { label: '総GGR', key: '総GGR', format: 'currency', color: '#3b82f6' },
+      { label: 'コスト', key: 'コスト', format: 'currency', color: '#ef4444' },
+      { label: 'NGR', key: 'NGR', format: 'currency', color: '#10b981' },
+    ];
   }
+  
+  container.innerHTML = cards.filter(c => data[c.key] != null).map(card => {
+    let value = data[card.key];
+    let formatted = card.format === 'currency' ? formatCurrency(value) 
+                  : card.format === 'percent' ? formatPercent(value) 
+                  : formatNumber(value);
+    return `
+      <div class="summary-card" style="background: linear-gradient(135deg, ${card.color}, ${card.color}dd);">
+        <h3>${card.label}</h3>
+        <div class="value">${formatted}</div>
+      </div>
+    `;
+  }).join('');
 }
 
-// ===== チャート =====
+// ========================================
+// チャート
+// ========================================
 function renderChart() {
   const ctx = document.getElementById('main-chart').getContext('2d');
-  const data = BUSINESSES_DATA[currentBusiness] || {};
-  const periods = Object.keys(data).sort((a, b) => {
-    const [yA, mA] = a.match(/(\d+)年(\d+)月/).slice(1).map(Number);
-    const [yB, mB] = b.match(/(\d+)年(\d+)月/).slice(1).map(Number);
-    return (yA * 12 + mA) - (yB * 12 + mB);
-  });
+  const business = BUSINESSES[currentBusiness];
+  const data = business?.data || {};
+  const periods = sortPeriods(Object.keys(data)).reverse();
   
   if (chartInstance) chartInstance.destroy();
   
@@ -301,15 +544,34 @@ function renderChart() {
     return;
   }
   
+  let datasets = [];
+  const type = business.type;
+  
+  if (type === 'standard' || type === 'sloten') {
+    datasets = [
+      { label: 'GGR', data: periods.map(p => data[p]?.['GGR'] || 0), backgroundColor: 'rgba(59, 130, 246, 0.7)' },
+      { label: 'NGR', data: periods.map(p => data[p]?.['NGR'] || 0), backgroundColor: 'rgba(16, 185, 129, 0.7)' },
+    ];
+  } else if (type === 'ads') {
+    datasets = [
+      { label: 'コスト', data: periods.map(p => data[p]?.['コスト'] || 0), backgroundColor: 'rgba(239, 68, 68, 0.7)' },
+      { label: '登録数×1000', data: periods.map(p => (data[p]?.['登録数'] || 0) * 1000), backgroundColor: 'rgba(139, 92, 246, 0.7)' },
+    ];
+  } else if (type === 'tool') {
+    datasets = [
+      { label: '総GGR', data: periods.map(p => data[p]?.['総GGR'] || 0), backgroundColor: 'rgba(59, 130, 246, 0.7)' },
+      { label: 'コスト', data: periods.map(p => data[p]?.['コスト'] || 0), backgroundColor: 'rgba(239, 68, 68, 0.7)' },
+      { label: 'NGR', data: periods.map(p => data[p]?.['NGR'] || 0), backgroundColor: 'rgba(16, 185, 129, 0.7)' },
+    ];
+  } else {
+    datasets = [
+      { label: '総収益', data: periods.map(p => data[p]?.['総収益'] || 0), backgroundColor: 'rgba(59, 130, 246, 0.7)' },
+    ];
+  }
+  
   chartInstance = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels: periods,
-      datasets: [
-        { label: 'GGR', data: periods.map(p => data[p]?.['GGR'] || 0), backgroundColor: 'rgba(59, 130, 246, 0.7)' },
-        { label: 'NGR', data: periods.map(p => data[p]?.['NGR'] || 0), backgroundColor: 'rgba(16, 185, 129, 0.7)' },
-      ]
-    },
+    data: { labels: periods, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -319,14 +581,22 @@ function renderChart() {
   });
 }
 
-// ===== リンク一覧 =====
+// ========================================
+// リンク一覧
+// ========================================
 function renderLinks() {
   const section = document.getElementById('links-section');
   const grid = document.getElementById('links-grid');
+  const title = document.getElementById('links-title');
   
   let links = [];
-  if (currentBusiness === 'DSC') links = DSC_LINKS;
-  else if (currentBusiness === 'スロ天') links = SLOTEN_LINKS;
+  if (currentBusiness === 'DSC') {
+    links = DSC_LINKS;
+    title.textContent = '🔗 LP・ツール一覧（' + links.length + '件）';
+  } else if (currentBusiness === 'スロ天') {
+    links = SLOTEN_LINKS;
+    title.textContent = '🔗 リンク一覧（' + links.length + '件）';
+  }
   
   if (links.length === 0) {
     section.classList.add('hidden');
@@ -335,7 +605,6 @@ function renderLinks() {
   
   section.classList.remove('hidden');
   
-  // カテゴリ別にグループ化
   const grouped = {};
   links.forEach(link => {
     if (!grouped[link.category]) grouped[link.category] = [];
@@ -350,34 +619,69 @@ function renderLinks() {
   `).join('');
 }
 
-// ===== テーブル =====
+// ========================================
+// テーブル
+// ========================================
 function renderTable() {
-  const data = BUSINESSES_DATA[currentBusiness]?.[currentPeriod];
+  const business = BUSINESSES[currentBusiness];
+  const data = business?.data?.[currentPeriod];
   const header = document.getElementById('table-header');
   const body = document.getElementById('table-body');
   
+  // エージェント型の場合は特殊表示
+  if (business?.type === 'agent' && business.agents?.length > 0) {
+    header.innerHTML = '<th>エージェント名</th><th class="text-right">収益</th><th class="text-right">ローリング</th><th class="text-right">NGR</th>';
+    body.innerHTML = business.agents.map(agent => `
+      <tr>
+        <td>${agent.name}</td>
+        <td class="text-right">${formatCurrency(agent.revenue)}</td>
+        <td class="text-right">${formatCurrency(agent.rolling)}</td>
+        <td class="text-right ${agent.ngr >= 0 ? 'text-green' : 'text-red'}">${formatCurrency(agent.ngr)}</td>
+      </tr>
+    `).join('');
+    return;
+  }
+  
   if (!data) {
     header.innerHTML = '';
-    body.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 40px; color: #94a3b8;">データがありません</td></tr>';
+    body.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 40px; color: #94a3b8;">データがありません。ファイルをアップロードしてください。</td></tr>';
     return;
   }
   
   header.innerHTML = '<th>項目</th><th class="text-right">値</th>';
   body.innerHTML = Object.entries(data).map(([key, value]) => {
-    const formatted = typeof value === 'number' 
-      ? (key.includes('率') || key.includes('RTP') ? value.toFixed(2) + '%' : '¥' + Math.round(value).toLocaleString())
-      : value;
+    let formatted;
+    if (typeof value === 'number') {
+      if (key.includes('率') || key.includes('RTP') || key.includes('CTR') || key.includes('CVR')) {
+        formatted = formatPercent(value);
+      } else {
+        formatted = formatCurrency(value);
+      }
+    } else {
+      formatted = value;
+    }
     return `<tr><td>${key}</td><td class="text-right">${formatted}</td></tr>`;
   }).join('');
 }
 
-// ===== アップロード =====
+// ========================================
+// モーダル
+// ========================================
 function showUploadModal() {
   document.getElementById('upload-modal').classList.remove('hidden');
+  document.getElementById('upload-status').style.display = 'none';
 }
 
 function hideUploadModal() {
   document.getElementById('upload-modal').classList.add('hidden');
+}
+
+function showAddBusinessModal() {
+  document.getElementById('add-business-modal').classList.remove('hidden');
+}
+
+function hideAddBusinessModal() {
+  document.getElementById('add-business-modal').classList.add('hidden');
 }
 
 function setupDragDrop() {
@@ -391,31 +695,35 @@ function setupDragDrop() {
   });
 }
 
+function showStatus(message, isError = false) {
+  const status = document.getElementById('upload-status');
+  status.style.display = 'block';
+  status.style.background = isError ? '#fee2e2' : '#dcfce7';
+  status.style.color = isError ? '#dc2626' : '#16a34a';
+  status.textContent = message;
+}
+
+// ========================================
+// ファイルアップロード処理
+// ========================================
 function handleFileUpload(file) {
   if (!file) return;
   
-  const period = document.getElementById('upload-period').value || '新規データ';
+  const period = document.getElementById('upload-period').value || new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' }).replace(' ', '');
+  const uploadType = document.getElementById('upload-type').value;
   const reader = new FileReader();
   
   reader.onload = function(e) {
     try {
       if (file.name.endsWith('.csv')) {
-        // CSV処理
-        const text = e.target.result;
-        alert('CSVファイルを受信しました: ' + file.name + '\n期間: ' + period);
+        handleCSV(e.target.result, period, uploadType, file.name);
       } else {
-        // Excel処理
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        
-        alert('Excelファイルを受信しました: ' + file.name + '\nシート: ' + sheetName + '\n行数: ' + json.length + '\n期間: ' + period);
+        handleExcel(workbook, period, uploadType, file.name);
       }
-      hideUploadModal();
     } catch (err) {
-      alert('ファイル処理エラー: ' + err.message);
+      showStatus('エラー: ' + err.message, true);
     }
   };
   
@@ -426,25 +734,350 @@ function handleFileUpload(file) {
   }
 }
 
-// ===== 事業追加・削除 =====
-function addBusiness() {
-  const name = prompt('新しい事業名を入力してください:');
-  if (name && name.trim() && !BUSINESSES_DATA[name.trim()]) {
-    BUSINESSES_DATA[name.trim()] = {};
-    selectBusiness(name.trim());
+// ========================================
+// CSV処理
+// ========================================
+function handleCSV(text, period, uploadType, filename) {
+  const lines = text.split('\n').map(line => line.split(',').map(cell => cell.trim().replace(/^"|"$/g, '')));
+  
+  // AMUSEVIP エージェント形式の検出
+  if (uploadType === 'agent' || uploadType === 'auto' && (
+    lines[0]?.some(h => h.includes('収益') || h.includes('ローリング')) ||
+    filename.toLowerCase().includes('agent') ||
+    filename.toLowerCase().includes('vip')
+  )) {
+    parseAgentCSV(lines, period);
+    return;
   }
+  
+  // 広告データ形式の検出
+  if (uploadType === 'ads' || uploadType === 'auto' && (
+    lines[0]?.some(h => h.includes('コスト') || h.includes('インプレッション') || h.includes('クリック')) ||
+    filename.toLowerCase().includes('ad') ||
+    filename.toLowerCase().includes('広告')
+  )) {
+    parseAdsCSV(lines, period);
+    return;
+  }
+  
+  showStatus('CSVファイルの形式を判別できませんでした。データ種別を選択してください。', true);
+}
+
+function parseAgentCSV(lines, period) {
+  const headers = lines[0].map(h => String(h || '').toLowerCase());
+  
+  // ヘッダーからインデックスを特定
+  const findIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+  
+  const nameIdx = findIdx(['名前', 'エージェント', 'name', 'agent', '担当']);
+  const revenueIdx = findIdx(['収益', 'revenue', '売上', '総額']);
+  const rollingIdx = findIdx(['ローリング', 'rolling', '報酬']);
+  const ngrIdx = findIdx(['ngr', '純利益']);
+  
+  // インデックスが見つからない場合はデフォルト位置
+  const nIdx = nameIdx >= 0 ? nameIdx : 0;
+  const rIdx = revenueIdx >= 0 ? revenueIdx : 1;
+  const rollIdx = rollingIdx >= 0 ? rollingIdx : 2;
+  const ngIdx = ngrIdx >= 0 ? ngrIdx : 3;
+  
+  let agents = [];
+  let totalRevenue = 0, totalRolling = 0, totalNGR = 0;
+  
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (row.length < 2) continue;
+    
+    const name = String(row[nIdx] || '').trim();
+    if (!name || name === '') continue;
+    
+    const revenue = parseNumber(row[rIdx]) || 0;
+    const rolling = parseNumber(row[rollIdx]) || 0;
+    const ngr = ngrIdx >= 0 ? (parseNumber(row[ngIdx]) || 0) : (revenue - rolling);
+    
+    agents.push({ name, revenue, rolling, ngr });
+    totalRevenue += revenue;
+    totalRolling += rolling;
+    totalNGR += ngr;
+  }
+  
+  if (agents.length === 0) {
+    showStatus('エージェントデータが見つかりませんでした', true);
+    return;
+  }
+  
+  if (!BUSINESSES['AMUSEVIP']) {
+    BUSINESSES['AMUSEVIP'] = { type: 'agent', data: {}, agents: [] };
+  }
+  
+  BUSINESSES['AMUSEVIP'].agents = agents;
+  BUSINESSES['AMUSEVIP'].data[period] = {
+    '総収益': totalRevenue,
+    'ローリング報酬': totalRolling,
+    'NGR': totalNGR,
+    'エージェント数': agents.length
+  };
+  
+  showStatus(`エージェントデータを取り込みました: ${agents.length}件`);
+  selectBusiness('AMUSEVIP');
+  setTimeout(hideUploadModal, 1500);
+}
+
+function parseAdsCSV(lines, period) {
+  const headers = lines[0].map(h => String(h || '').toLowerCase());
+  
+  // ヘッダーからインデックスを特定
+  const findIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+  
+  const costIdx = findIdx(['コスト', 'cost', '費用', '広告費']);
+  const impIdx = findIdx(['インプレッション', 'imp', '表示', 'impression']);
+  const clickIdx = findIdx(['クリック', 'click']);
+  const regIdx = findIdx(['登録', 'reg', 'registration', '会員']);
+  const depIdx = findIdx(['入金', 'dep', 'ftd', 'deposit']);
+  
+  let totalCost = 0, totalImp = 0, totalClick = 0, totalReg = 0, totalDep = 0;
+  
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (row.length < 2) continue;
+    
+    if (costIdx >= 0) totalCost += parseNumber(row[costIdx]) || 0;
+    if (impIdx >= 0) totalImp += parseNumber(row[impIdx]) || 0;
+    if (clickIdx >= 0) totalClick += parseNumber(row[clickIdx]) || 0;
+    if (regIdx >= 0) totalReg += parseNumber(row[regIdx]) || 0;
+    if (depIdx >= 0) totalDep += parseNumber(row[depIdx]) || 0;
+  }
+  
+  // インデックスが見つからなかった場合、位置ベースで試す
+  if (costIdx < 0 && impIdx < 0) {
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i];
+      if (row.length >= 5) {
+        totalCost += parseNumber(row[1]) || 0;
+        totalImp += parseNumber(row[2]) || 0;
+        totalClick += parseNumber(row[3]) || 0;
+        totalReg += parseNumber(row[4]) || 0;
+        if (row.length >= 6) totalDep += parseNumber(row[5]) || 0;
+      }
+    }
+  }
+  
+  const ctr = totalImp > 0 ? (totalClick / totalImp) * 100 : 0;
+  const cvr = totalClick > 0 ? (totalReg / totalClick) * 100 : 0;
+  const cpa = totalReg > 0 ? totalCost / totalReg : 0;
+  
+  if (!BUSINESSES['広告']) {
+    BUSINESSES['広告'] = { type: 'ads', data: {} };
+  }
+  
+  BUSINESSES['広告'].data[period] = {
+    'コスト': totalCost,
+    'インプレッション': totalImp,
+    'クリック': totalClick,
+    'CTR': ctr,
+    '登録数': totalReg,
+    '入金数': totalDep,
+    'CVR': cvr,
+    'CPA': cpa
+  };
+  
+  showStatus(`広告データを取り込みました: ${period}（${lines.length - 1}行）`);
+  selectBusiness('広告');
+  setTimeout(hideUploadModal, 1500);
+}
+
+// ========================================
+// Excel処理
+// ========================================
+function handleExcel(workbook, period, uploadType, filename) {
+  const sheetNames = workbook.SheetNames;
+  
+  // バカラツール形式の検出
+  if (uploadType === 'baccarat' || uploadType === 'auto' && (
+    sheetNames.some(s => s.includes('バカラ') || s.includes('baccara')) ||
+    filename.toLowerCase().includes('baccara') ||
+    filename.toLowerCase().includes('バカラ')
+  )) {
+    parseBaccaratExcel(workbook, period);
+    return;
+  }
+  
+  // スロ天形式の検出
+  if (uploadType === 'sloten' || uploadType === 'auto' && (
+    sheetNames.some(s => s.includes('スロ天') || s.includes('sloten') || s.includes('ダッシュボード')) ||
+    filename.toLowerCase().includes('スロ天') ||
+    filename.toLowerCase().includes('sloten')
+  )) {
+    parseSlotenExcel(workbook, period);
+    return;
+  }
+  
+  // 収益シート形式（元amuse/DSC）
+  parseRevenueExcel(workbook, period);
+}
+
+function parseRevenueExcel(workbook, period) {
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  
+  // KPI行を検索
+  const kpiMap = {};
+  const kpiNames = ['GGR', 'NGR', 'T/O', 'RTP', 'アクティブユーザー', 'FTD', '回収率', 'LTV', '回収金額', '出金金額'];
+  
+  json.forEach((row, rowIdx) => {
+    if (!row || row.length < 2) return;
+    const label = String(row[0] || '').trim();
+    kpiNames.forEach(kpi => {
+      if (label.includes(kpi)) {
+        const value = parseNumber(row[1]);
+        if (value !== null) {
+          kpiMap[kpi.replace('FTD', 'FTD数').replace('アクティブユーザー', 'アクティブユーザー')] = value;
+        }
+      }
+    });
+  });
+  
+  if (Object.keys(kpiMap).length === 0) {
+    showStatus('KPIデータが見つかりませんでした', true);
+    return;
+  }
+  
+  // 事業を自動判別
+  let targetBusiness = currentBusiness;
+  if (currentBusiness !== '元amuse' && currentBusiness !== 'DSC') {
+    targetBusiness = '元amuse';
+  }
+  
+  BUSINESSES[targetBusiness].data[period] = kpiMap;
+  
+  showStatus(`${targetBusiness}のデータを取り込みました: ${period}`);
+  selectBusiness(targetBusiness);
+  setTimeout(hideUploadModal, 1500);
+}
+
+function parseSlotenExcel(workbook, period) {
+  // ダッシュボードシートを探す
+  const dashSheet = workbook.SheetNames.find(s => s.includes('ダッシュボード')) || workbook.SheetNames[0];
+  const sheet = workbook.Sheets[dashSheet];
+  const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  
+  const kpiMap = {};
+  
+  // 行をスキャンしてKPIを抽出
+  json.forEach((row, idx) => {
+    if (!row || row.length < 2) return;
+    const label = String(row[0] || '').trim();
+    
+    if (label.includes('GGR')) kpiMap['GGR'] = parseNumber(row[1]);
+    if (label.includes('NGR')) kpiMap['NGR'] = parseNumber(row[1]);
+    if (label.includes('入金') && !label.includes('出金')) kpiMap['入金額'] = parseNumber(row[1]);
+    if (label.includes('出金')) kpiMap['出金額'] = parseNumber(row[1]);
+    if (label.includes('RTP')) kpiMap['RTP'] = parseNumber(row[1]);
+    if (label.includes('アクティブ')) kpiMap['アクティブユーザー'] = parseNumber(row[1]);
+    if (label.includes('T/O') || label.includes('ターンオーバー')) kpiMap['T/O'] = parseNumber(row[1]);
+  });
+  
+  BUSINESSES['スロ天'].data[period] = kpiMap;
+  
+  showStatus(`スロ天のデータを取り込みました: ${period}`);
+  selectBusiness('スロ天');
+  setTimeout(hideUploadModal, 1500);
+}
+
+function parseBaccaratExcel(workbook, period) {
+  const kpiMap = {};
+  
+  // ダッシュボードシートからデータ抽出
+  const dashSheetName = workbook.SheetNames.find(s => s.includes('ダッシュボード')) || workbook.SheetNames[0];
+  const dashSheet = workbook.Sheets[dashSheetName];
+  const dashData = XLSX.utils.sheet_to_json(dashSheet, { header: 1 });
+  
+  dashData.forEach((row, idx) => {
+    if (!row || row.length < 2) return;
+    const label = String(row[0] || '').trim();
+    const value = parseNumber(row[1]);
+    
+    if (label.includes('LINE流入')) kpiMap['LINE流入'] = value || 0;
+    if (label.includes('Telegram流入')) kpiMap['Telegram流入'] = value || 0;
+    if (label.includes('Twitter流入')) kpiMap['Twitter流入'] = value || 0;
+    if (label.includes('合計流入')) kpiMap['合計流入'] = value || 0;
+    if (label.includes('総ユーザー')) kpiMap['総ユーザー数'] = value || 0;
+    if (label.includes('総入金額')) kpiMap['総入金額'] = value || 0;
+    if (label.includes('総GGR') || label === 'GGR') kpiMap['総GGR'] = value || 0;
+    if (label === 'コスト') kpiMap['コスト'] = value || 0;
+    if (label === 'NGR') kpiMap['NGR'] = value || 0;
+  });
+  
+  // コストシートからデータ抽出（存在する場合）
+  const costSheetName = workbook.SheetNames.find(s => s.includes('コスト'));
+  if (costSheetName) {
+    const costSheet = workbook.Sheets[costSheetName];
+    const costData = XLSX.utils.sheet_to_json(costSheet, { header: 1 });
+    
+    let totalCost = 0;
+    costData.forEach((row, idx) => {
+      if (idx === 0) return; // ヘッダースキップ
+      // 金額列を探す（通常は最後の列か「金額」列）
+      for (let i = row.length - 1; i >= 0; i--) {
+        const val = parseNumber(row[i]);
+        if (val !== null && val > 0) {
+          totalCost += val;
+          break;
+        }
+      }
+    });
+    
+    if (totalCost > 0) {
+      kpiMap['コスト'] = totalCost;
+      if (kpiMap['総GGR'] !== undefined) {
+        kpiMap['NGR'] = (kpiMap['総GGR'] || 0) - totalCost;
+      }
+    }
+  }
+  
+  // 合計流入を計算（なければ）
+  if (!kpiMap['合計流入'] && (kpiMap['LINE流入'] || kpiMap['Telegram流入'] || kpiMap['Twitter流入'])) {
+    kpiMap['合計流入'] = (kpiMap['LINE流入'] || 0) + (kpiMap['Telegram流入'] || 0) + (kpiMap['Twitter流入'] || 0);
+  }
+  
+  BUSINESSES['バカラツール'].data[period] = kpiMap;
+  
+  showStatus(`バカラツールのデータを取り込みました: ${period}`);
+  selectBusiness('バカラツール');
+  setTimeout(hideUploadModal, 1500);
+}
+
+// ========================================
+// 事業追加・削除
+// ========================================
+function addBusiness() {
+  const name = document.getElementById('new-business-name').value.trim();
+  const type = document.getElementById('new-business-type').value;
+  
+  if (!name) {
+    alert('事業名を入力してください');
+    return;
+  }
+  
+  if (BUSINESSES[name]) {
+    alert('同じ名前の事業が既に存在します');
+    return;
+  }
+  
+  BUSINESSES[name] = { type, data: {} };
+  hideAddBusinessModal();
+  selectBusiness(name);
 }
 
 function deleteBusiness() {
-  if (Object.keys(BUSINESSES_DATA).length <= 1) {
+  if (Object.keys(BUSINESSES).length <= 1) {
     alert('最後の事業は削除できません');
     return;
   }
   if (confirm(`「${currentBusiness}」を削除しますか？`)) {
-    delete BUSINESSES_DATA[currentBusiness];
-    selectBusiness(Object.keys(BUSINESSES_DATA)[0]);
+    delete BUSINESSES[currentBusiness];
+    selectBusiness(Object.keys(BUSINESSES)[0]);
   }
 }
-  </script>
+</script>
 </body>
 </html>
