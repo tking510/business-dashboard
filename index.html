@@ -110,6 +110,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
           <option value="customerList">顧客リストシート</option>
           <option value="uncollected">未回収シート</option>
           <option value="bonus">ボーナスシート</option>
+          <option value="delayed">遅れ回収シート</option>
         </select>
       </div>
     </div>
@@ -569,16 +570,14 @@ function renderSummary() {
     ];
   } else if (type === 'ads') {
     cards = [
-      { key: 'コスト(円)', label: 'コスト(税込)', format: 'currency' },
-      { key: 'コスト合計', alt: ['コスト'], label: 'コスト($)', format: 'usd' },
+      { key: 'コスト(円)', label: 'コスト', format: 'currency' },
       { key: 'インプレッション合計', alt: ['インプレッション'], label: 'IMP', format: 'number' },
       { key: 'クリック合計', alt: ['クリック'], label: 'クリック', format: 'number' },
       { key: 'CTR', label: 'CTR', format: 'percent' },
       { key: '登録合計', alt: ['登録数'], label: '登録', format: 'number' },
       { key: '入金合計', alt: ['入金数'], label: '入金', format: 'number' },
       { key: 'CVR', label: 'CVR', format: 'percent' },
-      { key: 'CPA(円)', label: 'CPA(円)', format: 'currency' },
-      { key: 'CPA(登録)', label: 'CPA($)', format: 'usd' }
+      { key: 'CPA(円)', label: 'CPA', format: 'currency' }
     ];
   } else if (type === 'agent') {
     cards = [
@@ -591,6 +590,7 @@ function renderSummary() {
     ];
   } else if (type === 'baccara') {
     cards = [
+      { key: '登録数', label: '登録数', format: 'number' },
       { key: '合計流入', label: '合計流入', format: 'number' },
       { key: '総ユーザー数', label: '総ユーザー', format: 'number' },
       { key: '総入金額', label: '総入金額' },
@@ -635,11 +635,13 @@ function renderKPISections() {
     { title: '🔄 継続KPI', keys: ['前月リテンション数','引継ぎプレイヤー数','アクティブユーザー数','アクティブプレイ人数（ユニーク）','アクティブプレイ人数','今月登録のアクティブユーザー数','前月登録のアクティブユーザー数'], bg: '#fef3c7' },
     { title: '💰 収益KPI', keys: ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','RTP','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','GGRLTV'], bg: '#e0e7ff' },
     { title: '💵 回収KPI', keys: ['回収予定金額','回収金額','回収率(全体)','回収率(今月)','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','総入金額','総出金額','入出金差分'], bg: '#fce7f3' },
-    { title: '💸 経費KPI', keys: ['合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益'], bg: '#ccfbf1' }
+    { title: '💸 経費KPI', keys: ['合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益'], bg: '#ccfbf1' },
+    { title: '📋 顧客リスト集計', keys: ['総登録数','総回収額','総出金額','回収出金差分','総差分利益','総NGR','総TO','総信用枠','総ボーナス','平均信用枠','平均NGR','担当者数','担当者計_登録数','担当者計_FTD数','担当者計_GGR','担当者計_NGR'], bg: '#fef3c7' },
+    { title: '📊 未回収・ボーナス', keys: ['未回収者数','残未回収金額','遅れ回収者数','遅れ回収金額','ボーナス対象者数','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR'], bg: '#fee2e2' }
   ];
   
   const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合'];
-  const currencyKeys = ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV'];
+  const currencyKeys = ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV','総回収額','回収出金差分','総差分利益','総NGR','総TO','総信用枠','総ボーナス','平均信用枠','平均NGR','担当者計_GGR','担当者計_NGR','残未回収金額','遅れ回収金額','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR'];
   
   container.innerHTML = sections.map(section => {
     const items = section.keys.filter(k => data[k] != null);
@@ -671,6 +673,11 @@ function renderKPISections() {
   if (periodData?.Affiliate) {
     const aff = periodData.Affiliate;
     container.innerHTML += `<div class="card" style="background:#ecfdf5"><div class="section-title">🤝 Affiliate</div><div class="kpi-grid">${Object.entries(aff).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${k.includes('率') ? formatPercent(v) : k.includes('数') ? formatNumber(v) : formatCurrency(v)}</div></div>`).join('')}</div></div>`;
+  }
+  // 担当者別データの表示
+  if (periodData?.担当者別 && periodData.担当者別.length > 0) {
+    const tantosha = periodData.担当者別;
+    container.innerHTML += `<div class="card" style="background:#e0f2fe"><div class="section-title">👥 担当者別集計（${tantosha.length}名）</div><div class="table-container"><table><thead><tr><th>担当者</th><th class="text-right">登録数</th><th class="text-right">FTD数</th><th class="text-right">信用枠</th><th class="text-right">GGR</th><th class="text-right">NGR</th></tr></thead><tbody>${tantosha.map(t => `<tr><td>${t.担当者}</td><td class="text-right">${formatNumber(t.登録数)}</td><td class="text-right">${formatNumber(t.FTD数)}</td><td class="text-right">${formatCurrency(t.信用枠)}</td><td class="text-right">${formatCurrency(t.GGR)}</td><td class="text-right ${t.NGR < 0 ? 'text-red' : 'text-green'}">${formatCurrency(t.NGR)}</td></tr>`).join('')}</tbody></table></div></div>`;
   }
 }
 
@@ -823,6 +830,12 @@ function handleFileUpload(file) {
   const uploadType = document.getElementById('upload-type').value;
   const reader = new FileReader();
   
+  // ZIPファイルの場合はエラー
+  if (file.name.endsWith('.zip')) {
+    showStatus('ZIPファイルは対応していません。解凍してから個別のファイルをアップロードしてください。', true);
+    return;
+  }
+  
   reader.onload = function(e) {
     try {
       if (file.name.endsWith('.csv')) {
@@ -861,20 +874,29 @@ function handleCSV(text, period, uploadType, filename) {
   const headerStr = lines[0].join(',').toLowerCase();
   const fn = filename.toLowerCase();
   
+  // ファイル名またはヘッダーから自動判別
+  const isCustomerList = fn.includes('顧客リスト') || fn.includes('customer');
+  const isUncollected = fn.includes('未回収') || headerStr.includes('残未回収金額');
+  const isDelayed = fn.includes('遅れ回収') || fn.includes('遅れ') || (headerStr.includes('本来支払日') && headerStr.includes('今回返済'));
+  const isBonus = fn.includes('ボーナス') || fn.includes('キャッシュバック') || headerStr.includes('総ボーナス付与金額');
+  const isAgent = fn.includes('エージェント') || fn.includes('agent') || (headerStr.includes('teamkyoto') || headerStr.includes('ローリング'));
+  const isAds = fn.includes('日报') || fn.includes('広告') || (headerStr.includes('コスト') && headerStr.includes('インプレッション'));
+  
   // 自動判別
   if (uploadType === 'auto') {
-    if (fn.includes('顧客リスト')) { parseCustomerListCSV(lines, period, fn); return; }
-    if (fn.includes('未回収')) { parseUncollectedCSV(lines, period, fn); return; }
-    if (fn.includes('ボーナス')) { parseBonusCSV(lines, period, fn); return; }
-    if (fn.includes('エージェント') || fn.includes('agent')) { parseAgentCSV(lines, period); return; }
-    if (headerStr.includes('コスト') || headerStr.includes('インプレッション') || fn.includes('日报') || fn.includes('広告')) { parseAdsCSV(lines, period); return; }
-    if (headerStr.includes('収益') || headerStr.includes('ローリング')) { parseAgentCSV(lines, period); return; }
+    if (isCustomerList) { parseCustomerListCSV(lines, period, fn); return; }
+    if (isUncollected) { parseUncollectedCSV(lines, period, fn); return; }
+    if (isDelayed) { parseDelayedCSV(lines, period, fn); return; }
+    if (isBonus) { parseBonusCSV(lines, period, fn); return; }
+    if (isAgent) { parseAgentCSV(lines, period); return; }
+    if (isAds) { parseAdsCSV(lines, period); return; }
   }
   
   // 種別指定
   if (uploadType === 'customerList') { parseCustomerListCSV(lines, period, fn); return; }
   if (uploadType === 'uncollected') { parseUncollectedCSV(lines, period, fn); return; }
   if (uploadType === 'bonus') { parseBonusCSV(lines, period, fn); return; }
+  if (uploadType === 'delayed') { parseDelayedCSV(lines, period, fn); return; }
   if (uploadType === 'agent') { parseAgentCSV(lines, period); return; }
   if (uploadType === 'ads') { parseAdsCSV(lines, period); return; }
   
@@ -882,85 +904,310 @@ function handleCSV(text, period, uploadType, filename) {
 }
 
 function parseCustomerListCSV(lines, period, filename) {
-  const isDSC = filename.includes('d.csv') || filename.includes('リストd');
+  const fn = filename.toLowerCase();
+  const isDSC = fn.includes('リストd') || fn.includes('d.csv') || filename.includes('リストD');
   const target = isDSC ? 'DSC' : '元amuse';
   
-  let stats = { 総登録数: 0, 総回収額: 0, 総出金額: 0, 総差分利益: 0, 総NGR: 0, FTD数: 0, FTW数: 0, FTDW数: 0 };
-  
-  for (let i = 4; i < lines.length; i++) {
+  // ヘッダー行（行3）を探す
+  let headerRowIdx = -1;
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
     const row = lines[i];
-    if (!row || row.length < 10 || (!row[0] && !row[1])) continue;
-    
-    stats.総登録数++;
-    const 回収 = parseNumber(row[8]) || 0;
-    const 出金 = parseNumber(row[9]) || 0;
-    const 差分 = parseNumber(row[10]) || 0;
-    const 入金回数 = parseNumber(row[18]) || 0;
-    const 出金回数 = parseNumber(row[19]) || 0;
-    const NGR = parseNumber(row[20]) || 0;
-    
-    stats.総回収額 += 回収;
-    stats.総出金額 += 出金;
-    stats.総差分利益 += 差分;
-    stats.総NGR += NGR;
-    
-    if (入金回数 > 0) { stats.FTD数++; if (出金回数 > 0) stats.FTDW数++; }
-    if (出金回数 > 0) stats.FTW数++;
+    if (row && row.some(cell => String(cell).includes('FULLNAME1') || String(cell).includes('トータル回収額'))) {
+      headerRowIdx = i;
+      break;
+    }
+  }
+  if (headerRowIdx < 0) headerRowIdx = 3; // デフォルト
+  
+  const header = lines[headerRowIdx] || [];
+  
+  // カラムインデックスを動的に取得
+  const colIdx = {};
+  header.forEach((h, idx) => {
+    const col = String(h).trim();
+    if (col === 'FULLNAME1') colIdx.name = idx;
+    if (col === 'credit' || col === '信用枠') colIdx.credit = idx;
+    if (col.includes('トータル回収額')) colIdx.collected = idx;
+    if (col.includes('トータル出金額')) colIdx.withdraw = idx;
+    if (col.includes('トータル差分利益')) colIdx.diff = idx;
+    if (col.includes('トータルT/O') || col === 'T/O') colIdx.to = idx;
+    if (col === '入金回数') colIdx.depCount = idx;
+    if (col === '出金回数') colIdx.wdCount = idx;
+    if (col === 'NGR' && !colIdx.ngr) colIdx.ngr = idx; // 最初のNGRのみ
+    if (col === 'ボーナス付与総金額') colIdx.bonus = idx;
+  });
+  
+  // 担当者集計のヘッダー位置を探す（行4の右側）
+  let tantoshaStartCol = -1;
+  if (lines[headerRowIdx + 1]) {
+    const firstDataRow = lines[headerRowIdx + 1];
+    for (let j = 40; j < firstDataRow.length; j++) {
+      if (String(firstDataRow[j]).trim() === '担当者') {
+        tantoshaStartCol = j;
+        break;
+      }
+    }
   }
   
+  let stats = { 
+    総登録数: 0, 総回収額: 0, 総出金額: 0, 総差分利益: 0, 総NGR: 0, 
+    FTD数: 0, FTW数: 0, FTDW数: 0, 総信用枠: 0, 総TO: 0, 総ボーナス: 0
+  };
+  
+  // 担当者別データ
+  const tantoshaData = [];
+  
+  // データ行を処理（ヘッダー行の次から）
+  for (let i = headerRowIdx + 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row || row.length < 10) continue;
+    
+    // 左側: 個別顧客データ（FULLNAME1がある行）
+    const name = String(row[colIdx.name] || row[1] || '').trim();
+    if (name && name !== '担当者' && !name.includes('セル')) {
+      stats.総登録数++;
+      
+      const collected = parseNumber(row[colIdx.collected] || row[8]) || 0;
+      const withdraw = parseNumber(row[colIdx.withdraw] || row[9]) || 0;
+      const diff = parseNumber(row[colIdx.diff] || row[10]) || 0;
+      const to = parseNumber(row[colIdx.to] || row[11]) || 0;
+      const depCount = parseNumber(row[colIdx.depCount] || row[18]) || 0;
+      const wdCount = parseNumber(row[colIdx.wdCount] || row[19]) || 0;
+      const ngr = parseNumber(row[colIdx.ngr] || row[20]) || 0;
+      const credit = parseNumber(row[colIdx.credit] || row[7]) || 0;
+      const bonus = parseNumber(row[colIdx.bonus] || row[21]) || 0;
+      
+      stats.総回収額 += collected;
+      stats.総出金額 += withdraw;
+      stats.総差分利益 += diff;
+      stats.総TO += to;
+      stats.総NGR += ngr;
+      stats.総信用枠 += credit;
+      stats.総ボーナス += bonus;
+      
+      // FTD判定: 入金回数が1以上、または回収額が0より大きい場合
+      const hasFTD = depCount > 0 || collected > 0;
+      const hasWithdraw = wdCount > 0 || withdraw > 0;
+      
+      if (hasFTD) { 
+        stats.FTD数++; 
+        if (hasWithdraw) stats.FTDW数++; 
+      }
+      if (hasWithdraw) stats.FTW数++;
+    }
+    
+    // 右側: 担当者別集計データ（tantoshaStartColが見つかった場合）
+    if (tantoshaStartCol > 0 && row[tantoshaStartCol]) {
+      const tName = String(row[tantoshaStartCol]).trim();
+      if (tName && tName !== '担当者' && tName !== 'あり' && tName !== 'なし') {
+        const tData = {
+          担当者: tName,
+          登録数: parseNumber(row[tantoshaStartCol + 1]) || 0,
+          プレイ数: parseNumber(row[tantoshaStartCol + 2]) || 0,
+          FTD数: parseNumber(row[tantoshaStartCol + 4]) || 0,
+          信用枠: parseNumber(row[tantoshaStartCol + 6]) || 0,
+          TO: parseNumber(row[tantoshaStartCol + 7]) || 0,
+          GGR: parseNumber(row[tantoshaStartCol + 10]) || 0,
+          NGR: parseNumber(row[tantoshaStartCol + 12]) || 0
+        };
+        if (tData.登録数 > 0 || tData.FTD数 > 0) {
+          tantoshaData.push(tData);
+        }
+      }
+    }
+  }
+  
+  // FTD率を計算
   stats['FTD率'] = stats.総登録数 > 0 ? stats.FTD数 / stats.総登録数 : 0;
+  stats['FTW率'] = stats.総登録数 > 0 ? stats.FTW数 / stats.総登録数 : 0;
+  stats['FTDW率'] = stats.FTD数 > 0 ? stats.FTDW数 / stats.FTD数 : 0;
   stats['回収出金差分'] = stats.総回収額 - stats.総出金額;
+  stats['平均信用枠'] = stats.総登録数 > 0 ? stats.総信用枠 / stats.総登録数 : 0;
+  stats['平均NGR'] = stats.総登録数 > 0 ? stats.総NGR / stats.総登録数 : 0;
+  
+  // 担当者数
+  if (tantoshaData.length > 0) {
+    stats['担当者数'] = tantoshaData.length;
+    // 担当者別の合計
+    let tTotalReg = 0, tTotalFTD = 0, tTotalGGR = 0, tTotalNGR = 0;
+    tantoshaData.forEach(t => {
+      tTotalReg += t.登録数;
+      tTotalFTD += t.FTD数;
+      tTotalGGR += t.GGR;
+      tTotalNGR += t.NGR;
+    });
+    stats['担当者計_登録数'] = tTotalReg;
+    stats['担当者計_FTD数'] = tTotalFTD;
+    stats['担当者計_GGR'] = tTotalGGR;
+    stats['担当者計_NGR'] = tTotalNGR;
+  }
   
   const existing = BUSINESSES[target].data[period]?.サマリー || {};
-  BUSINESSES[target].data[period] = { サマリー: { ...existing, ...stats } };
+  BUSINESSES[target].data[period] = { 
+    サマリー: { ...existing, ...stats },
+    ...(tantoshaData.length > 0 ? { 担当者別: tantoshaData } : {})
+  };
   
-  showStatus(`顧客リスト取込完了: ${target} ${stats.総登録数}件`);
+  const tantoshaInfo = tantoshaData.length > 0 ? `, 担当者${tantoshaData.length}名` : '';
+  showStatus(`顧客リスト取込完了: ${target} ${stats.総登録数}件${tantoshaInfo}, FTD${stats.FTD数}件`);
   selectBusiness(target);
   setTimeout(hideUploadModal, 1500);
 }
 
 function parseUncollectedCSV(lines, period, filename) {
-  const isDSC = filename.includes('d.csv');
+  // DSC判定: ファイル名末尾にD（大文字）がある、または「シートD」「D.csv」を含む
+  const fn = filename.toLowerCase();
+  const isDSC = fn.includes('シートd') || fn.includes('d.csv') || fn.endsWith('d') || filename.includes('シートD');
   const target = isDSC ? 'DSC' : '元amuse';
   
   let total = 0;
-  const colIdx = lines[0].findIndex(h => h.includes('残未回収'));
+  let count = 0;
   
-  for (let i = 1; i < lines.length; i++) {
-    const val = parseNumber(lines[i][colIdx >= 0 ? colIdx : 0]) || 0;
-    total += val;
+  // 最初の数行で「未回収金総額」を探す
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const row = lines[i];
+    if (!row) continue;
+    const rowStr = row.join(',');
+    if (rowStr.includes('未回収金総額')) {
+      // この行から金額を探す
+      for (let j = 0; j < row.length; j++) {
+        const val = parseNumber(row[j]);
+        if (val && val > 1000000) { // 100万以上なら総額
+          total = val;
+          break;
+        }
+      }
+      // 人数を探す
+      for (let j = 0; j < row.length; j++) {
+        const val = parseNumber(row[j]);
+        if (val && val > 0 && val < 10000) { // 1万未満なら人数
+          count = val;
+          break;
+        }
+      }
+      break;
+    }
   }
   
-  const data = { '未回収者数': lines.length - 1, '残未回収金額': total };
+  // 見つからなければ従来の方法
+  if (total === 0) {
+    const colIdx = lines[0].findIndex(h => String(h).includes('残未回収'));
+    for (let i = 1; i < lines.length; i++) {
+      const val = parseNumber(lines[i][colIdx >= 0 ? colIdx : 0]) || 0;
+      total += val;
+    }
+    count = lines.length - 1;
+  }
+  
+  const data = { '未回収者数': count, '残未回収金額': total };
   const existing = BUSINESSES[target].data[period]?.サマリー || {};
   BUSINESSES[target].data[period] = { サマリー: { ...existing, ...data } };
   
-  showStatus(`未回収シート取込完了: ${lines.length - 1}件, ${formatCurrency(total)}`);
+  showStatus(`未回収シート取込完了: ${target} ${count}人, ${formatCurrency(total)}`);
   selectBusiness(target);
   setTimeout(hideUploadModal, 1500);
 }
 
 function parseBonusCSV(lines, period, filename) {
-  const isDSC = filename.includes('d.csv');
+  const fn = filename.toLowerCase();
+  const isDSC = fn.includes('ボーナスd') || fn.includes('d.csv') || filename.includes('ボーナスD');
   const target = isDSC ? 'DSC' : '元amuse';
   
   let totalBonus = 0, totalDeposit = 0, totalNGR = 0;
-  const header = lines[0];
-  const bonusIdx = header.findIndex(h => h.includes('総ボーナス付与金額'));
-  const depIdx = header.findIndex(h => h.includes('トータル入金額'));
-  const ngrIdx = header.findIndex(h => h.includes('実NGR'));
+  let count = 0;
   
-  for (let i = 1; i < lines.length; i++) {
-    totalBonus += parseNumber(lines[i][bonusIdx]) || 0;
-    totalDeposit += parseNumber(lines[i][depIdx]) || 0;
-    totalNGR += parseNumber(lines[i][ngrIdx]) || 0;
+  // TOTAL行を探す
+  for (let i = 0; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row) continue;
+    const firstCol = String(row[0] || '').trim().toUpperCase();
+    if (firstCol === 'TOTAL') {
+      totalBonus = parseNumber(row[1]) || 0;
+      break;
+    }
   }
   
-  const data = { 'ボーナス対象者数': lines.length - 1, '総ボーナス付与金額': totalBonus, 'ボーナス対象入金額': totalDeposit, 'ボーナス対象NGR': totalNGR };
+  // ヘッダー行を探してデータ行をカウント
+  const header = lines[0] || [];
+  const bonusIdx = header.findIndex(h => String(h).includes('総ボーナス付与金額'));
+  const depIdx = header.findIndex(h => String(h).includes('トータル入金額'));
+  const ngrIdx = header.findIndex(h => String(h).includes('実NGR'));
+  
+  // データ行をカウント（TOTAL行以降）
+  let foundTotal = false;
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row) continue;
+    const firstCol = String(row[0] || '').trim().toUpperCase();
+    if (firstCol === 'TOTAL') { foundTotal = true; continue; }
+    if (!foundTotal) continue;
+    
+    // 有効なデータ行（名前がある）
+    if (row[3] && String(row[3]).trim()) {
+      count++;
+      if (depIdx >= 0) totalDeposit += parseNumber(row[depIdx]) || 0;
+      if (ngrIdx >= 0) totalNGR += parseNumber(row[ngrIdx]) || 0;
+    }
+  }
+  
+  const data = { 'ボーナス対象者数': count, '総ボーナス付与金額': totalBonus, 'ボーナス対象入金額': totalDeposit, 'ボーナス対象NGR': totalNGR };
   const existing = BUSINESSES[target].data[period]?.サマリー || {};
   BUSINESSES[target].data[period] = { サマリー: { ...existing, ...data } };
   
-  showStatus(`ボーナスシート取込完了: ${lines.length - 1}件`);
+  showStatus(`ボーナスシート取込完了: ${target} ${count}人, 総額${formatCurrency(totalBonus)}`);
+  selectBusiness(target);
+  setTimeout(hideUploadModal, 1500);
+}
+
+// 遅れ回収シートパーサー
+function parseDelayedCSV(lines, period, filename) {
+  const fn = filename.toLowerCase();
+  const isDSC = fn.includes('回収d') || fn.includes('d.csv') || filename.includes('回収D');
+  const target = isDSC ? 'DSC' : '元amuse';
+  
+  let totalDelayed = 0;
+  let count = 0;
+  
+  // 「今回返済金額」列を探す
+  const header = lines[0] || [];
+  const amountIdx = header.findIndex(h => String(h).includes('今回返済金額'));
+  
+  // トータル行を探す
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const row = lines[i];
+    if (!row) continue;
+    const rowStr = row.join(',');
+    if (rowStr.includes('トータル')) {
+      // この行から担当者別の金額を探す
+      for (let j = 0; j < row.length; j++) {
+        const val = parseNumber(row[j]);
+        if (val && val > 0) {
+          // 担当者名の直後の金額を合計
+        }
+      }
+    }
+  }
+  
+  // データ行から集計
+  for (let i = 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row || row.length < 10) continue;
+    
+    const amount = parseNumber(row[amountIdx >= 0 ? amountIdx : 10]) || 0;
+    if (amount > 0) {
+      totalDelayed += amount;
+      count++;
+    }
+  }
+  
+  const data = { '遅れ回収件数': count, '遅れ回収金額': totalDelayed };
+  const existing = BUSINESSES[target].data[period]?.サマリー || {};
+  BUSINESSES[target].data[period] = { サマリー: { ...existing, ...data } };
+  
+  showStatus(`遅れ回収シート取込完了: ${target} ${count}件, ${formatCurrency(totalDelayed)}`);
+  selectBusiness(target);
+  setTimeout(hideUploadModal, 1500);
+}
   selectBusiness(target);
   setTimeout(hideUploadModal, 1500);
 }
@@ -1014,14 +1261,17 @@ function parseAgentCSV(lines, period) {
 }
 
 function parseAdsCSV(lines, period) {
-  const header = lines[0].map(h => String(h || '').toLowerCase());
-  const findIdx = (kws) => header.findIndex(h => kws.some(k => h.includes(k)));
-  const dateIdx = findIdx(['date', '日付']);
-  const costIdx = findIdx(['コスト', 'cost']);
-  const impIdx = findIdx(['インプレッション', 'imp']);
-  const clickIdx = findIdx(['クリック', 'click']);
-  const regIdx = findIdx(['登録']);
-  const depIdx = findIdx(['入金', 'ftd']);
+  const header = lines[0].map(h => String(h || '').toLowerCase().replace(/\n/g, ''));
+  
+  // インデックス検索（最初にマッチしたものだけ使用）
+  const dateIdx = header.findIndex(h => h.includes('date') || h === '日付');
+  const costIdx = header.findIndex(h => h.includes('コスト') || h === 'cost');
+  const impIdx = header.findIndex(h => h.includes('インプレッション') || h.includes('imp'));
+  const clickIdx = header.findIndex(h => h.includes('クリック') || h.includes('click'));
+  // 登録数は「登録数」のみ（部分一致の誤検出を防止）
+  const regIdx = header.findIndex(h => h === '登録数' || h === 'registrations');
+  // 入金数は最初の「入金数」のみ（[BO: Asp]などの重複を除外）
+  const depIdx = header.findIndex(h => h === '入金数' || h === 'deposits');
   
   let dailyData = [];
   let totals = { コスト: 0, インプレッション: 0, クリック: 0, 登録: 0, 入金: 0 };
@@ -1031,8 +1281,9 @@ function parseAdsCSV(lines, period) {
     if (!row || row.length < 5) continue;
     
     const parseVal = (idx, fallback) => {
+      if (idx < 0 && fallback < 0) return 0;
       const v = row[idx >= 0 ? idx : fallback] || '';
-      return parseFloat(String(v).replace(/[$￥¥,]/g, '')) || 0;
+      return parseFloat(String(v).replace(/[$￥¥,"\s]/g, '')) || 0;
     };
     
     const date = row[dateIdx >= 0 ? dateIdx : 0] || '';
@@ -1062,7 +1313,7 @@ function parseAdsCSV(lines, period) {
     日別: dailyData
   };
   
-  showStatus(`広告データ取込完了: ${dailyData.length}日, $${totals.コスト.toFixed(2)}`);
+  showStatus(`広告データ取込完了: ${dailyData.length}日, $${totals.コスト.toFixed(2)}, 登録${totals.登録}件, 入金${totals.入金}件`);
   selectBusiness('広告');
   setTimeout(hideUploadModal, 1500);
 }
@@ -1193,54 +1444,85 @@ function parseSlotenExcel(workbook, monthlySheets) {
 }
 
 function parseBaccaratExcel(workbook, period) {
-  // ダッシュボードシートを探す（複数パターン対応）
-  const dashSheetName = workbook.SheetNames.find(s => s.includes('ダッシュボード') || s.includes('Dashboard') || s.includes('サマリー') || s.includes('summary'));
+  // 各シートを探す
+  const dashSheetName = workbook.SheetNames.find(s => s.includes('ダッシュボード') || s.includes('Dashboard') || s.includes('サマリー'));
   const dashSheet = dashSheetName ? workbook.Sheets[dashSheetName] : workbook.Sheets[workbook.SheetNames[0]];
   const costSheet = workbook.Sheets['コスト'] || workbook.Sheets['cost'] || workbook.Sheets['Cost'];
+  const userSheet = workbook.Sheets['ユーザー・収益分析'] || workbook.Sheets['ユーザー分析'];
   
-  const dashData = XLSX.utils.sheet_to_json(dashSheet, { header: 1 });
-  const extractedData = {};
+  const extractedData = { 'LINE流入': 0, 'Telegram流入': 0, 'Twitter流入': 0, '合計流入': 0, '総ユーザー数': 0, '総入金額': 0, '総GGR': 0, 'コスト': 0, 'NGR': 0, '登録数': 0 };
   
-  // より柔軟なラベル検出
-  dashData.forEach(row => {
-    if (!row || row.length < 2) return;
-    const label = String(row[0] || '').trim().toLowerCase();
-    const value = parseNumber(row[1]) || 0;
+  // ダッシュボードシートからデータ取得
+  if (dashSheet) {
+    const dashData = XLSX.utils.sheet_to_json(dashSheet, { header: 1 });
+    dashData.forEach(row => {
+      if (!row || row.length < 2) return;
+      const label = String(row[0] || '').trim().toLowerCase();
+      const value = parseNumber(row[1]);
+      if (value === null) return;
+      
+      if (label.includes('line') && label.includes('流入')) extractedData['LINE流入'] = value;
+      else if (label.includes('telegram') && label.includes('流入')) extractedData['Telegram流入'] = value;
+      else if ((label.includes('twitter') || label.includes('x')) && label.includes('流入')) extractedData['Twitter流入'] = value;
+      else if (label.includes('合計') && label.includes('流入')) extractedData['合計流入'] = value;
+      else if (label.includes('総ユーザー') || label.includes('ユーザー数')) extractedData['総ユーザー数'] = value;
+      else if (label.includes('総入金') || (label.includes('入金') && label.includes('額'))) extractedData['総入金額'] = value;
+      else if (label.includes('ggr') && !label.includes('ngr')) extractedData['総GGR'] = value;
+      else if (label === 'コスト' || label === 'cost') extractedData['コスト'] = value;
+      else if (label === 'ngr') extractedData['NGR'] = value;
+    });
+  }
+  
+  // ユーザー・収益分析シートから登録数を合計
+  if (userSheet) {
+    const userData = XLSX.utils.sheet_to_json(userSheet, { header: 1 });
+    let totalReg = 0;
+    let regColIdx = -1;
     
-    if (label.includes('line') && label.includes('流入')) extractedData['LINE流入'] = value;
-    else if (label.includes('telegram') && label.includes('流入')) extractedData['Telegram流入'] = value;
-    else if (label.includes('twitter') && label.includes('流入')) extractedData['Twitter流入'] = value;
-    else if (label.includes('合計') && label.includes('流入')) extractedData['合計流入'] = value;
-    else if (label.includes('総ユーザー') || label.includes('ユーザー数')) extractedData['総ユーザー数'] = value;
-    else if (label.includes('総入金') || label.includes('入金額')) extractedData['総入金額'] = value;
-    else if (label.includes('総ggr') || label === 'ggr') extractedData['総GGR'] = value;
-    else if (label === 'コスト' || label === 'cost') extractedData['コスト'] = value;
-    else if (label === 'ngr') extractedData['NGR'] = value;
-  });
+    userData.forEach((row, idx) => {
+      if (!row) return;
+      // ヘッダー行で「登録」列を探す
+      if (regColIdx < 0) {
+        const foundIdx = row.findIndex(cell => String(cell || '').trim() === '登録');
+        if (foundIdx >= 0) regColIdx = foundIdx;
+      }
+      // 「合計」行から登録数を取得
+      const firstCell = String(row[0] || '').trim();
+      if (firstCell === '合計' && regColIdx >= 0) {
+        const regVal = parseNumber(row[regColIdx]);
+        if (regVal !== null && regVal > 0) totalReg += regVal;
+      }
+    });
+    
+    if (totalReg > 0) extractedData['登録数'] = totalReg;
+  }
   
   // コストシートから合計取得
   if (costSheet) {
     const costData = XLSX.utils.sheet_to_json(costSheet, { header: 1 });
-    let totalCost = 0;
     costData.forEach(row => {
       if (!row) return;
       const label = String(row[0] || '').trim().toLowerCase();
       if (label === '合計' || label === 'total') {
-        totalCost = parseNumber(row[2]) || parseNumber(row[1]) || 0;
+        const costVal = parseNumber(row[2]) || parseNumber(row[1]) || 0;
+        if (costVal > 0) extractedData['コスト'] = costVal;
       }
     });
-    if (totalCost > 0) extractedData['コスト'] = totalCost;
   }
   
   // NGR計算（なければ算出）
-  if (!extractedData['NGR'] && extractedData['総GGR'] !== undefined) {
+  if (extractedData['NGR'] === 0 && (extractedData['総GGR'] > 0 || extractedData['コスト'] > 0)) {
     extractedData['NGR'] = (extractedData['総GGR'] || 0) - (extractedData['コスト'] || 0);
+  }
+  
+  // 合計流入がなければ計算
+  if (extractedData['合計流入'] === 0) {
+    extractedData['合計流入'] = extractedData['LINE流入'] + extractedData['Telegram流入'] + extractedData['Twitter流入'];
   }
   
   BUSINESSES['バカラツール'].data['全期間'] = { サマリー: extractedData };
   
-  const kpiCount = Object.keys(extractedData).length;
-  showStatus(`バカラツール取込完了: ${kpiCount}項目`);
+  showStatus(`バカラツール取込完了: 登録${extractedData['登録数']}件, コスト${formatCurrency(extractedData['コスト'])}`);
   selectBusiness('バカラツール');
   setTimeout(hideUploadModal, 1500);
 }
