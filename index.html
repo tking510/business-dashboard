@@ -6,6 +6,8 @@
   <title>事業別ダッシュボード</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;min-height:100vh}
@@ -69,8 +71,10 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
   <div class="header">
     <h1>📊 事業別ダッシュボード</h1>
     <div class="header-actions">
+      <span id="sync-status" style="font-size:12px;color:#10b981;margin-right:10px">💾 読込中...</span>
       <button class="btn btn-primary" onclick="showUploadModal()">📤 アップロード</button>
       <button class="btn btn-secondary" onclick="showAddBusinessModal()">➕ 事業追加</button>
+      <button class="btn btn-danger" onclick="clearAllData()" title="アップロードしたデータを全削除">🗑️ クリア</button>
     </div>
   </div>
   <div class="tabs" id="business-tabs"></div>
@@ -91,7 +95,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <table><thead><tr id="table-header"></tr></thead><tbody id="table-body"></tbody></table>
     </div>
   </div>
-  <footer>収益管理ダッシュボード v3.0（完全版）| 元amuse・DSC・スロ天・AMUSEVIP・広告・バカラツール対応</footer>
+  <footer>収益管理ダッシュボード v5.0（Firebase同期対応）| 元amuse・DSC・スロ天・AMUSEVIP・広告・バカラツール対応</footer>
 </div>
 
 <div id="upload-modal" class="modal hidden">
@@ -419,7 +423,8 @@ const SLOTEN_LINKS = [
   { category: 'その他', name: '世界の大会', url: 'https://gamblingtourn-abc2g3fa.manus.space/' },
 ];
 
-const BUSINESSES = {
+// デフォルトデータ
+const DEFAULT_BUSINESSES = {
   '元amuse': { data: MOTO_AMUSE_DATA, type: 'samExcel' },
   'DSC': { data: DSC_DATA, type: 'samExcel' },
   'スロ天': { data: SLOTEN_DATA, type: 'sloten' },
@@ -428,9 +433,204 @@ const BUSINESSES = {
   'AMUSEVIP': { data: {}, type: 'agent' }
 };
 
+// ============================================================
+// 🔥 Firebase設定 - ここを自分のプロジェクトの値に変更してください
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "YOUR_APP_ID"
+};
+// ============================================================
+
+// Firebase初期化
+let firebaseDB = null;
+let firebaseEnabled = false;
+
+function initFirebase() {
+  try {
+    if (FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY" && FIREBASE_CONFIG.databaseURL.includes('firebaseio.com')) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseDB = firebase.database();
+      firebaseEnabled = true;
+      console.log('Firebase initialized');
+      return true;
+    }
+  } catch (e) { console.warn('Firebase init error:', e); }
+  return false;
+}
+
+// Firebaseからデータを読み込み
+async function loadFirebaseData() {
+  if (!firebaseEnabled) return {};
+  try {
+    const snapshot = await firebaseDB.ref('businesses').once('value');
+    return snapshot.val() || {};
+  } catch (e) { console.warn('Firebase load error:', e); return {}; }
+}
+
+// Firebaseにデータを保存
+async function saveToFirebase(business, period, periodData, type) {
+  if (!firebaseEnabled) return;
+  try {
+    const safeBusiness = business.replace(/[.#$\/\[\]]/g, '_');
+    const safePeriod = period.replace(/[.#$\/\[\]]/g, '_');
+    await firebaseDB.ref(`businesses/${safeBusiness}/data/${safePeriod}`).set(periodData);
+    await firebaseDB.ref(`businesses/${safeBusiness}/type`).set(type);
+    updateSyncStatus('保存完了');
+  } catch (e) { console.warn('Firebase save error:', e); updateSyncStatus('保存エラー', true); }
+}
+
+// Firebaseから期間データを削除
+async function deleteFromFirebase(business, period) {
+  if (!firebaseEnabled) return;
+  try {
+    const safeBusiness = business.replace(/[.#$\/\[\]]/g, '_');
+    const safePeriod = period.replace(/[.#$\/\[\]]/g, '_');
+    await firebaseDB.ref(`businesses/${safeBusiness}/data/${safePeriod}`).remove();
+  } catch (e) { console.warn('Firebase delete error:', e); }
+}
+
+// Firebaseから事業を削除
+async function deleteBusinessFromFirebase(business) {
+  if (!firebaseEnabled) return;
+  try {
+    const safeBusiness = business.replace(/[.#$\/\[\]]/g, '_');
+    await firebaseDB.ref(`businesses/${safeBusiness}`).remove();
+  } catch (e) { console.warn('Firebase delete error:', e); }
+}
+
+// Firebase全データをクリア
+async function clearFirebaseData() {
+  if (!firebaseEnabled) return;
+  try {
+    await firebaseDB.ref('businesses').remove();
+  } catch (e) { console.warn('Firebase clear error:', e); }
+}
+
+// デフォルトとFirebaseデータをマージ
+function mergeWithDefault(firebaseData) {
+  const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES));
+  Object.keys(firebaseData).forEach(key => {
+    // キーを復元（_を元に戻す）
+    const originalKey = key.replace(/_/g, '.');
+    const targetKey = merged[originalKey] ? originalKey : key;
+    
+    if (merged[targetKey]) {
+      merged[targetKey].data = { ...merged[targetKey].data, ...(firebaseData[key].data || {}) };
+      merged[targetKey].type = firebaseData[key].type || merged[targetKey].type;
+    } else {
+      merged[key] = firebaseData[key];
+    }
+  });
+  return merged;
+}
+
+// 同期状態を表示
+function updateSyncStatus(msg, isError = false) {
+  const el = document.getElementById('sync-status');
+  if (el) {
+    el.textContent = firebaseEnabled ? `☁️ ${msg}` : '💾 ローカル保存';
+    el.style.color = isError ? '#ef4444' : '#10b981';
+  }
+}
+
+// 保存対象を追跡
+let pendingSave = null;
+
+function markForSave(business, period) {
+  pendingSave = { business, period };
+}
+
+// saveBusinessData - Firebaseに保存
+function saveBusinessData() {
+  if (pendingSave) {
+    const { business, period } = pendingSave;
+    const biz = BUSINESSES[business];
+    if (biz && biz.data[period]) {
+      saveToFirebase(business, period, biz.data[period], biz.type);
+      // localStorageにもバックアップ
+      try {
+        const backup = {};
+        Object.keys(BUSINESSES).forEach(k => {
+          if (!DEFAULT_BUSINESSES[k] || Object.keys(BUSINESSES[k].data).some(p => !DEFAULT_BUSINESSES[k].data[p])) {
+            backup[k] = BUSINESSES[k];
+          }
+        });
+        localStorage.setItem('dashboard_backup', JSON.stringify(backup));
+      } catch (e) {}
+    }
+    pendingSave = null;
+  }
+}
+
+// データをクリア
+async function clearAllData() {
+  if (confirm('全データを削除しますか？\n（初期データは残ります）')) {
+    await clearFirebaseData();
+    localStorage.removeItem('dashboard_backup');
+    location.reload();
+  }
+}
+
+// 初期データ
+let BUSINESSES = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES));
+
 let currentBusiness = '元amuse';
 let currentPeriod = null;
 let chartInstance = null;
+
+// ページ読み込み時にデータを取得
+async function initializeData() {
+  const fbEnabled = initFirebase();
+  
+  if (fbEnabled) {
+    try {
+      updateSyncStatus('読み込み中...');
+      const firebaseData = await loadFirebaseData();
+      BUSINESSES = mergeWithDefault(firebaseData);
+      selectBusiness(currentBusiness);
+      updateSyncStatus('同期完了');
+      
+      // リアルタイム同期を設定
+      firebaseDB.ref('businesses').on('value', (snapshot) => {
+        const data = snapshot.val() || {};
+        BUSINESSES = mergeWithDefault(data);
+        selectBusiness(currentBusiness);
+        updateSyncStatus('同期完了');
+      });
+    } catch (e) {
+      console.warn('Init error:', e);
+      updateSyncStatus('接続エラー', true);
+    }
+  } else {
+    // Firebaseが設定されていない場合はlocalStorageから読み込み
+    try {
+      const backup = localStorage.getItem('dashboard_backup');
+      if (backup) {
+        const parsed = JSON.parse(backup);
+        Object.keys(parsed).forEach(key => {
+          if (BUSINESSES[key]) {
+            BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data };
+          } else {
+            BUSINESSES[key] = parsed[key];
+          }
+        });
+      }
+    } catch (e) {}
+    selectBusiness(currentBusiness);
+    updateSyncStatus('ローカルモード');
+  }
+}
+
+// DOMContentLoaded時に実行
+document.addEventListener('DOMContentLoaded', () => {
+  initializeData();
+});
 
 // ========== ユーティリティ ==========
 function parseNumber(val) {
@@ -530,6 +730,7 @@ function deletePeriod() {
   if (periods.length <= 1) { alert('最後の期間は削除できません'); return; }
   if (confirm(`「${currentPeriod}」を削除しますか？`)) {
     delete business.data[currentPeriod];
+    deleteFromFirebase(currentBusiness, currentPeriod);
     selectBusiness(currentBusiness);
   }
 }
@@ -538,7 +739,13 @@ function deletePeriod() {
 function renderSummary() {
   const container = document.getElementById('summary-section');
   const business = BUSINESSES[currentBusiness];
-  const periodData = business?.data?.[currentPeriod];
+  
+  if (!business) {
+    container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:#94a3b8">事業を選択してください</div>';
+    return;
+  }
+  
+  const periodData = business.data?.[currentPeriod];
   const data = periodData?.サマリー || periodData || {};
   
   if (!data || Object.keys(data).length === 0) {
@@ -546,7 +753,7 @@ function renderSummary() {
     return;
   }
   
-  const type = business.type;
+  const type = business.type || 'samExcel';
   const colors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)','linear-gradient(135deg,#ec4899,#db2777)','linear-gradient(135deg,#06b6d4,#0891b2)','linear-gradient(135deg,#84cc16,#65a30d)'];
   
   let cards = [];
@@ -621,12 +828,14 @@ function renderSummary() {
 function renderKPISections() {
   const container = document.getElementById('kpi-sections');
   const business = BUSINESSES[currentBusiness];
-  const periodData = business?.data?.[currentPeriod];
+  if (!business) { container.innerHTML = ''; return; }
+  
+  const periodData = business.data?.[currentPeriod];
   const data = periodData?.サマリー || periodData || {};
   
   if (!data || Object.keys(data).length === 0) { container.innerHTML = ''; return; }
   
-  const type = business.type;
+  const type = business.type || 'samExcel';
   if (type === 'agent' || type === 'ads' || type === 'baccara') { container.innerHTML = ''; return; }
   
   const sections = [
@@ -685,13 +894,15 @@ function renderKPISections() {
 function renderChart() {
   const ctx = document.getElementById('main-chart').getContext('2d');
   const business = BUSINESSES[currentBusiness];
-  const data = business?.data || {};
+  if (!business) { if (chartInstance) chartInstance.destroy(); return; }
+  
+  const data = business.data || {};
   const periods = sortPeriods(Object.keys(data)).reverse().slice(-12);
   
   if (chartInstance) chartInstance.destroy();
   if (periods.length === 0) { ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); return; }
   
-  const type = business.type;
+  const type = business.type || 'samExcel';
   let datasets = [];
   
   if (type === 'samExcel') {
@@ -881,9 +1092,11 @@ function handleCSV(text, period, uploadType, filename) {
   const isBonus = fn.includes('ボーナス') || fn.includes('キャッシュバック') || headerStr.includes('総ボーナス付与金額');
   const isAgent = fn.includes('エージェント') || fn.includes('agent') || (headerStr.includes('teamkyoto') || headerStr.includes('ローリング'));
   const isAds = fn.includes('日报') || fn.includes('広告') || (headerStr.includes('コスト') && headerStr.includes('インプレッション'));
+  const isSloten = fn.includes('スロ天') || fn.includes('kpi') || (headerStr.includes('項目名') && headerStr.includes('月次合計'));
   
   // 自動判別
   if (uploadType === 'auto') {
+    if (isSloten) { parseSlotenCSV(lines, period, fn); return; }
     if (isCustomerList) { parseCustomerListCSV(lines, period, fn); return; }
     if (isUncollected) { parseUncollectedCSV(lines, period, fn); return; }
     if (isDelayed) { parseDelayedCSV(lines, period, fn); return; }
@@ -893,6 +1106,7 @@ function handleCSV(text, period, uploadType, filename) {
   }
   
   // 種別指定
+  if (uploadType === 'sloten') { parseSlotenCSV(lines, period, fn); return; }
   if (uploadType === 'customerList') { parseCustomerListCSV(lines, period, fn); return; }
   if (uploadType === 'uncollected') { parseUncollectedCSV(lines, period, fn); return; }
   if (uploadType === 'bonus') { parseBonusCSV(lines, period, fn); return; }
@@ -1050,8 +1264,9 @@ function parseCustomerListCSV(lines, period, filename) {
   
   const tantoshaInfo = tantoshaData.length > 0 ? `, 担当者${tantoshaData.length}名` : '';
   showStatus(`顧客リスト取込完了: ${target} ${stats.総登録数}件${tantoshaInfo}, FTD${stats.FTD数}件`);
+  markForSave(target, period);
   selectBusiness(target);
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 function parseUncollectedCSV(lines, period, filename) {
@@ -1104,8 +1319,9 @@ function parseUncollectedCSV(lines, period, filename) {
   BUSINESSES[target].data[period] = { サマリー: { ...existing, ...data } };
   
   showStatus(`未回収シート取込完了: ${target} ${count}人, ${formatCurrency(total)}`);
+  markForSave(target, period);
   selectBusiness(target);
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 function parseBonusCSV(lines, period, filename) {
@@ -1156,7 +1372,7 @@ function parseBonusCSV(lines, period, filename) {
   
   showStatus(`ボーナスシート取込完了: ${target} ${count}人, 総額${formatCurrency(totalBonus)}`);
   selectBusiness(target);
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 // 遅れ回収シートパーサー
@@ -1206,7 +1422,7 @@ function parseDelayedCSV(lines, period, filename) {
   
   showStatus(`遅れ回収シート取込完了: ${target} ${count}件, ${formatCurrency(totalDelayed)}`);
   selectBusiness(target);
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 function parseAgentCSV(lines, period) {
@@ -1254,7 +1470,76 @@ function parseAgentCSV(lines, period) {
   
   showStatus(`エージェント取込完了: ${weeklyData.length}回, 収益${formatCurrency(totals.収益合計)}`);
   selectBusiness('AMUSEVIP');
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
+}
+
+// スロ天KPIシートCSVパーサー
+function parseSlotenCSV(lines, period, filename) {
+  const kpi = {};
+  const depositMethods = {};
+  const withdrawMethods = {};
+  const gameData = {};
+  const affData = {};
+  
+  // 期間名をファイル名から抽出（例: 202601 → 2026年1月）
+  let periodName = period;
+  const match = filename.match(/(\d{4})(\d{2})/);
+  if (match) {
+    periodName = `${match[1]}年${parseInt(match[2])}月`;
+  }
+  
+  // 主要KPIのキー（最初に見つかった値を優先）
+  const primaryKeys = ['GGR', '総入金額', '総出金額', '入出金差分', 'T/O', 'RTP', 'NGR', '登録人数', 'ログインユーザー数', 'FTD', 'GGRLTV'];
+  
+  // 各行を処理（最初の100行のみサマリーKPIとして扱う）
+  lines.forEach((row, idx) => {
+    if (!row || row.length < 2) return;
+    const rawLabel = String(row[0] || '').trim();
+    const monthlyVal = row[1];
+    
+    if (!rawLabel || rawLabel === '項目名' || rawLabel === '' || rawLabel.includes('全体KPI')) return;
+    
+    const val = parseNumber(monthlyVal);
+    if (val === null) return;
+    
+    // ラベルを正規化（/以降を除去）
+    const cleanLabel = rawLabel.split('/')[0].trim();
+    
+    // 主要KPIは最初に見つかった値のみ採用（上書きしない）
+    const isPrimaryKey = primaryKeys.some(pk => cleanLabel === pk || cleanLabel.startsWith(pk));
+    if (isPrimaryKey && kpi[cleanLabel] !== undefined) {
+      // すでに値がある場合はスキップ（最初の値を優先）
+      return;
+    }
+    
+    // サマリーKPIセクション（最初の90行程度）の値を優先
+    if (idx < 90 || !isPrimaryKey) {
+      kpi[cleanLabel] = val;
+    }
+  });
+  
+  // 入出金差分がなければ計算
+  if (kpi['入出金差分'] === undefined && kpi['総入金額'] !== undefined && kpi['総出金額'] !== undefined) {
+    kpi['入出金差分'] = kpi['総入金額'] - kpi['総出金額'];
+  }
+  
+  // データを保存
+  if (!BUSINESSES['スロ天']) {
+    BUSINESSES['スロ天'] = { data: {}, type: 'sloten' };
+  }
+  
+  BUSINESSES['スロ天'].data[periodName] = {
+    サマリー: kpi,
+    ...(Object.keys(depositMethods).length > 0 ? { 入金方法: depositMethods } : {}),
+    ...(Object.keys(withdrawMethods).length > 0 ? { 出金方法: withdrawMethods } : {}),
+    ...(Object.keys(gameData).length > 0 ? { ゲーム別: gameData } : {}),
+    ...(Object.keys(affData).length > 0 ? { Affiliate: affData } : {})
+  };
+  
+  const ggrVal = kpi['GGR'] ? formatCurrency(kpi['GGR']) : 'N/A';
+  showStatus(`スロ天KPI取込完了: ${periodName}, GGR=${ggrVal}`);
+  selectBusiness('スロ天');
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 function parseAdsCSV(lines, period) {
@@ -1312,7 +1597,7 @@ function parseAdsCSV(lines, period) {
   
   showStatus(`広告データ取込完了: ${dailyData.length}日, $${totals.コスト.toFixed(2)}, 登録${totals.登録}件, 入金${totals.入金}件`);
   selectBusiness('広告');
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 // ========== Excel処理 ==========
@@ -1437,7 +1722,7 @@ function parseSlotenExcel(workbook, monthlySheets) {
   
   showStatus(`スロ天データ取込完了: ${count}期間`);
   selectBusiness('スロ天');
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 function parseBaccaratExcel(workbook, period) {
@@ -1521,7 +1806,7 @@ function parseBaccaratExcel(workbook, period) {
   
   showStatus(`バカラツール取込完了: 登録${extractedData['登録数']}件, コスト${formatCurrency(extractedData['コスト'])}`);
   selectBusiness('バカラツール');
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 function parseSamExcel(workbook, revenueSheets) {
@@ -1565,7 +1850,7 @@ function parseSamExcel(workbook, revenueSheets) {
   showStatus(`収益シート取込完了: 元amuse ${amuseCount}件, DSC ${dscCount}件`);
   if (dscCount > 0) selectBusiness('DSC');
   else selectBusiness('元amuse');
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 function parseGenericExcel(workbook, period) {
@@ -1583,7 +1868,7 @@ function parseGenericExcel(workbook, period) {
   BUSINESSES[currentBusiness].data[period] = { サマリー: kpi };
   showStatus(`Excel取込完了: ${Object.keys(kpi).length}項目`);
   selectBusiness(currentBusiness);
-  setTimeout(hideUploadModal, 1500);
+  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 // ========== 事業追加・削除 ==========
@@ -1593,6 +1878,7 @@ function addBusiness() {
   if (!name) { alert('事業名を入力してください'); return; }
   if (BUSINESSES[name]) { alert('同名の事業が存在します'); return; }
   BUSINESSES[name] = { data: {}, type: type };
+  saveBusinessData();
   hideAddBusinessModal();
   selectBusiness(name);
 }
@@ -1600,6 +1886,7 @@ function addBusiness() {
 function deleteBusiness() {
   if (Object.keys(BUSINESSES).length <= 1) { alert('最後の事業は削除できません'); return; }
   if (confirm(`「${currentBusiness}」を削除しますか？`)) {
+    deleteBusinessFromFirebase(currentBusiness);
     delete BUSINESSES[currentBusiness];
     selectBusiness(Object.keys(BUSINESSES)[0]);
   }
