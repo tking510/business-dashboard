@@ -6,8 +6,6 @@
   <title>事業別ダッシュボード</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;min-height:100vh}
@@ -73,8 +71,9 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
     <div class="header-actions">
       <span id="sync-status" style="font-size:12px;color:#10b981;margin-right:10px">💾 読込中...</span>
       <button class="btn btn-primary" onclick="showUploadModal()">📤 アップロード</button>
+      <button class="btn btn-secondary" onclick="createShareLink()">🔗 共有リンク</button>
       <button class="btn btn-secondary" onclick="showAddBusinessModal()">➕ 事業追加</button>
-      <button class="btn btn-danger" onclick="clearAllData()" title="アップロードしたデータを全削除">🗑️ クリア</button>
+      <button class="btn btn-danger" onclick="clearAllData()" title="アップロードしたデータを全削除">🗑️</button>
     </div>
   </div>
   <div class="tabs" id="business-tabs"></div>
@@ -95,7 +94,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <table><thead><tr id="table-header"></tr></thead><tbody id="table-body"></tbody></table>
     </div>
   </div>
-  <footer>収益管理ダッシュボード v5.0（Firebase同期対応）| 元amuse・DSC・スロ天・AMUSEVIP・広告・バカラツール対応</footer>
+  <footer>収益管理ダッシュボード v5.0（クラウド同期対応）| 元amuse・DSC・スロ天・AMUSEVIP・広告・バカラツール対応</footer>
 </div>
 
 <div id="upload-modal" class="modal hidden">
@@ -434,97 +433,152 @@ const DEFAULT_BUSINESSES = {
 };
 
 // ============================================================
-// 🔥 Firebase設定 - ここを自分のプロジェクトの値に変更してください
+// ☁️ クラウド同期（npoint.io - 完全無料・設定不要）
+// URLに ?bin=xxx が付いていれば自動的にクラウド同期
+// 初回は「共有リンク作成」ボタンでビンを作成
 // ============================================================
-const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "YOUR_APP_ID"
-};
-// ============================================================
+const NPOINT_API = 'https://api.npoint.io/';
+let NPOINT_BIN_ID = '';
+let cloudEnabled = false;
 
-// Firebase初期化
-let firebaseDB = null;
-let firebaseEnabled = false;
-
-function initFirebase() {
-  try {
-    if (FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY" && FIREBASE_CONFIG.databaseURL.includes('firebaseio.com')) {
-      firebase.initializeApp(FIREBASE_CONFIG);
-      firebaseDB = firebase.database();
-      firebaseEnabled = true;
-      console.log('Firebase initialized');
-      return true;
-    }
-  } catch (e) { console.warn('Firebase init error:', e); }
-  return false;
+// URLからビンIDを取得
+function getBinIdFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('bin') || '';
 }
 
-// Firebaseからデータを読み込み
-async function loadFirebaseData() {
-  if (!firebaseEnabled) return {};
-  try {
-    const snapshot = await firebaseDB.ref('businesses').once('value');
-    return snapshot.val() || {};
-  } catch (e) { console.warn('Firebase load error:', e); return {}; }
+// URLにビンIDを設定
+function setBinIdToURL(binId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('bin', binId);
+  window.history.replaceState({}, '', url);
 }
 
-// Firebaseにデータを保存
-async function saveToFirebase(business, period, periodData, type) {
-  if (!firebaseEnabled) return;
+// 新しいビンを作成
+async function createNewBin() {
   try {
-    const safeBusiness = business.replace(/[.#$\/\[\]]/g, '_');
-    const safePeriod = period.replace(/[.#$\/\[\]]/g, '_');
-    await firebaseDB.ref(`businesses/${safeBusiness}/data/${safePeriod}`).set(periodData);
-    await firebaseDB.ref(`businesses/${safeBusiness}/type`).set(type);
-    updateSyncStatus('保存完了');
-  } catch (e) { console.warn('Firebase save error:', e); updateSyncStatus('保存エラー', true); }
-}
-
-// Firebaseから期間データを削除
-async function deleteFromFirebase(business, period) {
-  if (!firebaseEnabled) return;
-  try {
-    const safeBusiness = business.replace(/[.#$\/\[\]]/g, '_');
-    const safePeriod = period.replace(/[.#$\/\[\]]/g, '_');
-    await firebaseDB.ref(`businesses/${safeBusiness}/data/${safePeriod}`).remove();
-  } catch (e) { console.warn('Firebase delete error:', e); }
-}
-
-// Firebaseから事業を削除
-async function deleteBusinessFromFirebase(business) {
-  if (!firebaseEnabled) return;
-  try {
-    const safeBusiness = business.replace(/[.#$\/\[\]]/g, '_');
-    await firebaseDB.ref(`businesses/${safeBusiness}`).remove();
-  } catch (e) { console.warn('Firebase delete error:', e); }
-}
-
-// Firebase全データをクリア
-async function clearFirebaseData() {
-  if (!firebaseEnabled) return;
-  try {
-    await firebaseDB.ref('businesses').remove();
-  } catch (e) { console.warn('Firebase clear error:', e); }
-}
-
-// デフォルトとFirebaseデータをマージ
-function mergeWithDefault(firebaseData) {
-  const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES));
-  Object.keys(firebaseData).forEach(key => {
-    // キーを復元（_を元に戻す）
-    const originalKey = key.replace(/_/g, '.');
-    const targetKey = merged[originalKey] ? originalKey : key;
+    updateSyncStatus('作成中...');
+    const res = await fetch(NPOINT_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businesses: {}, created: new Date().toISOString() })
+    });
     
-    if (merged[targetKey]) {
-      merged[targetKey].data = { ...merged[targetKey].data, ...(firebaseData[key].data || {}) };
-      merged[targetKey].type = firebaseData[key].type || merged[targetKey].type;
+    // レスポンスからビンIDを取得（URLの最後の部分）
+    const url = res.url;
+    const binId = url.split('/').pop();
+    
+    if (binId && binId.length > 5) {
+      NPOINT_BIN_ID = binId;
+      cloudEnabled = true;
+      setBinIdToURL(binId);
+      updateSyncStatus('作成完了！');
+      
+      // 共有URLを表示
+      showShareURL();
+      return binId;
+    }
+  } catch (e) {
+    console.warn('Bin creation error:', e);
+    updateSyncStatus('作成エラー', true);
+  }
+  return null;
+}
+
+// 共有URLを表示
+function showShareURL() {
+  const shareUrl = window.location.href;
+  const msg = `✅ 共有リンクが作成されました！\n\n${shareUrl}\n\nこのURLを共有すると、全員が同じデータを見れます。\n\nコピーしますか？`;
+  if (confirm(msg)) {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert('URLをコピーしました！');
+    }).catch(() => {
+      prompt('以下のURLをコピーしてください:', shareUrl);
+    });
+  }
+}
+
+// 共有リンク作成ボタン
+async function createShareLink() {
+  if (cloudEnabled) {
+    showShareURL();
+  } else {
+    const binId = await createNewBin();
+    if (binId) {
+      // 現在のデータをクラウドに保存
+      await saveToCloud();
+    }
+  }
+}
+
+// クラウドからデータを読み込み
+async function loadCloudData() {
+  if (!NPOINT_BIN_ID) return {};
+  try {
+    const res = await fetch(NPOINT_API + NPOINT_BIN_ID);
+    if (!res.ok) throw new Error('Load failed');
+    const data = await res.json();
+    return data.businesses || {};
+  } catch (e) { console.warn('Cloud load error:', e); return {}; }
+}
+
+// クラウドにデータを保存
+async function saveToCloud() {
+  if (!NPOINT_BIN_ID) return;
+  try {
+    // 保存するデータを構築（デフォルト以外のみ）
+    const toSave = {};
+    Object.keys(BUSINESSES).forEach(key => {
+      const biz = BUSINESSES[key];
+      const def = DEFAULT_BUSINESSES[key];
+      if (!def) {
+        toSave[key] = biz;
+      } else {
+        const newPeriods = {};
+        Object.keys(biz.data).forEach(period => {
+          if (!def.data[period]) {
+            newPeriods[period] = biz.data[period];
+          }
+        });
+        if (Object.keys(newPeriods).length > 0) {
+          toSave[key] = { data: newPeriods, type: biz.type };
+        }
+      }
+    });
+    
+    await fetch(NPOINT_API + NPOINT_BIN_ID, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businesses: toSave, lastUpdate: new Date().toISOString() })
+    });
+    updateSyncStatus('保存完了 ✓');
+  } catch (e) { 
+    console.warn('Cloud save error:', e); 
+    updateSyncStatus('保存エラー', true);
+  }
+}
+
+// クラウドの全データをクリア
+async function clearCloudData() {
+  if (!NPOINT_BIN_ID) return;
+  try {
+    await fetch(NPOINT_API + NPOINT_BIN_ID, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businesses: {}, lastUpdate: new Date().toISOString() })
+    });
+  } catch (e) { console.warn('Cloud clear error:', e); }
+}
+
+// デフォルトとクラウドデータをマージ
+function mergeWithDefault(cloudData) {
+  const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES));
+  Object.keys(cloudData).forEach(key => {
+    if (merged[key]) {
+      merged[key].data = { ...merged[key].data, ...(cloudData[key].data || {}) };
+      merged[key].type = cloudData[key].type || merged[key].type;
     } else {
-      merged[key] = firebaseData[key];
+      merged[key] = cloudData[key];
     }
   });
   return merged;
@@ -534,44 +588,50 @@ function mergeWithDefault(firebaseData) {
 function updateSyncStatus(msg, isError = false) {
   const el = document.getElementById('sync-status');
   if (el) {
-    el.textContent = firebaseEnabled ? `☁️ ${msg}` : '💾 ローカル保存';
+    el.textContent = cloudEnabled ? `☁️ ${msg}` : '💾 ローカル';
     el.style.color = isError ? '#ef4444' : '#10b981';
-  }
-}
-
-// 保存対象を追跡
-let pendingSave = null;
-
-function markForSave(business, period) {
-  pendingSave = { business, period };
-}
-
-// saveBusinessData - Firebaseに保存
-function saveBusinessData() {
-  if (pendingSave) {
-    const { business, period } = pendingSave;
-    const biz = BUSINESSES[business];
-    if (biz && biz.data[period]) {
-      saveToFirebase(business, period, biz.data[period], biz.type);
-      // localStorageにもバックアップ
-      try {
-        const backup = {};
-        Object.keys(BUSINESSES).forEach(k => {
-          if (!DEFAULT_BUSINESSES[k] || Object.keys(BUSINESSES[k].data).some(p => !DEFAULT_BUSINESSES[k].data[p])) {
-            backup[k] = BUSINESSES[k];
-          }
-        });
-        localStorage.setItem('dashboard_backup', JSON.stringify(backup));
-      } catch (e) {}
+    // 3秒後に通常表示に戻す
+    if (!isError && msg !== '同期中...' && msg !== '読み込み中...') {
+      setTimeout(() => {
+        if (el.textContent.includes(msg)) {
+          el.textContent = cloudEnabled ? '☁️ クラウド同期中' : '💾 ローカル';
+        }
+      }, 3000);
     }
-    pendingSave = null;
   }
+}
+
+// saveBusinessData - クラウドに保存
+function saveBusinessData() {
+  if (cloudEnabled) {
+    updateSyncStatus('保存中...');
+    saveToCloud();
+  }
+  // ローカルバックアップも保存
+  try {
+    const backup = {};
+    Object.keys(BUSINESSES).forEach(k => {
+      const def = DEFAULT_BUSINESSES[k];
+      if (!def) {
+        backup[k] = BUSINESSES[k];
+      } else {
+        const newPeriods = {};
+        Object.keys(BUSINESSES[k].data).forEach(p => {
+          if (!def.data[p]) newPeriods[p] = BUSINESSES[k].data[p];
+        });
+        if (Object.keys(newPeriods).length > 0) {
+          backup[k] = { data: newPeriods, type: BUSINESSES[k].type };
+        }
+      }
+    });
+    localStorage.setItem('dashboard_backup', JSON.stringify(backup));
+  } catch (e) {}
 }
 
 // データをクリア
 async function clearAllData() {
   if (confirm('全データを削除しますか？\n（初期データは残ります）')) {
-    await clearFirebaseData();
+    if (cloudEnabled) await clearCloudData();
     localStorage.removeItem('dashboard_backup');
     location.reload();
   }
@@ -586,29 +646,22 @@ let chartInstance = null;
 
 // ページ読み込み時にデータを取得
 async function initializeData() {
-  const fbEnabled = initFirebase();
+  // URLからビンIDを取得
+  NPOINT_BIN_ID = getBinIdFromURL();
+  cloudEnabled = !!NPOINT_BIN_ID;
   
-  if (fbEnabled) {
+  if (cloudEnabled) {
     try {
       updateSyncStatus('読み込み中...');
-      const firebaseData = await loadFirebaseData();
-      BUSINESSES = mergeWithDefault(firebaseData);
-      selectBusiness(currentBusiness);
-      updateSyncStatus('同期完了');
-      
-      // リアルタイム同期を設定
-      firebaseDB.ref('businesses').on('value', (snapshot) => {
-        const data = snapshot.val() || {};
-        BUSINESSES = mergeWithDefault(data);
-        selectBusiness(currentBusiness);
-        updateSyncStatus('同期完了');
-      });
+      const cloudData = await loadCloudData();
+      BUSINESSES = mergeWithDefault(cloudData);
+      updateSyncStatus('クラウド同期中');
     } catch (e) {
       console.warn('Init error:', e);
       updateSyncStatus('接続エラー', true);
     }
   } else {
-    // Firebaseが設定されていない場合はlocalStorageから読み込み
+    // クラウド未設定の場合はローカルから読み込み
     try {
       const backup = localStorage.getItem('dashboard_backup');
       if (backup) {
@@ -622,9 +675,10 @@ async function initializeData() {
         });
       }
     } catch (e) {}
-    selectBusiness(currentBusiness);
-    updateSyncStatus('ローカルモード');
+    updateSyncStatus('ローカル');
   }
+  
+  selectBusiness(currentBusiness);
 }
 
 // DOMContentLoaded時に実行
@@ -730,7 +784,7 @@ function deletePeriod() {
   if (periods.length <= 1) { alert('最後の期間は削除できません'); return; }
   if (confirm(`「${currentPeriod}」を削除しますか？`)) {
     delete business.data[currentPeriod];
-    deleteFromFirebase(currentBusiness, currentPeriod);
+    saveBusinessData(); // クラウドに再保存
     selectBusiness(currentBusiness);
   }
 }
@@ -1886,8 +1940,8 @@ function addBusiness() {
 function deleteBusiness() {
   if (Object.keys(BUSINESSES).length <= 1) { alert('最後の事業は削除できません'); return; }
   if (confirm(`「${currentBusiness}」を削除しますか？`)) {
-    deleteBusinessFromFirebase(currentBusiness);
     delete BUSINESSES[currentBusiness];
+    saveBusinessData(); // クラウドに再保存
     selectBusiness(Object.keys(BUSINESSES)[0]);
   }
 }
