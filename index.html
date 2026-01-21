@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>事業別ダッシュボード</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;min-height:100vh}
@@ -817,8 +817,7 @@ function renderSummary() {
       { key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },
       { key: 'NGR', label: 'NGR' },
       { key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },
-      { key: 'GGR(回収金額-出金金額)', label: '入出金差分' },
-      { key: '利益', label: '利益' }
+      { key: 'GGR(回収金額-出金金額)', label: '入出金差分' }
     ];
   } else if (type === 'sloten') {
     cards = [
@@ -1318,7 +1317,6 @@ function parseCustomerListCSV(lines, period, filename) {
   
   const tantoshaInfo = tantoshaData.length > 0 ? `, 担当者${tantoshaData.length}名` : '';
   showStatus(`顧客リスト取込完了: ${target} ${stats.総登録数}件${tantoshaInfo}, FTD${stats.FTD数}件`);
-  markForSave(target, period);
   selectBusiness(target);
   saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
@@ -1373,7 +1371,6 @@ function parseUncollectedCSV(lines, period, filename) {
   BUSINESSES[target].data[period] = { サマリー: { ...existing, ...data } };
   
   showStatus(`未回収シート取込完了: ${target} ${count}人, ${formatCurrency(total)}`);
-  markForSave(target, period);
   selectBusiness(target);
   saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
@@ -1597,16 +1594,16 @@ function parseSlotenCSV(lines, period, filename) {
 }
 
 function parseAdsCSV(lines, period) {
-  const header = lines[0].map(h => String(h || '').toLowerCase().replace(/\n/g, ''));
+  const header = lines[0].map(h => String(h || '').toLowerCase().replace(/\n/g, '').trim());
   
   // インデックス検索（最初にマッチしたものだけ使用）
   const dateIdx = header.findIndex(h => h.includes('date') || h === '日付');
   const costIdx = header.findIndex(h => h.includes('コスト') || h === 'cost');
   const impIdx = header.findIndex(h => h.includes('インプレッション') || h.includes('imp'));
   const clickIdx = header.findIndex(h => h.includes('クリック') || h.includes('click'));
-  // 登録数は「登録数」のみ（部分一致の誤検出を防止）
+  // 登録数は「登録数」完全一致のみ
   const regIdx = header.findIndex(h => h === '登録数' || h === 'registrations');
-  // 入金数は最初の「入金数」のみ（[BO: Asp]などの重複を除外）
+  // 入金数は「入金数」完全一致のみ（[BO: Asp]などの重複を除外）
   const depIdx = header.findIndex(h => h === '入金数' || h === 'deposits');
   
   let dailyData = [];
