@@ -272,8 +272,9 @@ const DEFAULT_BUSINESSES = {
   'AMUSEVIP': { data: {}, type: 'agent' }
 };
 
-const JSONBLOB_API = 'https://jsonblob.com/api/jsonBlob';
-let BLOB_ID = '';
+// LZ圧縮ライブラリ（軽量版）
+const LZString={compressToEncodedURIComponent:function(a){if(null==a)return"";return LZString._compress(a,6,function(b){return"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$".charAt(b)})},decompressFromEncodedURIComponent:function(a){if(null==a)return"";if(""==a)return null;a=a.replace(/ /g,"+");return LZString._decompress(a.length,32,function(b){return"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$".indexOf(a.charAt(b))})},_compress:function(a,b,c){if(null==a)return"";var d,e,f,g={},h={},k="",l="",m="",n=2,o=3,p=2,q=[],r=0,s=0;for(f=0;f<a.length;f+=1)if(k=a.charAt(f),Object.prototype.hasOwnProperty.call(g,k)||(g[k]=o++,h[k]=!0),l=m+k,Object.prototype.hasOwnProperty.call(g,l))m=l;else{if(Object.prototype.hasOwnProperty.call(h,m)){if(256>m.charCodeAt(0)){for(d=0;d<p;d++)r<<=1,15==s?(s=0,q.push(c(r)),r=0):s++;for(e=m.charCodeAt(0),d=0;8>d;d++)r=r<<1|1&e,15==s?(s=0,q.push(c(r)),r=0):s++,e>>=1}else{for(e=1,d=0;d<p;d++)r=r<<1|e,15==s?(s=0,q.push(c(r)),r=0):s++,e=0;for(e=m.charCodeAt(0),d=0;16>d;d++)r=r<<1|1&e,15==s?(s=0,q.push(c(r)),r=0):s++,e>>=1}0==--n&&(n=Math.pow(2,p),p++);delete h[m]}else for(e=g[m],d=0;d<p;d++)r=r<<1|1&e,15==s?(s=0,q.push(c(r)),r=0):s++,e>>=1;0==--n&&(n=Math.pow(2,p),p++);g[l]=o++;m=k}if(""!==m){if(Object.prototype.hasOwnProperty.call(h,m)){if(256>m.charCodeAt(0)){for(d=0;d<p;d++)r<<=1,15==s?(s=0,q.push(c(r)),r=0):s++;for(e=m.charCodeAt(0),d=0;8>d;d++)r=r<<1|1&e,15==s?(s=0,q.push(c(r)),r=0):s++,e>>=1}else{for(e=1,d=0;d<p;d++)r=r<<1|e,15==s?(s=0,q.push(c(r)),r=0):s++,e=0;for(e=m.charCodeAt(0),d=0;16>d;d++)r=r<<1|1&e,15==s?(s=0,q.push(c(r)),r=0):s++,e>>=1}0==--n&&(n=Math.pow(2,p),p++);delete h[m]}else for(e=g[m],d=0;d<p;d++)r=r<<1|1&e,15==s?(s=0,q.push(c(r)),r=0):s++,e>>=1;0==--n&&(n=Math.pow(2,p),p++)}for(e=2,d=0;d<p;d++)r=r<<1|1&e,15==s?(s=0,q.push(c(r)),r=0):s++,e>>=1;for(;;)if(r<<=1,15==s){q.push(c(r));break}else s++;return q.join("")},_decompress:function(a,b,c){var d,e,f,g,h,k,l,m=[],n=4,o=4,p=3,q="",r=[],s={val:c(0),position:b,index:1};for(d=0;3>d;d+=1)m[d]=d;for(f=0,h=Math.pow(2,2),k=1;k!=h;)g=s.val&s.position,s.position>>=1,0==s.position&&(s.position=b,s.val=c(s.index++)),f|=(0<g?1:0)*k,k<<=1;switch(f){case 0:for(f=0,h=Math.pow(2,8),k=1;k!=h;)g=s.val&s.position,s.position>>=1,0==s.position&&(s.position=b,s.val=c(s.index++)),f|=(0<g?1:0)*k,k<<=1;l=String.fromCharCode(f);break;case 1:for(f=0,h=Math.pow(2,16),k=1;k!=h;)g=s.val&s.position,s.position>>=1,0==s.position&&(s.position=b,s.val=c(s.index++)),f|=(0<g?1:0)*k,k<<=1;l=String.fromCharCode(f);break;case 2:return""}for(m[3]=l,e=l,r.push(l);;){if(s.index>a)return"";for(f=0,h=Math.pow(2,p),k=1;k!=h;)g=s.val&s.position,s.position>>=1,0==s.position&&(s.position=b,s.val=c(s.index++)),f|=(0<g?1:0)*k,k<<=1;switch(l=f){case 0:for(f=0,h=Math.pow(2,8),k=1;k!=h;)g=s.val&s.position,s.position>>=1,0==s.position&&(s.position=b,s.val=c(s.index++)),f|=(0<g?1:0)*k,k<<=1;m[o++]=String.fromCharCode(f);l=o-1;n--;break;case 1:for(f=0,h=Math.pow(2,16),k=1;k!=h;)g=s.val&s.position,s.position>>=1,0==s.position&&(s.position=b,s.val=c(s.index++)),f|=(0<g?1:0)*k,k<<=1;m[o++]=String.fromCharCode(f);l=o-1;n--;break;case 2:return r.join("")}if(0==n&&(n=Math.pow(2,p),p++),m[l])q=m[l];else if(l===o)q=e+e.charAt(0);else return null;r.push(q);m[o++]=e+q.charAt(0);n--;e=q;0==n&&(n=Math.pow(2,p),p++)}}};
+
 let cloudEnabled = false;
 
 let BUSINESSES = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES));
@@ -325,103 +326,123 @@ function sortPeriods(periods) {
 }
 
 // ========== クラウド同期 ==========
-function getBinIdFromURL() { return new URLSearchParams(window.location.search).get('bin') || ''; }
-function setBinIdToURL(binId) { const url = new URL(window.location.href); url.searchParams.set('bin', binId); window.history.replaceState({}, '', url); }
+function getBinIdFromURL() { return ''; }
+function setBinIdToURL(binId) { }
 function updateSyncStatus(msg, isError = false) { const el = document.getElementById('sync-status'); el.textContent = isError ? '⚠️ ' + msg : '💾 ' + msg; el.style.color = isError ? '#ef4444' : '#10b981'; }
-async function createNewBin() { 
-  try { 
-    updateSyncStatus('作成中...'); 
-    const res = await fetch(JSONBLOB_API, { 
-      method: 'POST', 
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, 
-      body: JSON.stringify({ businesses: {}, created: new Date().toISOString() })
-    });
-    if (!res.ok) throw new Error('API error: ' + res.status);
-    const location = res.headers.get('Location') || res.headers.get('x-jsonblob');
-    const blobId = location ? location.split('/').pop() : null;
-    if (blobId && blobId.length > 5) { 
-      BLOB_ID = blobId; 
-      cloudEnabled = true; 
-      setBinIdToURL(blobId); 
-      updateSyncStatus('作成完了！'); 
-      showShareURL(); 
-      return blobId; 
-    } else {
-      throw new Error('Invalid blob ID');
-    }
-  } catch (e) { 
-    console.error('createNewBin error:', e);
-    updateSyncStatus('作成エラー', true); 
-    if (window.self !== window.top) {
-      alert('⚠️ この環境では共有リンクを作成できません。\n\nダウンロードしてブラウザで直接開いてください。');
-    } else {
-      alert('共有リンクの作成に失敗しました。\nエラー: ' + e.message);
-    }
-  } 
-  return null; 
+
+function getShareDataFromURL() {
+  const hash = window.location.hash;
+  if (hash && hash.startsWith('#data=')) {
+    try {
+      const compressed = hash.substring(6);
+      const json = LZString.decompressFromEncodedURIComponent(compressed);
+      return json ? JSON.parse(json) : null;
+    } catch (e) { console.error('URL data parse error:', e); }
+  }
+  return null;
 }
-function showShareURL() { const shareUrl = window.location.href; if (confirm(`✅ 共有リンク:\n${shareUrl}\n\nコピーしますか？`)) { navigator.clipboard.writeText(shareUrl).then(() => alert('コピーしました！')).catch(() => prompt('URLをコピー:', shareUrl)); } }
-async function createShareLink() { if (cloudEnabled) showShareURL(); else { const binId = await createNewBin(); if (binId) await saveToCloud(); } }
-async function loadCloudData() { 
-  if (!BLOB_ID) return {}; 
-  try { 
-    const fetchPromise = fetch(JSONBLOB_API + '/' + BLOB_ID);
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000));
-    const res = await Promise.race([fetchPromise, timeoutPromise]);
-    if (!res.ok) throw new Error('Load failed'); 
-    const data = await res.json(); 
-    return data.businesses || {}; 
-  } catch (e) { 
-    console.error('loadCloudData error:', e);
-    return {}; 
-  } 
-}
-async function saveToCloud() { if (!BLOB_ID) return; try { const toSave = {}; Object.keys(BUSINESSES).forEach(key => { const biz = BUSINESSES[key], def = DEFAULT_BUSINESSES[key]; if (!def) toSave[key] = biz; else { const newPeriods = {}; Object.keys(biz.data).forEach(period => { if (!def.data[period]) newPeriods[period] = biz.data[period]; }); if (Object.keys(newPeriods).length > 0) toSave[key] = { data: newPeriods, type: biz.type }; } }); await fetch(JSONBLOB_API + '/' + BLOB_ID, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: toSave, lastUpdate: new Date().toISOString() }) }); updateSyncStatus('保存完了 ✓'); } catch (e) { updateSyncStatus('保存エラー', true); } }
-async function clearCloudData() { if (!BLOB_ID) return; try { await fetch(JSONBLOB_API + '/' + BLOB_ID, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: {}, lastUpdate: new Date().toISOString() }) }); } catch (e) {} }
-function mergeWithDefault(cloudData) { const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES)); Object.keys(cloudData).forEach(key => { if (merged[key]) { merged[key].data = { ...merged[key].data, ...(cloudData[key].data || {}) }; merged[key].type = cloudData[key].type || merged[key].type; } else merged[key] = cloudData[key]; }); return merged; }
-function saveBusinessData() { if (cloudEnabled) { updateSyncStatus('保存中...'); saveToCloud(); } try { const backup = {}; Object.keys(BUSINESSES).forEach(k => { const def = DEFAULT_BUSINESSES[k]; if (!def) backup[k] = BUSINESSES[k]; else { const newPeriods = {}; Object.keys(BUSINESSES[k].data).forEach(p => { if (!def.data[p]) newPeriods[p] = BUSINESSES[k].data[p]; }); if (Object.keys(newPeriods).length > 0) backup[k] = { data: newPeriods, type: BUSINESSES[k].type }; } }); localStorage.setItem('dashboard_backup', JSON.stringify(backup)); } catch (e) {} }
-async function clearAllData() { if (confirm('全データを削除しますか？')) { if (cloudEnabled) await clearCloudData(); localStorage.removeItem('dashboard_backup'); location.reload(); } }
-async function initializeData() { 
-  BLOB_ID = getBinIdFromURL(); 
-  cloudEnabled = !!BLOB_ID; 
-  if (cloudEnabled) { 
-    try { 
-      updateSyncStatus('読み込み中...'); 
-      const cloudData = await loadCloudData(); 
-      if (cloudData && Object.keys(cloudData).length > 0) {
-        BUSINESSES = mergeWithDefault(cloudData); 
-        updateSyncStatus('クラウド同期中'); 
-      } else {
-        throw new Error('Empty data');
+
+function createShareLink() {
+  try {
+    updateSyncStatus('リンク作成中...');
+    // 追加データのみを抽出
+    const toShare = {};
+    Object.keys(BUSINESSES).forEach(key => {
+      const biz = BUSINESSES[key], def = DEFAULT_BUSINESSES[key];
+      if (!def) { toShare[key] = biz; }
+      else {
+        const newPeriods = {};
+        Object.keys(biz.data).forEach(period => {
+          if (!def.data[period]) newPeriods[period] = biz.data[period];
+        });
+        if (Object.keys(newPeriods).length > 0) toShare[key] = { data: newPeriods, type: biz.type };
       }
-    } catch (e) { 
-      console.error('Cloud load error:', e);
-      cloudEnabled = false;
-      BLOB_ID = '';
-      updateSyncStatus('ローカル（クラウド接続失敗）', true); 
-      // ローカルバックアップを読み込む
-      try { 
-        const backup = localStorage.getItem('dashboard_backup'); 
-        if (backup) { 
-          const parsed = JSON.parse(backup); 
-          Object.keys(parsed).forEach(key => { 
-            if (BUSINESSES[key]) BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data }; 
-            else BUSINESSES[key] = parsed[key]; 
-          }); 
-        } 
-      } catch (e2) {} 
-    } 
-  } else { 
-    try { 
-      const backup = localStorage.getItem('dashboard_backup'); 
-      if (backup) { 
-        const parsed = JSON.parse(backup); 
-        Object.keys(parsed).forEach(key => { 
-          if (BUSINESSES[key]) BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data }; 
-          else BUSINESSES[key] = parsed[key]; 
+    });
+    
+    if (Object.keys(toShare).length === 0) {
+      alert('共有するデータがありません。\nアップロードしたデータのみが共有されます。');
+      updateSyncStatus('ローカル');
+      return;
+    }
+    
+    const json = JSON.stringify(toShare);
+    const compressed = LZString.compressToEncodedURIComponent(json);
+    const baseUrl = window.location.href.split('#')[0];
+    const shareUrl = baseUrl + '#data=' + compressed;
+    
+    if (shareUrl.length > 32000) {
+      alert('データが大きすぎます。\n一部のデータを削除してから共有してください。');
+      updateSyncStatus('データ過大', true);
+      return;
+    }
+    
+    window.history.replaceState({}, '', shareUrl);
+    updateSyncStatus('共有リンク作成済');
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        alert('✅ 共有リンクをコピーしました！\n\nこのURLを共有すると、追加したデータも一緒に共有されます。');
+      }).catch(() => {
+        prompt('共有リンク（コピーしてください）:', shareUrl);
+      });
+    } else {
+      prompt('共有リンク（コピーしてください）:', shareUrl);
+    }
+  } catch (e) {
+    console.error('createShareLink error:', e);
+    updateSyncStatus('エラー', true);
+    alert('共有リンクの作成に失敗しました。');
+  }
+}
+
+function showShareURL() { createShareLink(); }
+function saveToCloud() { }
+function loadCloudData() { return {}; }
+function clearCloudData() { }
+function mergeWithDefault(sharedData) { const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES)); Object.keys(sharedData).forEach(key => { if (merged[key]) { merged[key].data = { ...merged[key].data, ...(sharedData[key].data || {}) }; merged[key].type = sharedData[key].type || merged[key].type; } else merged[key] = sharedData[key]; }); return merged; }
+function saveBusinessData() { 
+  try { 
+    const backup = {}; 
+    Object.keys(BUSINESSES).forEach(k => { 
+      const def = DEFAULT_BUSINESSES[k]; 
+      if (!def) backup[k] = BUSINESSES[k]; 
+      else { 
+        const newPeriods = {}; 
+        Object.keys(BUSINESSES[k].data).forEach(p => { 
+          if (!def.data[p]) newPeriods[p] = BUSINESSES[k].data[p]; 
         }); 
+        if (Object.keys(newPeriods).length > 0) backup[k] = { data: newPeriods, type: BUSINESSES[k].type }; 
       } 
-    } catch (e) {} 
+    }); 
+    localStorage.setItem('dashboard_backup', JSON.stringify(backup)); 
+    updateSyncStatus('保存完了');
+  } catch (e) { console.error('saveBusinessData error:', e); } 
+}
+async function clearAllData() { if (confirm('全データを削除しますか？')) { localStorage.removeItem('dashboard_backup'); window.location.href = window.location.pathname; } }
+function initializeData() { 
+  // 1. URLからデータを読み込む
+  const urlData = getShareDataFromURL();
+  if (urlData && Object.keys(urlData).length > 0) {
+    BUSINESSES = mergeWithDefault(urlData);
+    updateSyncStatus('共有データ読込済');
+    selectBusiness(currentBusiness);
+    return;
+  }
+  
+  // 2. ローカルバックアップから読み込む
+  try { 
+    const backup = localStorage.getItem('dashboard_backup'); 
+    if (backup) { 
+      const parsed = JSON.parse(backup); 
+      Object.keys(parsed).forEach(key => { 
+        if (BUSINESSES[key]) BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data }; 
+        else BUSINESSES[key] = parsed[key]; 
+      }); 
+      updateSyncStatus('ローカル');
+    } else {
+      updateSyncStatus('ローカル');
+    }
+  } catch (e) { 
     updateSyncStatus('ローカル'); 
   } 
   selectBusiness(currentBusiness); 
