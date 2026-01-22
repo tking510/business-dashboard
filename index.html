@@ -253,7 +253,7 @@ const SLOTEN_DATA = {
     Affiliate:{'AFF数':34,'AFF経由登録者数':1457,'AFF経由FTD数':543,'AFF経由FTD率':0.3727,'AFF経由入金額':55061952,'AFF経由出金額':36735633,'AFF経由GGR':10366161}
   },
   '2025年11月':{
-    サマリー:{'登録人数':300,'ログインユーザー数':193,'FTD数':8,'今月登録のFTD以降ユーザー数':42,'今月登録FTD以降ユーザー割合':0.5661,'アクティブプレイ人数':84,'総入金額':586146,'総出金額':528463,'T/O(リアルのみ)':5043994.2,'勝利金(リアルのみ)':4980421.4,'RTP':0.9874,'GGR':63572.8,'入出金差分':57683,'2nd入金者数':12,'3rd入金者数':8,'Active入金者数':22,'前月登録ユーザー数':0,'前々月登録ユーザー数':0,'前月継続率':0,'前々月継続率':0},
+    サマリー:{'登録人数':300,'ログインユーザー数':193,'FTDのみ入金者数':8,'今月登録のFTD以降ユーザー数':42,'今月登録FTD以降ユーザー割合':0.5661,'アクティブプレイ人数':84,'総入金額':586146,'総出金額':528463,'T/O(リアルのみ)':5043994.2,'勝利金(リアルのみ)':4980421.4,'RTP':0.9874,'GGR':63572.8,'入出金差分':57683,'2nd入金者数':12,'3rd入金者数':8,'Active入金者数':22,'前月登録ユーザー数':0,'前々月登録ユーザー数':0,'前月継続率':0,'前々月継続率':0},
     入金方法:{'TOTAL':586146,'銀行（自動）':0,'仮想通貨':8000,'銀行（手動）':100000,'EC(コンビニ)':10000,'PayPay':468146},
     出金方法:{'TOTAL':528463,'銀行（自動）':0,'仮想通貨':50000,'銀行（手動）':200000,'PayPay':278463},
     ゲーム別:{パチンコ:{ユーザー数:25,TO:320000,GGR:38400},パチスロ:{ユーザー数:28,TO:580000,GGR:6960},スロット:{ユーザー数:52,TO:2100000,GGR:63000},ライブ:{ユーザー数:18,TO:2043994,GGR:-44787}},
@@ -302,7 +302,19 @@ function formatCurrency(val) {
   if (abs >= 10000) return sign + '¥' + Math.round(abs / 10000).toLocaleString() + '万';
   return sign + '¥' + Math.round(abs).toLocaleString();
 }
-function formatPercent(val) { if (val == null || isNaN(val)) return '-'; const v = Math.abs(val) <= 1 ? val * 100 : val; return v.toFixed(2) + '%'; }
+function formatPercent(val) { 
+  if (val == null || isNaN(val)) return '-'; 
+  let v = Math.abs(val) <= 1 ? val * 100 : val; 
+  return v.toFixed(2) + '%'; 
+}
+function formatRTP(val) {
+  if (val == null || isNaN(val)) return '-';
+  // 控除率（0.02など小さい値）の場合はRTPに変換
+  let v = val;
+  if (v <= 0.1) v = 1 - v; // 控除率をRTPに変換
+  v = Math.abs(v) <= 1 ? v * 100 : v;
+  return v.toFixed(2) + '%';
+}
 function formatNumber(val) { if (val == null || isNaN(val)) return '-'; return Math.round(val).toLocaleString(); }
 function sortPeriods(periods) {
   return [...periods].sort((a, b) => {
@@ -358,8 +370,53 @@ function renderTotalsSection() {
   const result = calculateTotalsAndAverages(currentBusiness);
   if (!result) { container.innerHTML = '<p style="opacity:0.7">データがありません</p>'; return; }
   const business = BUSINESSES[currentBusiness], type = business?.type || 'samExcel';
-  let metrics = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O', type: 'total' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR', type: 'total' },{ key: 'NGR', label: 'NGR', type: 'total' },{ key: '回収金額', label: '回収金額', type: 'total' },{ key: '出金金額', label: '出金金額', type: 'total' },{ key: '合計経費', label: '経費', type: 'total' },{ key: '利益', label: '利益', type: 'total' },{ key: 'RTP', label: 'RTP', type: 'avg', format: 'percent' },{ key: '回収率(全体)', label: '回収率', type: 'avg', format: 'percent' },{ key: 'FTD数', label: 'FTD数', type: 'total', format: 'number' },{ key: 'プロバイダーフィー', label: 'プロバイダーフィー', type: 'total' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR', type: 'total' },{ key: '総入金額', label: '総入金額', type: 'total' },{ key: '総出金額', label: '総出金額', type: 'total' },{ key: '入出金差分', label: '入出金差分', type: 'total' },{ key: '登録人数', label: '登録人数', type: 'total', format: 'number' },{ key: 'RTP', label: 'RTP', type: 'avg', format: 'percent' }] : [];
-  container.innerHTML = `<div class="total-card" style="grid-column:span 2;"><h4>📅 対象期間数</h4><div class="main-val">${result.periodCount}期間</div></div>` + metrics.map(m => { let totalVal = result.totals[m.key], avgVal = result.averages[m.key]; if ((totalVal == null) && m.alt) { for (const k of m.alt) { if (result.totals[k] != null) { totalVal = result.totals[k]; avgVal = result.averages[k]; break; } } } if (totalVal == null) return ''; let fT, fA; if (m.format === 'percent') { fT = '-'; fA = formatPercent(avgVal); } else if (m.format === 'number') { fT = formatNumber(totalVal); fA = formatNumber(avgVal); } else { fT = formatCurrency(totalVal); fA = formatCurrency(avgVal); } return `<div class="total-card"><h4>${m.label}</h4><div class="main-val">${m.type === 'total' ? fT : fA}</div><div class="sub-val">${m.type === 'total' ? '平均: ' + fA : 'トータル: ' + fT}</div></div>`; }).join('');
+  let metrics = type === 'samExcel' ? [
+    { key: 'T/O', alt: ['総TO'], label: 'T/O', type: 'total' },
+    { key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR', type: 'total' },
+    { key: 'NGR', alt: ['総NGR'], label: 'NGR', type: 'total' },
+    { key: '回収金額', alt: ['総回収額'], label: '回収金額', type: 'total' },
+    { key: '出金金額', alt: ['総出金額'], label: '出金金額', type: 'total' },
+    { key: 'RTP', label: 'RTP', type: 'avg', format: 'rtp' },
+    { key: '回収率(全体)', label: '回収率', type: 'avg', format: 'percent' },
+    { key: 'FTD数', label: 'FTD数', type: 'total', format: 'number' },
+    { key: '残未回収金額', label: '未回収金額', type: 'total' },
+    { key: '遅れ回収金額', label: '遅れ回収', type: 'total' }
+  ] : type === 'sloten' ? [
+    { key: 'GGR', label: 'GGR', type: 'total' },
+    { key: '総入金額', label: '総入金額', type: 'total' },
+    { key: '総出金額', label: '総出金額', type: 'total' },
+    { key: '入出金差分', label: '入出金差分', type: 'total' },
+    { key: '登録人数', label: '登録人数', type: 'total', format: 'number' },
+    { key: 'RTP', label: 'RTP', type: 'avg', format: 'rtp' }
+  ] : type === 'agent' ? [
+    { key: '入金合計', label: '入金合計', type: 'total' },
+    { key: '出金合計', label: '出金合計', type: 'total' },
+    { key: '収益合計', label: '収益合計', type: 'total' },
+    { key: 'NGR', label: 'NGR', type: 'total' },
+    { key: 'ローリング報酬', label: 'ローリング', type: 'total' }
+  ] : type === 'ads' ? [
+    { key: 'コスト($)', label: 'コスト($)', type: 'total', format: 'number' },
+    { key: 'インプレッション', label: 'IMP', type: 'total', format: 'number' },
+    { key: 'クリック', label: 'クリック', type: 'total', format: 'number' },
+    { key: '登録数', label: '登録', type: 'total', format: 'number' },
+    { key: '入金数', label: '入金', type: 'total', format: 'number' }
+  ] : type === 'baccara' ? [
+    { key: '登録数', label: '登録数', type: 'total', format: 'number' },
+    { key: '総GGR', label: 'GGR', type: 'total' },
+    { key: 'コスト', label: 'コスト', type: 'total' },
+    { key: 'NGR', label: 'NGR', type: 'total' }
+  ] : [];
+  container.innerHTML = `<div class="total-card" style="grid-column:span 2;"><h4>📅 対象期間数</h4><div class="main-val">${result.periodCount}期間</div></div>` + metrics.map(m => { 
+    let totalVal = result.totals[m.key], avgVal = result.averages[m.key]; 
+    if ((totalVal == null) && m.alt) { for (const k of m.alt) { if (result.totals[k] != null) { totalVal = result.totals[k]; avgVal = result.averages[k]; break; } } } 
+    if (totalVal == null) return ''; 
+    let fT, fA; 
+    if (m.format === 'rtp') { fT = '-'; fA = formatRTP(avgVal); } 
+    else if (m.format === 'percent') { fT = '-'; fA = formatPercent(avgVal); } 
+    else if (m.format === 'number') { fT = formatNumber(totalVal); fA = formatNumber(avgVal); } 
+    else { fT = formatCurrency(totalVal); fA = formatCurrency(avgVal); } 
+    return `<div class="total-card"><h4>${m.label}</h4><div class="main-val">${m.type === 'total' ? fT : fA}</div><div class="sub-val">${m.type === 'total' ? '平均: ' + fA : ''}</div></div>`; 
+  }).join('');
 }
 
 // ========== 仮想通貨セクション（円グラフ付き） ==========
@@ -410,8 +467,29 @@ function renderGameSection() {
   const section = document.getElementById('game-section');
   const container = document.getElementById('game-grid');
   const business = BUSINESSES[currentBusiness];
-  const periodData = business?.data?.[currentPeriod];
-  const games = periodData?.ゲーム別;
+  
+  let games = null;
+  
+  if (viewMode === 'total') {
+    // 全期間：全ての期間のゲーム別データを集計
+    const allGames = {};
+    const periods = Object.keys(business?.data || {});
+    periods.forEach(period => {
+      const periodGames = business.data[period]?.ゲーム別;
+      if (periodGames) {
+        Object.entries(periodGames).forEach(([game, stats]) => {
+          if (!allGames[game]) allGames[game] = { ユーザー数: 0, TO: 0, GGR: 0 };
+          allGames[game].ユーザー数 += stats.ユーザー数 || 0;
+          allGames[game].TO += stats.TO || 0;
+          allGames[game].GGR += stats.GGR || 0;
+        });
+      }
+    });
+    if (Object.keys(allGames).length > 0) games = allGames;
+  } else {
+    const periodData = business?.data?.[currentPeriod];
+    games = periodData?.ゲーム別;
+  }
   
   if (!games || Object.keys(games).length === 0) { section.classList.add('hidden'); return; }
   section.classList.remove('hidden');
@@ -422,7 +500,7 @@ function renderGameSection() {
   Object.entries(games).forEach(([game, stats], i) => {
     const ggr = stats.GGR || 0;
     labels.push(game); values.push(Math.max(0, ggr));
-    html += `<div class="provider-card"><h5>🎰 ${game}</h5><div class="provider-stats"><div class="stat-item"><div class="stat-label">ユーザー数</div><div class="stat-val">${formatNumber(stats.ユーザー数)}</div></div><div class="stat-item"><div class="stat-label">T/O</div><div class="stat-val">${formatCurrency(stats.TO)}</div></div><div class="stat-item"><div class="stat-label">GGR</div><div class="stat-val">${formatCurrency(ggr)}</div></div><div class="stat-item"><div class="stat-label">RTP</div><div class="stat-val">${stats.TO > 0 ? formatPercent((stats.TO - ggr) / stats.TO) : '-'}</div></div></div></div>`;
+    html += `<div class="provider-card"><h5>🎰 ${game}</h5><div class="provider-stats"><div class="stat-item"><div class="stat-label">ユーザー数</div><div class="stat-val">${formatNumber(stats.ユーザー数)}</div></div><div class="stat-item"><div class="stat-label">T/O</div><div class="stat-val">${formatCurrency(stats.TO)}</div></div><div class="stat-item"><div class="stat-label">GGR</div><div class="stat-val">${formatCurrency(ggr)}</div></div><div class="stat-item"><div class="stat-label">RTP</div><div class="stat-val">${stats.TO > 0 ? formatRTP((stats.TO - ggr) / stats.TO) : '-'}</div></div></div></div>`;
   });
   
   container.innerHTML = html;
@@ -453,7 +531,7 @@ function renderProviderSection() {
   sorted.forEach(([name, stats], i) => {
     const ggr = stats.GGR || 0;
     labels.push(name); values.push(Math.max(0, ggr));
-    html += `<div class="provider-card"><h5>🏭 ${name}</h5><div class="provider-stats"><div class="stat-item"><div class="stat-label">ユーザー数</div><div class="stat-val">${formatNumber(stats.ユーザー数)}</div></div><div class="stat-item"><div class="stat-label">賭け金額</div><div class="stat-val">${formatCurrency(stats.賭け金額)}</div></div><div class="stat-item"><div class="stat-label">GGR</div><div class="stat-val">${formatCurrency(ggr)}</div></div><div class="stat-item"><div class="stat-label">RTP</div><div class="stat-val">${stats.賭け金額 > 0 ? formatPercent(stats.配当金額 / stats.賭け金額) : '-'}</div></div></div></div>`;
+    html += `<div class="provider-card"><h5>🏭 ${name}</h5><div class="provider-stats"><div class="stat-item"><div class="stat-label">ユーザー数</div><div class="stat-val">${formatNumber(stats.ユーザー数)}</div></div><div class="stat-item"><div class="stat-label">賭け金額</div><div class="stat-val">${formatCurrency(stats.賭け金額)}</div></div><div class="stat-item"><div class="stat-label">GGR</div><div class="stat-val">${formatCurrency(ggr)}</div></div><div class="stat-item"><div class="stat-label">RTP</div><div class="stat-val">${stats.賭け金額 > 0 ? formatRTP(stats.配当金額 / stats.賭け金額) : '-'}</div></div></div></div>`;
   });
   
   container.innerHTML = html;
@@ -573,15 +651,24 @@ function renderSummary() {
   const type = business.type || 'samExcel';
   const colors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)','linear-gradient(135deg,#ec4899,#db2777)'];
   let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'ads' ? [{ key: 'コスト($)', label: 'コスト($)', format: 'number' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: 'CPA(税込)', label: 'CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : type === 'baccara' ? [{ key: '登録数', label: '登録数', format: 'number' },{ key: '総GGR', label: 'GGR' },{ key: 'コスト', label: 'コスト' },{ key: 'NGR', label: 'NGR' }] : [];
-  container.innerHTML = '<div class="summary-grid">' + cards.map((card, i) => { let val = data[card.key]; if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } } if (val == null) return ''; let formatted = card.format === 'percent' ? formatPercent(val) : card.format === 'number' ? formatNumber(val) : formatCurrency(val); const bg = val < 0 && card.format !== 'percent' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : colors[i % colors.length]; return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`; }).join('') + '</div>';
+  container.innerHTML = '<div class="summary-grid">' + cards.map((card, i) => { let val = data[card.key]; if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } } if (val == null) return ''; let formatted = card.key === 'RTP' ? formatRTP(val) : card.format === 'percent' ? formatPercent(val) : card.format === 'number' ? formatNumber(val) : formatCurrency(val); const bg = val < 0 && card.format !== 'percent' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : colors[i % colors.length]; return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`; }).join('') + '</div>';
 }
 
 function renderKPISections() {
   const container = document.getElementById('kpi-sections');
   const business = BUSINESSES[currentBusiness];
   if (!business) { container.innerHTML = ''; return; }
-  const periodData = business.data?.[currentPeriod];
-  const data = periodData?.サマリー || periodData || {};
+  
+  let data;
+  if (viewMode === 'total') {
+    const result = calculateTotalsAndAverages(currentBusiness);
+    if (!result) { container.innerHTML = ''; return; }
+    data = result.totals;
+  } else {
+    const periodData = business.data?.[currentPeriod];
+    data = periodData?.サマリー || periodData || {};
+  }
+  
   if (!data || Object.keys(data).length === 0) { container.innerHTML = ''; return; }
   const type = business.type || 'samExcel';
   if (type === 'agent' || type === 'ads' || type === 'baccara') { container.innerHTML = ''; return; }
@@ -591,19 +678,23 @@ function renderKPISections() {
     { title: '🔄 継続KPI', keys: ['前月リテンション数','引継ぎプレイヤー数','前月登録ユーザー数','前々月登録ユーザー数','前月継続率','前々月継続率'], bg: '#fef3c7' },
     { title: '💰 収益KPI', keys: ['T/O','総TO','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','RTP','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','GGRLTV','総差分利益','総NGR','平均NGR'], bg: '#e0e7ff' },
     { title: '💵 回収KPI', keys: ['回収予定金額','回収金額','総回収額','回収率(全体)','回収率(今月)','出金金額','総出金額','GGR(回収金額-出金金額)','回収出金差分','LTV(GGR)','NGR','総入金額','入出金差分'], bg: '#fce7f3' },
-    { title: '🏦 信用・ボーナスKPI', keys: ['総信用枠','平均信用枠','総ボーナス','ボーナス対象者数','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR'], bg: '#fef9c3' },
+    { title: '🏦 信用・ボーナスKPI', keys: ['総信用枠','平均信用枠','平均Credit単価','総ボーナス','ボーナス対象者数','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR'], bg: '#fef9c3' },
+    { title: '📊 顧客分析KPI', keys: ['平均プレイ月間','事前清算回数','事前清算金額','事前清算割合','通常清算回数','通常清算金額','通常清算割合'], bg: '#e0f2fe' },
     { title: '⚠️ 未回収・遅れKPI', keys: ['未回収者数','残未回収金額','遅れ回収件数','遅れ回収金額'], bg: '#fee2e2' },
-    { title: '👥 担当者KPI', keys: ['担当者数','担当者計_登録数','担当者計_FTD数','担当者計_GGR','担当者計_NGR'], bg: '#e0e7ff' },
-    { title: '💸 経費KPI', keys: ['合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益'], bg: '#ccfbf1' }
+    { title: '👥 担当者KPI', keys: ['担当者数','担当者計_登録数','担当者計_FTD数','担当者計_GGR','担当者計_NGR'], bg: '#e0e7ff' }
   ];
-  const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合','前月継続率','前々月継続率'];
-  const currencyKeys = ['T/O','総TO','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','総回収額','出金金額','総出金額','GGR(回収金額-出金金額)','回収出金差分','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV','総差分利益','総NGR','平均NGR','総信用枠','平均信用枠','総ボーナス','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR','残未回収金額','遅れ回収金額','担当者計_GGR','担当者計_NGR'];
-  container.innerHTML = sections.map(section => { const items = section.keys.filter(k => data[k] != null); if (items.length === 0) return ''; return `<div class="card" style="background:${section.bg}"><div class="section-title">${section.title}</div><div class="kpi-grid">${items.map(key => { const val = data[key]; let formatted = percentKeys.includes(key) ? formatPercent(val) : currencyKeys.includes(key) ? formatCurrency(val) : formatNumber(val); const isNeg = typeof val === 'number' && val < 0; return `<div class="kpi-item"><div class="label">${key}</div><div class="val ${isNeg ? 'negative' : ''}">${formatted}</div></div>`; }).join('')}</div></div>`; }).join('');
+  const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合','前月継続率','前々月継続率','事前清算割合','通常清算割合'];
+  const currencyKeys = ['T/O','総TO','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','総回収額','出金金額','総出金額','GGR(回収金額-出金金額)','回収出金差分','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV','総差分利益','総NGR','平均NGR','総信用枠','平均信用枠','平均Credit単価','総ボーナス','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR','残未回収金額','遅れ回収金額','担当者計_GGR','担当者計_NGR','事前清算金額','通常清算金額'];
+  container.innerHTML = sections.map(section => { const items = section.keys.filter(k => data[k] != null); if (items.length === 0) return ''; return `<div class="card" style="background:${section.bg}"><div class="section-title">${section.title}</div><div class="kpi-grid">${items.map(key => { const val = data[key]; let formatted = key === 'RTP' ? formatRTP(val) : percentKeys.includes(key) ? formatPercent(val) : currencyKeys.includes(key) ? formatCurrency(val) : formatNumber(val); const isNeg = typeof val === 'number' && val < 0; return `<div class="kpi-item"><div class="label">${key}</div><div class="val ${isNeg ? 'negative' : ''}">${formatted}</div></div>`; }).join('')}</div></div>`; }).join('');
   
-  // 入金/出金方法、Affiliate
-  if (periodData?.入金方法) container.innerHTML += `<div class="card" style="background:#e0f2fe"><div class="section-title">💳 入金方法</div><div class="kpi-grid">${Object.entries(periodData.入金方法).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${formatCurrency(v)}</div></div>`).join('')}</div></div>`;
-  if (periodData?.出金方法) container.innerHTML += `<div class="card" style="background:#fef9c3"><div class="section-title">🏦 出金方法</div><div class="kpi-grid">${Object.entries(periodData.出金方法).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${formatCurrency(v)}</div></div>`).join('')}</div></div>`;
-  if (periodData?.Affiliate) container.innerHTML += `<div class="card" style="background:#ecfdf5"><div class="section-title">🤝 Affiliate</div><div class="kpi-grid">${Object.entries(periodData.Affiliate).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${k.includes('率') ? formatPercent(v) : k.includes('数') ? formatNumber(v) : formatCurrency(v)}</div></div>`).join('')}</div></div>`;
+  // 入金/出金方法、Affiliate、リスト種別（期間別のみ表示）
+  if (viewMode !== 'total') {
+    const periodData = business.data?.[currentPeriod];
+    if (periodData?.リスト種別) container.innerHTML += `<div class="card" style="background:#f0fdf4"><div class="section-title">📋 リスト種別</div><div class="kpi-grid">${Object.entries(periodData.リスト種別).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${formatNumber(v)}件</div></div>`).join('')}</div></div>`;
+    if (periodData?.入金方法) container.innerHTML += `<div class="card" style="background:#e0f2fe"><div class="section-title">💳 入金方法</div><div class="kpi-grid">${Object.entries(periodData.入金方法).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${formatCurrency(v)}</div></div>`).join('')}</div></div>`;
+    if (periodData?.出金方法) container.innerHTML += `<div class="card" style="background:#fef9c3"><div class="section-title">🏦 出金方法</div><div class="kpi-grid">${Object.entries(periodData.出金方法).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${formatCurrency(v)}</div></div>`).join('')}</div></div>`;
+    if (periodData?.Affiliate) container.innerHTML += `<div class="card" style="background:#ecfdf5"><div class="section-title">🤝 Affiliate</div><div class="kpi-grid">${Object.entries(periodData.Affiliate).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${k.includes('率') ? formatPercent(v) : k.includes('数') ? formatNumber(v) : formatCurrency(v)}</div></div>`).join('')}</div></div>`;
+  }
 }
 
 function renderChart() {
@@ -621,14 +712,21 @@ function renderChart() {
 
 function renderTable() {
   const business = BUSINESSES[currentBusiness];
-  const periodData = business?.data?.[currentPeriod];
-  const data = periodData?.サマリー || periodData || {};
+  let data;
+  if (viewMode === 'total') {
+    const result = calculateTotalsAndAverages(currentBusiness);
+    data = result ? result.totals : {};
+  } else {
+    const periodData = business?.data?.[currentPeriod];
+    data = periodData?.サマリー || periodData || {};
+  }
   const header = document.getElementById('table-header');
   const body = document.getElementById('table-body');
   header.innerHTML = '<th>項目</th><th class="text-right">値</th>';
   const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合','前月継続率','前々月継続率'];
-  const currencyKeys = ['T/O','総TO','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','総回収額','出金金額','総出金額','GGR(回収金額-出金金額)','回収出金差分','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','入出金差分','GGRLTV','総差分利益','総NGR','平均NGR','総信用枠','平均信用枠','総ボーナス','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR','残未回収金額','遅れ回収金額','担当者計_GGR','担当者計_NGR'];
-  body.innerHTML = Object.entries(data).map(([key, value]) => { if (value === null || value === undefined) return ''; let formatted = percentKeys.includes(key) ? formatPercent(value) : currencyKeys.includes(key) ? formatCurrency(value) : typeof value === 'number' ? formatNumber(value) : String(value); const isNeg = typeof value === 'number' && value < 0; return `<tr><td>${key}</td><td class="text-right ${isNeg ? 'text-red' : ''}">${formatted}</td></tr>`; }).join('');
+  const currencyKeys = ['T/O','総TO','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','総回収額','出金金額','総出金額','GGR(回収金額-出金金額)','回収出金差分','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','入出金差分','GGRLTV','総差分利益','総NGR','平均NGR','総信用枠','平均信用枠','平均Credit単価','総ボーナス','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR','残未回収金額','遅れ回収金額','担当者計_GGR','担当者計_NGR','事前清算金額','通常清算金額'];
+  const percentKeysTable = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合','前月継続率','前々月継続率','事前清算割合','通常清算割合'];
+  body.innerHTML = Object.entries(data).map(([key, value]) => { if (value === null || value === undefined) return ''; let formatted = key === 'RTP' ? formatRTP(value) : percentKeysTable.includes(key) ? formatPercent(value) : currencyKeys.includes(key) ? formatCurrency(value) : typeof value === 'number' ? formatNumber(value) : String(value); const isNeg = typeof value === 'number' && value < 0; return `<tr><td>${key}</td><td class="text-right ${isNeg ? 'text-red' : ''}">${formatted}</td></tr>`; }).join('');
 }
 
 // ========== モーダル ==========
@@ -713,14 +811,85 @@ function parseCustomerListCSV(lines, period, filename) {
   if (headerRowIdx < 0) headerRowIdx = 3;
   const header = lines[headerRowIdx] || [];
   const colIdx = {};
-  header.forEach((h, idx) => { const col = String(h).trim(); if (col === 'FULLNAME1') colIdx.name = idx; if (col === 'credit' || col === '信用枠') colIdx.credit = idx; if (col.includes('トータル回収額')) colIdx.collected = idx; if (col.includes('トータル出金額')) colIdx.withdraw = idx; if (col.includes('トータル差分利益')) colIdx.diff = idx; if (col === '入金回数') colIdx.depCount = idx; if (col === '出金回数') colIdx.wdCount = idx; if (col === 'NGR' && !colIdx.ngr) colIdx.ngr = idx; });
-  let stats = { 総登録数: 0, 総回収額: 0, 総出金額: 0, 総差分利益: 0, 総NGR: 0, FTD数: 0, FTW数: 0, FTDW数: 0, 総信用枠: 0 };
-  for (let i = headerRowIdx + 1; i < lines.length; i++) { const row = lines[i]; if (!row || row.length < 10) continue; const name = String(row[colIdx.name] || row[1] || '').trim(); if (name && name !== '担当者' && !name.includes('セル')) { stats.総登録数++; const collected = parseNumber(row[colIdx.collected] || row[8]) || 0; const withdraw = parseNumber(row[colIdx.withdraw] || row[9]) || 0; const diff = parseNumber(row[colIdx.diff] || row[10]) || 0; const ngr = parseNumber(row[colIdx.ngr] || row[20]) || 0; const credit = parseNumber(row[colIdx.credit] || row[7]) || 0; const depCount = parseNumber(row[colIdx.depCount] || row[18]) || 0; const wdCount = parseNumber(row[colIdx.wdCount] || row[19]) || 0; stats.総回収額 += collected; stats.総出金額 += withdraw; stats.総差分利益 += diff; stats.総NGR += ngr; stats.総信用枠 += credit; const hasFTD = depCount > 0 || collected > 0; const hasWithdraw = wdCount > 0 || withdraw > 0; if (hasFTD) { stats.FTD数++; if (hasWithdraw) stats.FTDW数++; } if (hasWithdraw) stats.FTW数++; } }
+  header.forEach((h, idx) => { 
+    const col = String(h).trim(); 
+    if (col === 'FULLNAME1') colIdx.name = idx; 
+    if (col === 'credit' || col === '信用枠') colIdx.credit = idx; 
+    if (col.includes('トータル回収額')) colIdx.collected = idx; 
+    if (col.includes('トータル出金額')) colIdx.withdraw = idx; 
+    if (col.includes('トータル差分利益')) colIdx.diff = idx; 
+    if (col === '入金回数') colIdx.depCount = idx; 
+    if (col === '出金回数') colIdx.wdCount = idx; 
+    if (col === 'NGR' && !colIdx.ngr) colIdx.ngr = idx;
+    if (col === 'ボーナス付与総金額') colIdx.bonus = idx;
+    if (col === 'プレイ月間' || col.includes('プレイ月')) colIdx.playMonths = idx;
+    if (col === '事前清算回数') colIdx.preSettleCount = idx;
+    if (col === '事前清算金額') colIdx.preSettleAmount = idx;
+    if (col === '通常清算回数') colIdx.normalSettleCount = idx;
+    if (col === '通常清算金額') colIdx.normalSettleAmount = idx;
+    if (col === 'リスト種別' || col === 'リスト') colIdx.listType = idx;
+  });
+  let stats = { 総登録数: 0, 総回収額: 0, 総出金額: 0, 総差分利益: 0, 総NGR: 0, FTD数: 0, FTW数: 0, FTDW数: 0, 総信用枠: 0, 総ボーナス: 0, 総プレイ月間: 0, 事前清算回数: 0, 事前清算金額: 0, 通常清算回数: 0, 通常清算金額: 0 };
+  const listTypes = {};
+  for (let i = headerRowIdx + 1; i < lines.length; i++) { 
+    const row = lines[i]; 
+    if (!row || row.length < 10) continue; 
+    const name = String(row[colIdx.name] || row[1] || '').trim(); 
+    if (name && name !== '担当者' && !name.includes('セル')) { 
+      stats.総登録数++; 
+      const collected = parseNumber(row[colIdx.collected] || row[8]) || 0; 
+      const withdraw = parseNumber(row[colIdx.withdraw] || row[9]) || 0; 
+      const diff = parseNumber(row[colIdx.diff] || row[10]) || 0; 
+      const ngr = parseNumber(row[colIdx.ngr] || row[20]) || 0; 
+      const credit = parseNumber(row[colIdx.credit] || row[7]) || 0; 
+      const bonus = parseNumber(row[colIdx.bonus]) || 0;
+      const playMonths = parseNumber(row[colIdx.playMonths]) || 0;
+      const preSettleCount = parseNumber(row[colIdx.preSettleCount]) || 0;
+      const preSettleAmount = parseNumber(row[colIdx.preSettleAmount]) || 0;
+      const normalSettleCount = parseNumber(row[colIdx.normalSettleCount]) || 0;
+      const normalSettleAmount = parseNumber(row[colIdx.normalSettleAmount]) || 0;
+      const depCount = parseNumber(row[colIdx.depCount] || row[18]) || 0; 
+      const wdCount = parseNumber(row[colIdx.wdCount] || row[19]) || 0; 
+      stats.総回収額 += collected; 
+      stats.総出金額 += withdraw; 
+      stats.総差分利益 += diff; 
+      stats.総NGR += ngr; 
+      stats.総信用枠 += credit;
+      stats.総ボーナス += bonus;
+      stats.総プレイ月間 += playMonths;
+      stats.事前清算回数 += preSettleCount;
+      stats.事前清算金額 += preSettleAmount;
+      stats.通常清算回数 += normalSettleCount;
+      stats.通常清算金額 += normalSettleAmount;
+      const hasFTD = depCount > 0 || collected > 0; 
+      const hasWithdraw = wdCount > 0 || withdraw > 0; 
+      if (hasFTD) { stats.FTD数++; if (hasWithdraw) stats.FTDW数++; } 
+      if (hasWithdraw) stats.FTW数++;
+      // リスト種別集計
+      if (colIdx.listType !== undefined) {
+        const listType = String(row[colIdx.listType] || '').trim();
+        if (listType) {
+          if (!listTypes[listType]) listTypes[listType] = 0;
+          listTypes[listType]++;
+        }
+      }
+    } 
+  }
   stats['FTD率'] = stats.総登録数 > 0 ? stats.FTD数 / stats.総登録数 : 0;
   stats['回収出金差分'] = stats.総回収額 - stats.総出金額;
+  stats['平均信用枠'] = stats.総登録数 > 0 ? stats.総信用枠 / stats.総登録数 : 0;
+  stats['平均Credit単価'] = stats.FTD数 > 0 ? stats.総信用枠 / stats.FTD数 : 0;
+  stats['平均プレイ月間'] = stats.総登録数 > 0 ? stats.総プレイ月間 / stats.総登録数 : 0;
+  const totalSettle = stats.事前清算金額 + stats.通常清算金額;
+  stats['事前清算割合'] = totalSettle > 0 ? stats.事前清算金額 / totalSettle : 0;
+  stats['通常清算割合'] = totalSettle > 0 ? stats.通常清算金額 / totalSettle : 0;
   const existing = BUSINESSES[target].data[period]?.サマリー || {};
-  BUSINESSES[target].data[period] = { サマリー: { ...existing, ...stats } };
-  showStatus(`顧客リスト取込完了: ${target} ${stats.総登録数}件, FTD${stats.FTD数}件`);
+  BUSINESSES[target].data[period] = { 
+    サマリー: { ...existing, ...stats },
+    ...(Object.keys(listTypes).length > 0 ? { リスト種別: listTypes } : {})
+  };
+  const listInfo = Object.keys(listTypes).length > 0 ? `, リスト種別${Object.keys(listTypes).length}種` : '';
+  showStatus(`顧客リスト取込完了: ${target} ${stats.総登録数}件, FTD${stats.FTD数}件${listInfo}`);
   selectBusiness(target); saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
