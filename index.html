@@ -272,6 +272,42 @@ const SLOTEN_DATA = {
   }
 };
 
+// Konibet KPIデータ（2020年12月）
+const KONIBET_DATA = {
+  '2020年12月':{
+    サマリー: {
+      '登録人数': 655,
+      'ログインユーザー数': 4310,
+      'FTD数': 114,
+      '初回入金額': 4724256, // $31,495.04 × 150
+      '入金者数': 566,
+      '総入金額': 55017008, // $366,780.05 × 150
+      '出金者数': 233,
+      '総出金額': 41983200, // $279,888.00 × 150
+      '入出金差分': 13033808, // $86,892.05 × 150
+      'アクティブプレイ人数': 54,
+      'T/O': 489307826, // $3,262,052.17 × 150
+      'GGR': 17124231, // $114,161.54 × 150
+      '勝利金': 471841260, // $3,145,608.40 × 150
+      'ボーナス': 8460362, // $56,402.41 × 150
+      'ゲームプロバイダーフィー': 1505054, // $10,033.69 × 150
+      'PSP手数料': 4397816, // $29,318.77 × 150
+      'NGR': 3103337, // $20,688.91 × 150
+      'RTP': 0.9611,
+      '新規入金転移率': 0.1866,
+      '平均入金額': 98583, // $657.23 × 150
+      '出金人数割合': 0.4399,
+      'T/O倍率': 10.69,
+      'T/O倍率(Bonus込)': 8.77,
+      'ボーナス付与率': 0.1948,
+      'GGR率': 0.3175,
+      'NGR率': 0.0564,
+      '入金目標': 59339883, // $395,599.22 × 150
+      '為替レート(USD/JPY)': 150
+    }
+  }
+};
+
 const DEFAULT_BUSINESSES = {
   '元amuse': { data: MOTO_AMUSE_DATA, type: 'samExcel' },
   'DSC': { data: DSC_DATA, type: 'samExcel' },
@@ -279,7 +315,7 @@ const DEFAULT_BUSINESSES = {
   '広告': { data: {}, type: 'ads' },
   'バカラツール': { data: {}, type: 'baccara' },
   'AMUSEVIP': { data: {}, type: 'agent' },
-  'Konibet': { data: {}, type: 'konibet' }
+  'Konibet': { data: KONIBET_DATA, type: 'konibet' }
 };
 
 // LZ圧縮ライブラリ（軽量版）
@@ -1031,6 +1067,9 @@ function handleCSV(text, period, uploadType, filename) {
   const headerStr = lines[0].join(',').toLowerCase();
   const fn = filename.toLowerCase();
   
+  // 全行のテキストを結合してチェック
+  const allText = lines.slice(0, 40).map(r => r.join(',')).join(' ').toLowerCase();
+  
   const isCustomerList = fn.includes('顧客リスト') || fn.includes('customer');
   const isUncollected = fn.includes('未回収') || headerStr.includes('残未回収金額');
   const isDelayed = fn.includes('遅れ回収') || fn.includes('遅れ');
@@ -1040,7 +1079,15 @@ function handleCSV(text, period, uploadType, filename) {
   const isSloten = fn.includes('スロ天') || (fn.includes('kpi') && !fn.includes('konibet')) || (headerStr.includes('項目名') && headerStr.includes('月次'));
   const isKonibet = fn.includes('konibet') || fn.includes('コニベット') || (headerStr.includes('sign-up') && headerStr.includes('ftd') && headerStr.includes('mau') && headerStr.includes('deposits'));
   
+  // Konibet日次KPIシート（日本語フォーマット）の検出
+  // 「名目」「ロジック」「登録」などのキーワードと日付形式（2020/12/1など）があるかチェック
+  const isKonibetDaily = (allText.includes('名目') && allText.includes('登録') && allText.includes('ggr') && allText.includes('ngr')) ||
+                         (allText.includes('ロジック') && allText.match(/\d{4}\/\d{1,2}\/\d{1,2}/)) ||
+                         (allText.includes('初回入金人数') && allText.includes('ターンオーバー'));
+  
   if (uploadType === 'auto') {
+    // Konibet日次KPIシート（日本語）を優先的にチェック
+    if (isKonibetDaily) { parseKonibetDailyCSV(lines, period, fn); return; }
     if (isKonibet) { parseKonibetCSV(lines, period, fn); return; }
     if (isSloten) { parseSlotenCSV(lines, period, fn); return; }
     if (isCustomerList) { parseCustomerListCSV(lines, period, fn); return; }
@@ -1051,7 +1098,11 @@ function handleCSV(text, period, uploadType, filename) {
     if (isAds) { parseAdsCSV(lines, period); return; }
   }
   if (uploadType === 'sloten') { parseSlotenCSV(lines, period, fn); return; }
-  if (uploadType === 'konibet') { parseKonibetCSV(lines, period, fn); return; }
+  if (uploadType === 'konibet') { 
+    // konibet選択時も日本語フォーマットをチェック
+    if (isKonibetDaily) { parseKonibetDailyCSV(lines, period, fn); return; }
+    parseKonibetCSV(lines, period, fn); return; 
+  }
   if (uploadType === 'customerList') { parseCustomerListCSV(lines, period, fn); return; }
   if (uploadType === 'uncollected') { parseUncollectedCSV(lines, period, fn); return; }
   if (uploadType === 'bonus') { parseBonusCSV(lines, period, fn); return; }
@@ -1063,6 +1114,153 @@ function handleCSV(text, period, uploadType, filename) {
 }
 
 // ========== 各種CSVパーサー ==========
+
+// Konibet 日次KPIシート用パーサー（日本語フォーマット）
+function parseKonibetDailyCSV(lines, period, filename) {
+  // 為替レート（USD → JPY）- 入力欄から取得、なければデフォルト150
+  const rateInput = document.getElementById('usd-jpy-rate');
+  const USD_TO_JPY = rateInput ? parseFloat(rateInput.value) || 150 : 150;
+  
+  // 期間名を取得（ファイル名またはヘッダーから）
+  let periodName = period;
+  const dateMatch = lines[1] && lines[1].find && lines[1].find(cell => String(cell).match(/\d{4}\/\d{1,2}\/\d{1,2}/));
+  if (dateMatch) {
+    const m = String(dateMatch).match(/(\d{4})\/(\d{1,2})/);
+    if (m) periodName = `${m[1]}年${parseInt(m[2])}月`;
+  }
+  
+  // KPIマッピング（列Bの名目 → KPI名）
+  const kpiMapping = {
+    '登録': '登録人数',
+    'ログイン': 'ログインユーザー数',
+    '初回入金人数(FTD)': 'FTD数',
+    '初回入金人数': 'FTD数',
+    'FTD': 'FTD数',
+    '初回入金額': '初回入金額',
+    '入金人数': '入金者数',
+    '入金額': '総入金額',
+    '実際の出金人数': '出金者数',
+    '実際の出金額': '総出金額',
+    '出金額': '総出金額',
+    '入金と出金の差': '入出金差分',
+    'ベット人数': 'アクティブプレイ人数',
+    'ターンオーバー': 'T/O',
+    'GGR': 'GGR',
+    'win額': '勝利金',
+    'ボーナス（FS除く）': 'ボーナス',
+    'ボーナス': 'ボーナス',
+    'ゲームフィー': 'ゲームプロバイダーフィー',
+    'PSP手数料': 'PSP手数料',
+    'NGR': 'NGR',
+    'アカウント内残高': 'アカウント残高',
+    '新規入金転移率': '新規入金転移率',
+    '平均入金額(人数/デイリ)': '平均入金額',
+    '出金人数割合': '出金人数割合',
+    '出金割合(ボーナス込み)': '出金割合',
+    'T/O倍率': 'T/O倍率',
+    'T/O倍率(Bonus込)': 'T/O倍率(Bonus込)',
+    'ボーナス付与率(入金に対して)': 'ボーナス付与率',
+    '入金額に対してのGGR割合': 'GGR率',
+    '入金に対してのNGR割合': 'NGR率',
+    'RTP(ゲーム種類ごとに計測していく必要あり)': 'RTP',
+    'RTP': 'RTP',
+    'LTV(GGRベース)': 'LTV(GGR)',
+    'LTV(NGRベース)': 'LTV(NGR)'
+  };
+  
+  // USDフィールド（為替換算が必要なフィールド）
+  const usdFields = [
+    '初回入金額', '入金額', '出金額', '入金と出金の差', 'ターンオーバー', 
+    'GGR', 'win額', 'ボーナス（FS除く）', 'ボーナス', 'ゲームフィー', 
+    'PSP手数料', 'NGR', 'アカウント内残高', '平均入金額(人数/デイリ)',
+    '実際の出金額', 'LTV(GGRベース)', 'LTV(NGRベース)', 'ボーナス＋プロバイダー＋PSP'
+  ];
+  
+  const summary = {};
+  const dailyData = [];
+  let headerRowIndex = -1;
+  let dateColumns = [];
+  
+  // ヘッダー行を探す（「名目」を含む行）
+  for (let i = 0; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row) continue;
+    const col1 = String(row[1] || '').trim();
+    if (col1 === '名目') {
+      headerRowIndex = i;
+      // 日付列を取得（列F以降、index 5以降）
+      for (let j = 5; j < row.length; j++) {
+        const cell = String(row[j] || '').trim();
+        if (cell && cell.includes('月') && cell.includes('日')) {
+          dateColumns.push({ index: j, date: cell });
+        }
+      }
+      break;
+    }
+  }
+  
+  if (headerRowIndex < 0) {
+    showStatus('Konibet日次KPIシートの形式を認識できませんでした', true);
+    return;
+  }
+  
+  // データ行を読み取り
+  for (let i = headerRowIndex + 1; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row || row.length < 5) continue;
+    
+    const rawLabel = String(row[1] || '').trim();
+    if (!rawLabel || rawLabel === '' || rawLabel.startsWith('統計')) continue;
+    
+    // 合計列（列E、index 4）の値を取得
+    const totalVal = row[4];
+    if (totalVal === undefined || totalVal === null || totalVal === '') continue;
+    
+    // KPI名をマッピング
+    const kpiName = kpiMapping[rawLabel] || rawLabel;
+    
+    // 値をパース
+    let val = parseNumber(totalVal);
+    if (val === null) continue;
+    
+    // USDフィールドの場合は為替換算
+    if (usdFields.some(f => rawLabel.includes(f) || rawLabel === f)) {
+      val = val * USD_TO_JPY;
+    }
+    
+    // パーセンテージフィールドの場合はそのまま（0-1に変換不要、表示時に処理）
+    const isPercent = rawLabel.includes('率') || rawLabel.includes('割合') || rawLabel.includes('RTP');
+    if (isPercent && Math.abs(val) > 1) {
+      val = val / 100; // パーセント表記を小数に変換
+    }
+    
+    summary[kpiName] = val;
+  }
+  
+  // 計算項目を追加
+  if (summary['総入金額'] && summary['総出金額'] && !summary['入出金差分']) {
+    summary['入出金差分'] = summary['総入金額'] - summary['総出金額'];
+  }
+  if (summary['T/O'] && summary['勝利金'] && !summary['GGR']) {
+    summary['GGR'] = summary['T/O'] - summary['勝利金'];
+  }
+  if (summary['GGR'] && summary['T/O'] && !summary['RTP']) {
+    summary['RTP'] = summary['勝利金'] / summary['T/O'];
+  }
+  
+  // 為替レートを保存
+  summary['為替レート(USD/JPY)'] = USD_TO_JPY;
+  
+  // BUSINESSESに保存
+  BUSINESSES['Konibet'].data[periodName] = {
+    サマリー: summary
+  };
+  
+  const kpiCount = Object.keys(summary).length;
+  showStatus(`Konibet日次KPI取込完了: ${periodName} (${kpiCount}項目) ※USD→JPY: ¥${USD_TO_JPY}換算`);
+  selectBusiness('Konibet'); saveBusinessData(); setTimeout(hideUploadModal, 1500);
+}
+
 function parseKonibetCSV(lines, period, filename) {
   // Konibet KPI CSVパーサー
   // CSVフォーマット:
