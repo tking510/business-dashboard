@@ -353,13 +353,10 @@ async function createNewBin() {
     console.error('createNewBin error:', e);
     updateSyncStatus('作成エラー', true); 
     if (window.self !== window.top) {
-      alert('⚠️ この環境では共有リンクを作成できません。\\n\\nダウンロードしてブラウザで直接開いてください。');
+      alert('⚠️ この環境では共有リンクを作成できません。\n\nダウンロードしてブラウザで直接開いてください。');
     } else {
-      alert('共有リンクの作成に失敗しました。\\nエラー: ' + e.message);
+      alert('共有リンクの作成に失敗しました。\nエラー: ' + e.message);
     }
-  } 
-  return null; 
-}
   } 
   return null; 
 }
