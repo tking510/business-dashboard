@@ -365,13 +365,70 @@ async function createNewBin() {
 }
 function showShareURL() { const shareUrl = window.location.href; if (confirm(`✅ 共有リンク:\n${shareUrl}\n\nコピーしますか？`)) { navigator.clipboard.writeText(shareUrl).then(() => alert('コピーしました！')).catch(() => prompt('URLをコピー:', shareUrl)); } }
 async function createShareLink() { if (cloudEnabled) showShareURL(); else { const binId = await createNewBin(); if (binId) await saveToCloud(); } }
-async function loadCloudData() { if (!BLOB_ID) return {}; try { const res = await fetch(JSONBLOB_API + '/' + BLOB_ID); if (!res.ok) throw new Error('Load failed'); const data = await res.json(); return data.businesses || {}; } catch (e) { return {}; } }
+async function loadCloudData() { 
+  if (!BLOB_ID) return {}; 
+  try { 
+    const fetchPromise = fetch(JSONBLOB_API + '/' + BLOB_ID);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000));
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
+    if (!res.ok) throw new Error('Load failed'); 
+    const data = await res.json(); 
+    return data.businesses || {}; 
+  } catch (e) { 
+    console.error('loadCloudData error:', e);
+    return {}; 
+  } 
+}
 async function saveToCloud() { if (!BLOB_ID) return; try { const toSave = {}; Object.keys(BUSINESSES).forEach(key => { const biz = BUSINESSES[key], def = DEFAULT_BUSINESSES[key]; if (!def) toSave[key] = biz; else { const newPeriods = {}; Object.keys(biz.data).forEach(period => { if (!def.data[period]) newPeriods[period] = biz.data[period]; }); if (Object.keys(newPeriods).length > 0) toSave[key] = { data: newPeriods, type: biz.type }; } }); await fetch(JSONBLOB_API + '/' + BLOB_ID, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: toSave, lastUpdate: new Date().toISOString() }) }); updateSyncStatus('保存完了 ✓'); } catch (e) { updateSyncStatus('保存エラー', true); } }
 async function clearCloudData() { if (!BLOB_ID) return; try { await fetch(JSONBLOB_API + '/' + BLOB_ID, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: {}, lastUpdate: new Date().toISOString() }) }); } catch (e) {} }
 function mergeWithDefault(cloudData) { const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES)); Object.keys(cloudData).forEach(key => { if (merged[key]) { merged[key].data = { ...merged[key].data, ...(cloudData[key].data || {}) }; merged[key].type = cloudData[key].type || merged[key].type; } else merged[key] = cloudData[key]; }); return merged; }
 function saveBusinessData() { if (cloudEnabled) { updateSyncStatus('保存中...'); saveToCloud(); } try { const backup = {}; Object.keys(BUSINESSES).forEach(k => { const def = DEFAULT_BUSINESSES[k]; if (!def) backup[k] = BUSINESSES[k]; else { const newPeriods = {}; Object.keys(BUSINESSES[k].data).forEach(p => { if (!def.data[p]) newPeriods[p] = BUSINESSES[k].data[p]; }); if (Object.keys(newPeriods).length > 0) backup[k] = { data: newPeriods, type: BUSINESSES[k].type }; } }); localStorage.setItem('dashboard_backup', JSON.stringify(backup)); } catch (e) {} }
 async function clearAllData() { if (confirm('全データを削除しますか？')) { if (cloudEnabled) await clearCloudData(); localStorage.removeItem('dashboard_backup'); location.reload(); } }
-async function initializeData() { BLOB_ID = getBinIdFromURL(); cloudEnabled = !!BLOB_ID; if (cloudEnabled) { try { updateSyncStatus('読み込み中...'); const cloudData = await loadCloudData(); BUSINESSES = mergeWithDefault(cloudData); updateSyncStatus('クラウド同期中'); } catch (e) { updateSyncStatus('接続エラー', true); } } else { try { const backup = localStorage.getItem('dashboard_backup'); if (backup) { const parsed = JSON.parse(backup); Object.keys(parsed).forEach(key => { if (BUSINESSES[key]) BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data }; else BUSINESSES[key] = parsed[key]; }); } } catch (e) {} updateSyncStatus('ローカル'); } selectBusiness(currentBusiness); }
+async function initializeData() { 
+  BLOB_ID = getBinIdFromURL(); 
+  cloudEnabled = !!BLOB_ID; 
+  if (cloudEnabled) { 
+    try { 
+      updateSyncStatus('読み込み中...'); 
+      const cloudData = await loadCloudData(); 
+      if (cloudData && Object.keys(cloudData).length > 0) {
+        BUSINESSES = mergeWithDefault(cloudData); 
+        updateSyncStatus('クラウド同期中'); 
+      } else {
+        throw new Error('Empty data');
+      }
+    } catch (e) { 
+      console.error('Cloud load error:', e);
+      cloudEnabled = false;
+      BLOB_ID = '';
+      updateSyncStatus('ローカル（クラウド接続失敗）', true); 
+      // ローカルバックアップを読み込む
+      try { 
+        const backup = localStorage.getItem('dashboard_backup'); 
+        if (backup) { 
+          const parsed = JSON.parse(backup); 
+          Object.keys(parsed).forEach(key => { 
+            if (BUSINESSES[key]) BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data }; 
+            else BUSINESSES[key] = parsed[key]; 
+          }); 
+        } 
+      } catch (e2) {} 
+    } 
+  } else { 
+    try { 
+      const backup = localStorage.getItem('dashboard_backup'); 
+      if (backup) { 
+        const parsed = JSON.parse(backup); 
+        Object.keys(parsed).forEach(key => { 
+          if (BUSINESSES[key]) BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data }; 
+          else BUSINESSES[key] = parsed[key]; 
+        }); 
+      } 
+    } catch (e) {} 
+    updateSyncStatus('ローカル'); 
+  } 
+  selectBusiness(currentBusiness); 
+}
 document.addEventListener('DOMContentLoaded', () => { initializeData(); renderTabs(); setupDragDrop(); });
 
 // ========== 表示モード ==========
