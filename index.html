@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>事業別ダッシュボード v7</title>
+  <title>事業別ダッシュボード v7 - Konibet対応</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -95,7 +95,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
 <body>
 <div class="container">
   <div class="header">
-    <h1>📊 事業別ダッシュボード v7</h1>
+    <h1>📊 事業別ダッシュボード v7 <span style="font-size:14px;background:#10b981;color:white;padding:2px 8px;border-radius:4px;margin-left:8px">Konibet対応</span></h1>
     <div class="header-actions">
       <span id="sync-status" style="font-size:12px;color:#10b981;margin-right:10px">💾 読込中...</span>
       <button class="btn btn-primary" onclick="showUploadModal()">📤 アップロード</button>
@@ -161,7 +161,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <table><thead><tr id="table-header"></tr></thead><tbody id="table-body"></tbody></table>
     </div>
   </div>
-  <footer>収益管理ダッシュボード v7.0 | 円グラフ・プロバイダー/ゲーム種別分離対応</footer>
+  <footer>収益管理ダッシュボード v7.0 | Konibet KPI対応版 | 円グラフ・プロバイダー/ゲーム種別分離対応</footer>
 </div>
 
 <div id="upload-modal" class="modal hidden">
@@ -170,10 +170,11 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
     <div class="form-row">
       <div class="form-group"><label>期間</label><input type="text" id="upload-period" placeholder="例: 2025年10月"></div>
       <div class="form-group"><label>データ種別</label>
-        <select id="upload-type">
+        <select id="upload-type" onchange="toggleExchangeRate()">
           <option value="auto">自動判別</option>
           <option value="samExcel">元amuse/DSC Excel</option>
           <option value="sloten">スロ天KPIシート</option>
+          <option value="konibet">Konibet KPIシート</option>
           <option value="agent">AMUSEVIP エージェント</option>
           <option value="ads">広告データ</option>
           <option value="baccarat">バカラツール</option>
@@ -182,6 +183,13 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
           <option value="bonus">ボーナスシート</option>
           <option value="delayed">遅れ回収シート</option>
         </select>
+      </div>
+    </div>
+    <div class="form-row" id="exchange-rate-row" style="display:none">
+      <div class="form-group">
+        <label>💱 為替レート (USD→JPY)</label>
+        <input type="number" id="usd-jpy-rate" value="150" min="1" max="500" step="0.1" style="width:120px">
+        <span style="font-size:12px;color:#64748b;margin-left:8px">※Konibet金額換算用</span>
       </div>
     </div>
     <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
@@ -205,6 +213,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <select id="new-business-type">
         <option value="samExcel">標準（GGR/NGR等）</option>
         <option value="sloten">スロ天形式</option>
+        <option value="konibet">Konibet形式</option>
         <option value="agent">エージェント型</option>
         <option value="ads">広告型</option>
         <option value="baccara">ツール型</option>
@@ -269,7 +278,8 @@ const DEFAULT_BUSINESSES = {
   'スロ天': { data: SLOTEN_DATA, type: 'sloten' },
   '広告': { data: {}, type: 'ads' },
   'バカラツール': { data: {}, type: 'baccara' },
-  'AMUSEVIP': { data: {}, type: 'agent' }
+  'AMUSEVIP': { data: {}, type: 'agent' },
+  'Konibet': { data: {}, type: 'konibet' }
 };
 
 // LZ圧縮ライブラリ（軽量版）
@@ -797,7 +807,7 @@ function renderSummary() {
   if (!data || Object.keys(data).length === 0) { container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:#94a3b8">データがありません</div>'; return; }
   const type = business.type || 'samExcel';
   const colors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)','linear-gradient(135deg,#ec4899,#db2777)'];
-  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'ads' ? [{ key: 'コスト($)', label: 'コスト($)', format: 'number' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: 'CPA(税込)', label: 'CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : type === 'baccara' ? [{ key: '登録数', label: '登録数', format: 'number' },{ key: '総GGR', label: 'GGR' },{ key: 'コスト', label: 'コスト' },{ key: 'NGR', label: 'NGR' }] : [];
+  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'konibet' ? [{ key: '登録', label: '登録', format: 'number' },{ key: 'FTD', label: 'FTD', format: 'number' },{ key: 'MAU', label: 'MAU', format: 'number' },{ key: '入金額', label: '入金額' },{ key: 'ターンオーバー', label: 'T/O' },{ key: 'NGR', label: 'NGR' }] : type === 'ads' ? [{ key: 'コスト($)', label: 'コスト($)', format: 'number' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: 'CPA(税込)', label: 'CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : type === 'baccara' ? [{ key: '登録数', label: '登録数', format: 'number' },{ key: '総GGR', label: 'GGR' },{ key: 'コスト', label: 'コスト' },{ key: 'NGR', label: 'NGR' }] : [];
   container.innerHTML = '<div class="summary-grid">' + cards.map((card, i) => { let val = data[card.key]; if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } } if (val == null) return ''; let formatted = card.key === 'RTP' ? formatRTP(val) : card.format === 'percent' ? formatPercent(val) : card.format === 'number' ? formatNumber(val) : formatCurrency(val); const bg = val < 0 && card.format !== 'percent' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : colors[i % colors.length]; return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`; }).join('') + '</div>';
 }
 
@@ -819,6 +829,94 @@ function renderKPISections() {
   if (!data || Object.keys(data).length === 0) { container.innerHTML = ''; return; }
   const type = business.type || 'samExcel';
   if (type === 'agent' || type === 'ads' || type === 'baccara') { container.innerHTML = ''; return; }
+  
+  // Konibet専用KPIセクション
+  if (type === 'konibet') {
+    const exchangeRate = data['為替レート(USD/JPY)'] || 150;
+    const konibetSections = [
+      { 
+        title: '📊 実績', 
+        keys: ['登録','FTD','MAU','入金額','ターンオーバー','AFF固定費','NGR'], 
+        bg: '#dbeafe',
+        format: { '登録': 'number', 'FTD': 'number', 'MAU': 'number', '入金額': 'currency', 'ターンオーバー': 'currency', 'AFF固定費': 'currency', 'NGR': 'currency' }
+      },
+      { 
+        title: '🎯 目標', 
+        keys: ['登録目標','FTD目標','MAU目標','入金額目標','ターンオーバー目標','AFF固定費目標','NGR目標'], 
+        bg: '#fef3c7',
+        format: { '登録目標': 'number', 'FTD目標': 'number', 'MAU目標': 'number', '入金額目標': 'currency', 'ターンオーバー目標': 'currency', 'AFF固定費目標': 'currency', 'NGR目標': 'currency' }
+      },
+      { 
+        title: '📈 達成率', 
+        keys: ['登録達成率','FTD達成率','MAU達成率','入金額達成率','ターンオーバー達成率','NGR達成率'], 
+        bg: '#dcfce7',
+        format: { '登録達成率': 'percent', 'FTD達成率': 'percent', 'MAU達成率': 'percent', '入金額達成率': 'percent', 'ターンオーバー達成率': 'percent', 'NGR達成率': 'percent' }
+      }
+    ];
+    
+    // 為替レート情報バナー
+    container.innerHTML = `<div style="background:linear-gradient(135deg,#059669,#10b981);color:white;padding:12px 20px;border-radius:12px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:20px">💱</span>
+      <span><strong>為替レート:</strong> $1 = ¥${exchangeRate} で換算済み</span>
+    </div>`;
+    
+    container.innerHTML += konibetSections.map(section => {
+      const items = section.keys.filter(k => data[k] != null);
+      if (items.length === 0) return '';
+      return `<div class="card" style="background:${section.bg}"><div class="section-title">${section.title}</div><div class="kpi-grid">${items.map(key => {
+        const val = data[key];
+        const fmt = section.format[key];
+        let formatted = fmt === 'percent' ? formatPercent(val) : fmt === 'currency' ? formatCurrency(val) : formatNumber(val);
+        const isNeg = typeof val === 'number' && val < 0;
+        const isLow = fmt === 'percent' && typeof val === 'number' && val < 0.8;
+        return `<div class="kpi-item"><div class="label">${key}</div><div class="val ${isNeg ? 'negative' : ''}" style="${isLow ? 'color:#f59e0b' : ''}">${formatted}</div></div>`;
+      }).join('')}</div></div>`;
+    }).join('');
+    
+    // 週次詳細データがある場合は表示
+    if (viewMode !== 'total') {
+      const periodData = business.data?.[currentPeriod];
+      if (periodData?.週次詳細 && periodData.週次詳細.length > 0) {
+        container.innerHTML += `<div class="card" style="background:#f1f5f9">
+          <div class="section-title">📅 週次詳細</div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>週</th>
+                  <th class="text-right">登録</th>
+                  <th class="text-right">FTD</th>
+                  <th class="text-right">MAU</th>
+                  <th class="text-right">入金額</th>
+                  <th class="text-right">T/O</th>
+                  <th class="text-right">NGR</th>
+                  <th class="text-right">登録率</th>
+                  <th class="text-right">入金率</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${periodData.週次詳細.map(w => `
+                  <tr>
+                    <td>${w.週}</td>
+                    <td class="text-right">${formatNumber(w.登録)}</td>
+                    <td class="text-right">${formatNumber(w.FTD)}</td>
+                    <td class="text-right">${formatNumber(w.MAU)}</td>
+                    <td class="text-right">${formatCurrency(w.入金額)}</td>
+                    <td class="text-right">${formatCurrency(w.ターンオーバー)}</td>
+                    <td class="text-right ${w.NGR < 0 ? 'text-red' : ''}">${formatCurrency(w.NGR)}</td>
+                    <td class="text-right">${formatPercent(w['登録達成率'])}</td>
+                    <td class="text-right">${formatPercent(w['入金額達成率'])}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+      }
+    }
+    return;
+  }
+  
   const sections = [
     { title: '📞 営業KPI', keys: ['リスト件数','総登録数','登録人数','打電数','着電数','LINE登録数','アカウント作成数','ログインユーザー数','アクティブプレイ人数（ユニーク）','アクティブユーザー数','入金者数(デイリーユニーク)'], bg: '#dbeafe' },
     { title: '🎯 転換KPI', keys: ['FTP数','FTP率','FTD数','FTD率','FTW数','FTW率','FTDW数','FTDW率','FTDのみ入金者数','FTDのみ率','2nd入金者数','2nd率','3rd入金者数','3rd率','Active入金者数','Active率','今月登録のFTD以降ユーザー数','今月登録FTD以降ユーザー割合'], bg: '#dcfce7' },
@@ -877,7 +975,7 @@ function renderChart() {
   if (chartInstance) chartInstance.destroy();
   if (periods.length === 0) { ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); return; }
   const type = business.type || 'samExcel';
-  let datasets = type === 'samExcel' ? [{ label: 'GGR', data: periods.map(p => { const d = data[p]?.サマリー || data[p] || {}; return d['GGR(WIN/LOSE)'] || d['GGR'] || d['WIN/LOSE'] || 0; }), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: 'NGR', data: periods.map(p => (data[p]?.サマリー?.['NGR'] || data[p]?.['NGR'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }] : type === 'sloten' ? [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['GGR'] || data[p]?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: '入出金差分', data: periods.map(p => (data[p]?.サマリー?.['入出金差分'] || data[p]?.['入出金差分'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }] : [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['総GGR'] || data[p]?.サマリー?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' }];
+  let datasets = type === 'samExcel' ? [{ label: 'GGR', data: periods.map(p => { const d = data[p]?.サマリー || data[p] || {}; return d['GGR(WIN/LOSE)'] || d['GGR'] || d['WIN/LOSE'] || 0; }), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: 'NGR', data: periods.map(p => (data[p]?.サマリー?.['NGR'] || data[p]?.['NGR'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }] : type === 'sloten' ? [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['GGR'] || data[p]?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: '入出金差分', data: periods.map(p => (data[p]?.サマリー?.['入出金差分'] || data[p]?.['入出金差分'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }] : type === 'konibet' ? [{ label: '入金額', data: periods.map(p => (data[p]?.サマリー?.['入金額'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: 'NGR', data: periods.map(p => (data[p]?.サマリー?.['NGR'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' },{ label: 'ターンオーバー', data: periods.map(p => (data[p]?.サマリー?.['ターンオーバー'] || 0) / 10), backgroundColor: 'rgba(245,158,11,0.5)', hidden: true }] : [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['総GGR'] || data[p]?.サマリー?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' }];
   chartInstance = new Chart(ctx, { type: 'bar', data: { labels: periods, datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '¥' + (v / 1000000).toFixed(0) + 'M' } } } } });
 }
 
@@ -901,8 +999,9 @@ function renderTable() {
 }
 
 // ========== モーダル ==========
-function showUploadModal() { document.getElementById('upload-modal').classList.remove('hidden'); document.getElementById('upload-status').style.display = 'none'; }
+function showUploadModal() { document.getElementById('upload-modal').classList.remove('hidden'); document.getElementById('upload-status').style.display = 'none'; toggleExchangeRate(); }
 function hideUploadModal() { document.getElementById('upload-modal').classList.add('hidden'); }
+function toggleExchangeRate() { const type = document.getElementById('upload-type').value; const row = document.getElementById('exchange-rate-row'); row.style.display = (type === 'konibet' || type === 'auto') ? 'block' : 'none'; }
 function showAddBusinessModal() { document.getElementById('add-business-modal').classList.remove('hidden'); }
 function hideAddBusinessModal() { document.getElementById('add-business-modal').classList.add('hidden'); }
 function setupDragDrop() { const zone = document.getElementById('upload-zone'); zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); }); zone.addEventListener('dragleave', () => zone.classList.remove('dragover')); zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]); }); }
@@ -938,9 +1037,11 @@ function handleCSV(text, period, uploadType, filename) {
   const isBonus = fn.includes('ボーナス') || fn.includes('キャッシュバック');
   const isAgent = fn.includes('エージェント') || fn.includes('agent') || headerStr.includes('teamkyoto');
   const isAds = fn.includes('日报') || fn.includes('広告') || (headerStr.includes('コスト') && headerStr.includes('インプレッション'));
-  const isSloten = fn.includes('スロ天') || fn.includes('kpi') || (headerStr.includes('項目名') && headerStr.includes('月次'));
+  const isSloten = fn.includes('スロ天') || (fn.includes('kpi') && !fn.includes('konibet')) || (headerStr.includes('項目名') && headerStr.includes('月次'));
+  const isKonibet = fn.includes('konibet') || fn.includes('コニベット') || (headerStr.includes('sign-up') && headerStr.includes('ftd') && headerStr.includes('mau') && headerStr.includes('deposits'));
   
   if (uploadType === 'auto') {
+    if (isKonibet) { parseKonibetCSV(lines, period, fn); return; }
     if (isSloten) { parseSlotenCSV(lines, period, fn); return; }
     if (isCustomerList) { parseCustomerListCSV(lines, period, fn); return; }
     if (isUncollected) { parseUncollectedCSV(lines, period, fn); return; }
@@ -950,6 +1051,7 @@ function handleCSV(text, period, uploadType, filename) {
     if (isAds) { parseAdsCSV(lines, period); return; }
   }
   if (uploadType === 'sloten') { parseSlotenCSV(lines, period, fn); return; }
+  if (uploadType === 'konibet') { parseKonibetCSV(lines, period, fn); return; }
   if (uploadType === 'customerList') { parseCustomerListCSV(lines, period, fn); return; }
   if (uploadType === 'uncollected') { parseUncollectedCSV(lines, period, fn); return; }
   if (uploadType === 'bonus') { parseBonusCSV(lines, period, fn); return; }
@@ -961,6 +1063,151 @@ function handleCSV(text, period, uploadType, filename) {
 }
 
 // ========== 各種CSVパーサー ==========
+function parseKonibetCSV(lines, period, filename) {
+  // Konibet KPI CSVパーサー
+  // CSVフォーマット:
+  // 行1: ヘッダー (,KPI,sign-up,FTD,MAU,Deposits,T/0,AFF cost,NGR)
+  // 行2-13: 月別KPI目標値
+  // 行16以降: 実績データ（週次）
+  
+  // 為替レート（USD → JPY）- 入力欄から取得、なければデフォルト150
+  const rateInput = document.getElementById('usd-jpy-rate');
+  const USD_TO_JPY = rateInput ? parseFloat(rateInput.value) || 150 : 150;
+  
+  const yearMatch = filename.match(/202[0-9]/);
+  const year = yearMatch ? yearMatch[0] : new Date().getFullYear().toString();
+  
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthsJP = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+  
+  // KPI目標値を読み取り（行2-13）
+  const targets = {};
+  for (let i = 1; i <= 13; i++) {
+    const row = lines[i];
+    if (!row || row.length < 8) continue;
+    const monthName = String(row[1] || '').trim();
+    const monthIdx = months.findIndex(m => m.toLowerCase() === monthName.toLowerCase());
+    if (monthIdx < 0) continue;
+    
+    targets[monthsJP[monthIdx]] = {
+      '登録目標': parseNumber(row[2]) || 0,
+      'FTD目標': parseNumber(row[3]) || 0,
+      'MAU目標': parseNumber(row[4]) || 0,
+      '入金額目標': (parseNumber(row[5]) || 0) * USD_TO_JPY,
+      'ターンオーバー目標': (parseNumber(row[6]) || 0) * USD_TO_JPY,
+      'AFF固定費目標': (parseNumber(row[7]) || 0) * USD_TO_JPY,
+      'NGR目標': (parseNumber(row[8]) || 0) * USD_TO_JPY
+    };
+  }
+  
+  // 実績データを読み取り
+  let currentMonth = null;
+  let monthlyData = {};
+  let weeklyDetails = {};
+  
+  for (let i = 16; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row || row.length < 8) continue;
+    
+    const col0 = String(row[0] || '').trim();
+    const col1 = String(row[1] || '').trim();
+    
+    // 月名の検出
+    const monthIdx = months.findIndex(m => m.toLowerCase() === col0.toLowerCase());
+    if (monthIdx >= 0) {
+      currentMonth = monthsJP[monthIdx];
+      if (!monthlyData[currentMonth]) {
+        monthlyData[currentMonth] = { weeks: [], totals: null };
+        weeklyDetails[currentMonth] = [];
+      }
+    }
+    
+    if (!currentMonth) continue;
+    
+    // Week行またはIn Total行
+    const isWeek = col1.toLowerCase().includes('week');
+    const isTotal = col1.toLowerCase().includes('in total') || col1.toLowerCase().includes('total');
+    
+    if (isWeek || isTotal) {
+      const weekData = {
+        週: col1,
+        登録: parseNumber(row[2]) || 0,
+        FTD: parseNumber(row[3]) || 0,
+        MAU: parseNumber(row[4]) || 0,
+        入金額: (parseNumber(row[5]) || 0) * USD_TO_JPY,
+        ターンオーバー: (parseNumber(row[6]) || 0) * USD_TO_JPY,
+        'AFF固定費': (parseNumber(row[7]) || 0) * USD_TO_JPY,
+        NGR: (parseNumber(row[8]) || 0) * USD_TO_JPY,
+        '登録達成率': parseNumber(row[9]) || 0,
+        'FTD達成率': parseNumber(row[10]) || 0,
+        'MAU達成率': parseNumber(row[11]) || 0,
+        '入金額達成率': parseNumber(row[12]) || 0,
+        'ターンオーバー達成率': parseNumber(row[13]) || 0,
+        'AFF固定費達成率': parseNumber(row[14]) || 0,
+        'NGR達成率': parseNumber(row[15]) || 0
+      };
+      
+      if (isTotal) {
+        monthlyData[currentMonth].totals = weekData;
+      } else {
+        weeklyDetails[currentMonth].push(weekData);
+      }
+    }
+  }
+  
+  // ダッシュボード用データ構造に変換
+  let count = 0;
+  Object.keys(monthlyData).forEach(month => {
+    const data = monthlyData[month];
+    const target = targets[month] || {};
+    const totals = data.totals || {};
+    
+    // 実績がない月はスキップ
+    if (!totals.登録 && !totals.FTD && !totals.MAU) return;
+    
+    const periodName = `${year}年${month}`;
+    const summary = {
+      // 実績
+      '登録': totals.登録 || 0,
+      'FTD': totals.FTD || 0,
+      'MAU': totals.MAU || 0,
+      '入金額': totals.入金額 || 0,
+      'ターンオーバー': totals.ターンオーバー || 0,
+      'AFF固定費': totals['AFF固定費'] || 0,
+      'NGR': totals.NGR || 0,
+      // 目標
+      '登録目標': target['登録目標'] || 0,
+      'FTD目標': target['FTD目標'] || 0,
+      'MAU目標': target['MAU目標'] || 0,
+      '入金額目標': target['入金額目標'] || 0,
+      'ターンオーバー目標': target['ターンオーバー目標'] || 0,
+      'AFF固定費目標': target['AFF固定費目標'] || 0,
+      'NGR目標': target['NGR目標'] || 0,
+      // 達成率
+      '登録達成率': totals['登録達成率'] || 0,
+      'FTD達成率': totals['FTD達成率'] || 0,
+      'MAU達成率': totals['MAU達成率'] || 0,
+      '入金額達成率': totals['入金額達成率'] || 0,
+      'ターンオーバー達成率': totals['ターンオーバー達成率'] || 0,
+      'NGR達成率': totals['NGR達成率'] || 0,
+      // 為替レート
+      '為替レート(USD/JPY)': USD_TO_JPY
+    };
+    
+    // 週次詳細データ
+    const weeks = weeklyDetails[month] || [];
+    
+    BUSINESSES['Konibet'].data[periodName] = {
+      サマリー: summary,
+      ...(weeks.length > 0 ? { 週次詳細: weeks } : {})
+    };
+    count++;
+  });
+  
+  showStatus(`Konibet KPI取込完了: ${count}期間 (${year}年) ※USD→JPY: ¥${USD_TO_JPY}換算`);
+  selectBusiness('Konibet'); saveBusinessData(); setTimeout(hideUploadModal, 1500);
+}
+
 function parseSlotenCSV(lines, period, filename) {
   const kpi = {};
   let periodName = period;
