@@ -345,33 +345,19 @@ function getShareDataFromURL() {
 function createShareLink() {
   try {
     updateSyncStatus('リンク作成中...');
-    // 追加データのみを抽出
+    // 全データを共有（DEFAULT含む）
     const toShare = {};
     Object.keys(BUSINESSES).forEach(key => {
-      const biz = BUSINESSES[key], def = DEFAULT_BUSINESSES[key];
-      if (!def) { toShare[key] = biz; }
-      else {
-        const newPeriods = {};
-        Object.keys(biz.data).forEach(period => {
-          if (!def.data[period]) newPeriods[period] = biz.data[period];
-        });
-        if (Object.keys(newPeriods).length > 0) toShare[key] = { data: newPeriods, type: biz.type };
-      }
+      toShare[key] = BUSINESSES[key];
     });
-    
-    if (Object.keys(toShare).length === 0) {
-      alert('共有するデータがありません。\nアップロードしたデータのみが共有されます。');
-      updateSyncStatus('ローカル');
-      return;
-    }
     
     const json = JSON.stringify(toShare);
     const compressed = LZString.compressToEncodedURIComponent(json);
-    const baseUrl = window.location.href.split('#')[0];
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
     const shareUrl = baseUrl + '#data=' + compressed;
     
-    if (shareUrl.length > 32000) {
-      alert('データが大きすぎます。\n一部のデータを削除してから共有してください。');
+    if (shareUrl.length > 100000) {
+      alert('データが大きすぎます。\n一部の期間を削除してから共有してください。');
       updateSyncStatus('データ過大', true);
       return;
     }
@@ -381,7 +367,7 @@ function createShareLink() {
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(shareUrl).then(() => {
-        alert('✅ 共有リンクをコピーしました！\n\nこのURLを共有すると、追加したデータも一緒に共有されます。');
+        alert('✅ 共有リンクをコピーしました！\n\nURL長: ' + shareUrl.length + '文字');
       }).catch(() => {
         prompt('共有リンク（コピーしてください）:', shareUrl);
       });
@@ -391,7 +377,7 @@ function createShareLink() {
   } catch (e) {
     console.error('createShareLink error:', e);
     updateSyncStatus('エラー', true);
-    alert('共有リンクの作成に失敗しました。');
+    alert('共有リンクの作成に失敗しました。\nエラー: ' + e.message);
   }
 }
 
@@ -423,7 +409,7 @@ function initializeData() {
   // 1. URLからデータを読み込む
   const urlData = getShareDataFromURL();
   if (urlData && Object.keys(urlData).length > 0) {
-    BUSINESSES = mergeWithDefault(urlData);
+    BUSINESSES = urlData;
     updateSyncStatus('共有データ読込済');
     selectBusiness(currentBusiness);
     return;
