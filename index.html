@@ -65,15 +65,15 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
 .total-card h4{font-size:11px;opacity:0.8;margin-bottom:8px;text-transform:uppercase}
 .total-card .main-val{font-size:22px;font-weight:700;margin-bottom:4px}
 .total-card .sub-val{font-size:12px;opacity:0.7}
-.crypto-section{background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:16px;padding:20px;margin-bottom:20px}
-.crypto-section .section-title{color:#1e293b}
+.crypto-section{background:linear-gradient(135deg,#1e3a5f,#2d5a87);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
+.crypto-section .section-title{color:white}
 .crypto-flex{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
 .crypto-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;flex:1}
-.crypto-card{background:rgba(255,255,255,0.9);border-radius:10px;padding:12px;color:#1e293b}
+.crypto-card{background:rgba(255,255,255,0.95);border-radius:10px;padding:12px;color:#1e293b}
 .crypto-card h5{font-size:10px;color:#64748b;margin-bottom:4px}
 .crypto-card .crypto-val{font-size:16px;font-weight:700}
 .crypto-card .crypto-pct{font-size:11px;color:#64748b}
-.provider-section{background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
+.provider-section{background:linear-gradient(135deg,#4a1d6a,#6b2d8a);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
 .provider-section .section-title{color:white}
 .provider-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .provider-card{background:rgba(255,255,255,0.15);border-radius:10px;padding:14px;backdrop-filter:blur(10px)}
@@ -82,7 +82,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
 .provider-card .stat-item{background:rgba(255,255,255,0.1);border-radius:6px;padding:6px 8px}
 .provider-card .stat-label{opacity:0.7;font-size:9px}
 .provider-card .stat-val{font-weight:600}
-.game-section{background:linear-gradient(135deg,#10b981,#059669);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
+.game-section{background:linear-gradient(135deg,#1a472a,#2d6a4f);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
 .game-section .section-title{color:white}
 .view-toggle{display:flex;gap:8px;margin-bottom:16px}
 .view-toggle .toggle-btn{padding:8px 16px;border-radius:8px;border:2px solid #e2e8f0;background:white;cursor:pointer;font-size:12px;font-weight:600;transition:all 0.2s}
@@ -116,6 +116,19 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
   </div>
   <div id="summary-section"></div>
   
+  <div class="card">
+    <div class="section-title">📈 推移グラフ</div>
+    <div class="chart-container"><canvas id="main-chart"></canvas></div>
+  </div>
+  
+  <!-- 継続KPI推移グラフ（スロ天用） -->
+  <div id="retention-chart-section" class="card hidden">
+    <div class="section-title">📊 継続ユーザー推移</div>
+    <div class="chart-container"><canvas id="retention-chart"></canvas></div>
+  </div>
+  
+  <div id="kpi-sections"></div>
+  
   <!-- 仮想通貨銘柄別（円グラフ付き） -->
   <div id="crypto-section" class="crypto-section hidden">
     <div class="section-title">🪙 仮想通貨銘柄別</div>
@@ -142,12 +155,6 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <div class="list-wrapper"><div id="provider-grid" class="provider-grid"></div></div>
     </div>
   </div>
-  
-  <div class="card">
-    <div class="section-title">📈 推移グラフ</div>
-    <div class="chart-container"><canvas id="main-chart"></canvas></div>
-  </div>
-  <div id="kpi-sections"></div>
   <div id="data-table" class="card">
     <div class="section-title">📋 詳細データ</div>
     <div class="table-container">
@@ -228,7 +235,7 @@ const DSC_DATA = {
 };
 const SLOTEN_DATA = {
   '2026年1月':{
-    サマリー:{'登録人数':3381,'ログインユーザー数':3459,'FTDのみ入金者数':181,'今月登録のFTD以降ユーザー数':339,'今月登録FTD以降ユーザー割合':0.1003,'アクティブプレイ人数（ユニーク）':993,'入金者数(デイリーユニーク)':632,'総入金額':70601802,'総出金額':54836317,'T/O(リアルのみ)':1040015674,'勝利金(リアルのみ)':1009478892,'RTP':0.9706,'GGR':30536782.75,'入出金差分':15765485,'GGRLTV':30752.05},
+    サマリー:{'登録人数':3381,'ログインユーザー数':3459,'FTDのみ入金者数':181,'今月登録のFTD以降ユーザー数':339,'今月登録FTD以降ユーザー割合':0.1003,'アクティブプレイ人数（ユニーク）':993,'入金者数(デイリーユニーク)':632,'総入金額':70601802,'総出金額':54836317,'T/O(リアルのみ)':1040015674,'勝利金(リアルのみ)':1009478892,'RTP':0.9706,'GGR':30536782.75,'入出金差分':15765485,'GGRLTV':30752.05,'2nd入金者数':245,'3rd入金者数':189,'Active入金者数':387,'前月登録ユーザー数':2552,'前々月登録ユーザー数':300,'前月継続率':0.312,'前々月継続率':0.28},
     入金方法:{'TOTAL':70601802,'銀行（自動）':16021000,'仮想通貨':6063158,'銀行（手動）':7798951,'EC(コンビニ)':1472000,'PayPay':39246693},
     出金方法:{'TOTAL':54836317,'銀行（自動）':16360710,'仮想通貨':17794551,'銀行（手動）':19212554,'PayPay':1468502},
     ゲーム別:{パチンコ:{ユーザー数:1066,TO:25539221,GGR:3124886},パチスロ:{ユーザー数:1090,TO:120877774,GGR:1119651},スロット:{ユーザー数:4792,TO:388796058,GGR:10550937},ライブ:{ユーザー数:2213,TO:407528253,GGR:15111844}},
@@ -237,7 +244,7 @@ const SLOTEN_DATA = {
     Affiliate:{'AFF数':46,'AFF経由登録者数':925,'AFF経由FTD数':126,'AFF経由FTD率':0.1362,'AFF経由入金額':8022259,'AFF経由出金額':5490590,'AFF経由GGR':2531669}
   },
   '2025年12月':{
-    サマリー:{'登録人数':2552,'ログインユーザー数':2399,'FTDのみ入金者数':231,'今月登録のFTD以降ユーザー数':713,'今月登録FTD以降ユーザー割合':0.1653,'アクティブプレイ人数（ユニーク）':798,'総入金額':66633871,'総出金額':48341793,'T/O(リアルのみ)':1120432234,'勝利金(リアルのみ)':1084887870,'RTP':0.9683,'GGR':35543975.96,'入出金差分':18292078,'GGRLTV':44541.32},
+    サマリー:{'登録人数':2552,'ログインユーザー数':2399,'FTDのみ入金者数':231,'今月登録のFTD以降ユーザー数':713,'今月登録FTD以降ユーザー割合':0.1653,'アクティブプレイ人数（ユニーク）':798,'総入金額':66633871,'総出金額':48341793,'T/O(リアルのみ)':1120432234,'勝利金(リアルのみ)':1084887870,'RTP':0.9683,'GGR':35543975.96,'入出金差分':18292078,'GGRLTV':44541.32,'2nd入金者数':198,'3rd入金者数':156,'Active入金者数':324,'前月登録ユーザー数':300,'前々月登録ユーザー数':0,'前月継続率':0.28,'前々月継続率':0},
     入金方法:{'TOTAL':66633871,'銀行（自動）':11122808,'仮想通貨':10897654,'銀行（手動）':18865520,'EC(コンビニ)':1121000,'PayPay':24627889},
     出金方法:{'TOTAL':48341793,'銀行（自動）':12500000,'仮想通貨':15841793,'銀行（手動）':18000000,'PayPay':2000000},
     ゲーム別:{パチンコ:{ユーザー数:892,TO:21500000,GGR:2580000},パチスロ:{ユーザー数:945,TO:105000000,GGR:1260000},スロット:{ユーザー数:4120,TO:420000000,GGR:12600000},ライブ:{ユーザー数:1980,TO:380000000,GGR:19103976}},
@@ -246,7 +253,7 @@ const SLOTEN_DATA = {
     Affiliate:{'AFF数':34,'AFF経由登録者数':1457,'AFF経由FTD数':543,'AFF経由FTD率':0.3727,'AFF経由入金額':55061952,'AFF経由出金額':36735633,'AFF経由GGR':10366161}
   },
   '2025年11月':{
-    サマリー:{'登録人数':300,'ログインユーザー数':193,'FTD数':8,'今月登録のFTD以降ユーザー数':42,'今月登録FTD以降ユーザー割合':0.5661,'アクティブプレイ人数':84,'総入金額':586146,'総出金額':528463,'T/O(リアルのみ)':5043994.2,'勝利金(リアルのみ)':4980421.4,'RTP':0.9874,'GGR':63572.8,'入出金差分':57683},
+    サマリー:{'登録人数':300,'ログインユーザー数':193,'FTD数':8,'今月登録のFTD以降ユーザー数':42,'今月登録FTD以降ユーザー割合':0.5661,'アクティブプレイ人数':84,'総入金額':586146,'総出金額':528463,'T/O(リアルのみ)':5043994.2,'勝利金(リアルのみ)':4980421.4,'RTP':0.9874,'GGR':63572.8,'入出金差分':57683,'2nd入金者数':12,'3rd入金者数':8,'Active入金者数':22,'前月登録ユーザー数':0,'前々月登録ユーザー数':0,'前月継続率':0,'前々月継続率':0},
     入金方法:{'TOTAL':586146,'銀行（自動）':0,'仮想通貨':8000,'銀行（手動）':100000,'EC(コンビニ)':10000,'PayPay':468146},
     出金方法:{'TOTAL':528463,'銀行（自動）':0,'仮想通貨':50000,'銀行（手動）':200000,'PayPay':278463},
     ゲーム別:{パチンコ:{ユーザー数:25,TO:320000,GGR:38400},パチスロ:{ユーザー数:28,TO:580000,GGR:6960},スロット:{ユーザー数:52,TO:2100000,GGR:63000},ライブ:{ユーザー数:18,TO:2043994,GGR:-44787}},
@@ -276,6 +283,7 @@ let chartInstance = null;
 let cryptoPieChart = null;
 let gamePieChart = null;
 let providerPieChart = null;
+let retentionChart = null;
 let viewMode = 'period';
 
 // ========== ユーティリティ ==========
@@ -457,9 +465,99 @@ function renderProviderSection() {
   }
 }
 
+// ========== 継続KPI推移グラフ ==========
+function renderRetentionChart() {
+  const section = document.getElementById('retention-chart-section');
+  const business = BUSINESSES[currentBusiness];
+  
+  // スロ天以外は非表示
+  if (business?.type !== 'sloten') {
+    section.classList.add('hidden');
+    if (retentionChart) { retentionChart.destroy(); retentionChart = null; }
+    return;
+  }
+  
+  const data = business.data || {};
+  const periods = sortPeriods(Object.keys(data)).reverse().slice(-12);
+  
+  if (periods.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+  
+  section.classList.remove('hidden');
+  const ctx = document.getElementById('retention-chart').getContext('2d');
+  if (retentionChart) retentionChart.destroy();
+  
+  const datasets = [
+    {
+      label: '登録人数',
+      data: periods.map(p => data[p]?.サマリー?.['登録人数'] || 0),
+      backgroundColor: 'rgba(59, 130, 246, 0.7)',
+      borderColor: 'rgba(59, 130, 246, 1)',
+      borderWidth: 2,
+      type: 'bar'
+    },
+    {
+      label: '前月登録からの継続',
+      data: periods.map(p => data[p]?.サマリー?.['前月登録ユーザー数'] || 0),
+      backgroundColor: 'rgba(16, 185, 129, 0.7)',
+      borderColor: 'rgba(16, 185, 129, 1)',
+      borderWidth: 2,
+      type: 'bar'
+    },
+    {
+      label: '前々月登録からの継続',
+      data: periods.map(p => data[p]?.サマリー?.['前々月登録ユーザー数'] || 0),
+      backgroundColor: 'rgba(245, 158, 11, 0.7)',
+      borderColor: 'rgba(245, 158, 11, 1)',
+      borderWidth: 2,
+      type: 'bar'
+    },
+    {
+      label: '前月継続率',
+      data: periods.map(p => {
+        const rate = data[p]?.サマリー?.['前月継続率'];
+        return rate ? rate * 100 : 0;
+      }),
+      borderColor: 'rgba(239, 68, 68, 1)',
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+      borderWidth: 3,
+      type: 'line',
+      yAxisID: 'y1',
+      tension: 0.3
+    }
+  ];
+  
+  retentionChart = new Chart(ctx, {
+    data: { labels: periods, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          position: 'left',
+          title: { display: true, text: '人数' },
+          ticks: { callback: v => v.toLocaleString() }
+        },
+        y1: {
+          beginAtZero: true,
+          position: 'right',
+          max: 100,
+          title: { display: true, text: '継続率(%)' },
+          grid: { drawOnChartArea: false },
+          ticks: { callback: v => v + '%' }
+        }
+      }
+    }
+  });
+}
+
 // ========== メイン描画 ==========
 function renderTabs() { const container = document.getElementById('business-tabs'); container.innerHTML = Object.keys(BUSINESSES).map(name => `<button class="tab ${name === currentBusiness ? 'active' : ''}" onclick="selectBusiness('${name}')">${name}</button>`).join('') + '<button class="btn btn-danger" onclick="deleteBusiness()" style="margin-left:auto">🗑️</button>'; }
-function selectBusiness(name) { currentBusiness = name; const business = BUSINESSES[name], data = business?.data || {}, periods = sortPeriods(Object.keys(data)); currentPeriod = periods[0] || null; renderTabs(); renderPeriodSelector(periods); if (viewMode === 'total') renderTotalsSection(); renderSummary(); renderKPISections(); renderCryptoSection(); renderGameSection(); renderProviderSection(); renderChart(); renderTable(); }
+function selectBusiness(name) { currentBusiness = name; const business = BUSINESSES[name], data = business?.data || {}, periods = sortPeriods(Object.keys(data)); currentPeriod = periods[0] || null; renderTabs(); renderPeriodSelector(periods); if (viewMode === 'total') renderTotalsSection(); renderSummary(); renderKPISections(); renderCryptoSection(); renderGameSection(); renderProviderSection(); renderChart(); renderRetentionChart(); renderTable(); }
 function renderPeriodSelector(periods) { const container = document.getElementById('period-selector'); if (periods.length === 0) { container.innerHTML = '<span style="color:#94a3b8;font-size:13px">データをアップロードしてください</span>'; return; } container.innerHTML = periods.map(p => `<button class="period-btn ${p === currentPeriod ? 'active' : ''}" onclick="selectPeriod('${p}')">${p}</button>`).join('') + `<button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="deletePeriod()">期間削除</button>`; }
 function selectPeriod(period) { currentPeriod = period; renderPeriodSelector(sortPeriods(Object.keys(BUSINESSES[currentBusiness]?.data || {}))); renderSummary(); renderKPISections(); renderCryptoSection(); renderGameSection(); renderProviderSection(); renderTable(); }
 function deletePeriod() { const business = BUSINESSES[currentBusiness], periods = Object.keys(business?.data || {}); if (periods.length <= 1) { alert('最後の期間は削除できません'); return; } if (confirm(`「${currentPeriod}」を削除しますか？`)) { delete business.data[currentPeriod]; saveBusinessData(); selectBusiness(currentBusiness); } }
@@ -488,14 +586,14 @@ function renderKPISections() {
   const type = business.type || 'samExcel';
   if (type === 'agent' || type === 'ads' || type === 'baccara') { container.innerHTML = ''; return; }
   const sections = [
-    { title: '📞 営業KPI', keys: ['リスト件数','登録人数','打電数','着電数','LINE登録数','アカウント作成数','ログインユーザー数'], bg: '#dbeafe' },
-    { title: '🎯 転換KPI', keys: ['FTP数','FTP率','FTD数','FTD率','FTW数','FTW率','FTDW数','FTDW率','FTDのみ入金者数','今月登録のFTD以降ユーザー数','今月登録FTD以降ユーザー割合'], bg: '#dcfce7' },
-    { title: '🔄 継続KPI', keys: ['前月リテンション数','引継ぎプレイヤー数','アクティブユーザー数','アクティブプレイ人数（ユニーク）'], bg: '#fef3c7' },
+    { title: '📞 営業KPI', keys: ['リスト件数','登録人数','打電数','着電数','LINE登録数','アカウント作成数','ログインユーザー数','アクティブプレイ人数（ユニーク）','アクティブユーザー数','入金者数(デイリーユニーク)'], bg: '#dbeafe' },
+    { title: '🎯 転換KPI', keys: ['FTP数','FTP率','FTD数','FTD率','FTW数','FTW率','FTDW数','FTDW率','FTDのみ入金者数','今月登録のFTD以降ユーザー数','今月登録FTD以降ユーザー割合','2nd入金者数','3rd入金者数','Active入金者数'], bg: '#dcfce7' },
+    { title: '🔄 継続KPI', keys: ['前月リテンション数','引継ぎプレイヤー数','前月登録ユーザー数','前々月登録ユーザー数','前月継続率','前々月継続率'], bg: '#fef3c7' },
     { title: '💰 収益KPI', keys: ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','RTP','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','GGRLTV'], bg: '#e0e7ff' },
     { title: '💵 回収KPI', keys: ['回収予定金額','回収金額','回収率(全体)','回収率(今月)','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','総入金額','総出金額','入出金差分'], bg: '#fce7f3' },
     { title: '💸 経費KPI', keys: ['合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益'], bg: '#ccfbf1' }
   ];
-  const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合'];
+  const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合','前月継続率','前々月継続率'];
   const currencyKeys = ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV'];
   container.innerHTML = sections.map(section => { const items = section.keys.filter(k => data[k] != null); if (items.length === 0) return ''; return `<div class="card" style="background:${section.bg}"><div class="section-title">${section.title}</div><div class="kpi-grid">${items.map(key => { const val = data[key]; let formatted = percentKeys.includes(key) ? formatPercent(val) : currencyKeys.includes(key) ? formatCurrency(val) : formatNumber(val); const isNeg = typeof val === 'number' && val < 0; return `<div class="kpi-item"><div class="label">${key}</div><div class="val ${isNeg ? 'negative' : ''}">${formatted}</div></div>`; }).join('')}</div></div>`; }).join('');
   
@@ -525,7 +623,7 @@ function renderTable() {
   const header = document.getElementById('table-header');
   const body = document.getElementById('table-body');
   header.innerHTML = '<th>項目</th><th class="text-right">値</th>';
-  const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合'];
+  const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合','前月継続率','前々月継続率'];
   const currencyKeys = ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV'];
   body.innerHTML = Object.entries(data).map(([key, value]) => { if (value === null || value === undefined) return ''; let formatted = percentKeys.includes(key) ? formatPercent(value) : currencyKeys.includes(key) ? formatCurrency(value) : typeof value === 'number' ? formatNumber(value) : String(value); const isNeg = typeof value === 'number' && value < 0; return `<tr><td>${key}</td><td class="text-right ${isNeg ? 'text-red' : ''}">${formatted}</td></tr>`; }).join('');
 }
