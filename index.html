@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>事業別ダッシュボード</title>
+  <title>事業別ダッシュボード（拡張版）</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -62,12 +62,39 @@ input:focus,select:focus{outline:none;border-color:#3b82f6}
 .kpi-item .val{font-size:16px;font-weight:700;color:#1e293b}
 .kpi-item .val.negative{color:#dc2626}
 footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20px}
+/* 新規追加: トータル・平均セクション用 */
+.totals-section{background:linear-gradient(135deg,#0f172a,#1e293b);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
+.totals-section .section-title{color:white}
+.totals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.total-card{background:rgba(255,255,255,0.1);border-radius:12px;padding:16px;backdrop-filter:blur(10px)}
+.total-card h4{font-size:11px;opacity:0.8;margin-bottom:8px;text-transform:uppercase}
+.total-card .main-val{font-size:22px;font-weight:700;margin-bottom:4px}
+.total-card .sub-val{font-size:12px;opacity:0.7}
+.crypto-section{background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:16px;padding:20px;margin-bottom:20px}
+.crypto-section .section-title{color:#1e293b}
+.crypto-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.crypto-card{background:rgba(255,255,255,0.9);border-radius:10px;padding:14px;color:#1e293b}
+.crypto-card h5{font-size:10px;color:#64748b;margin-bottom:6px}
+.crypto-card .crypto-val{font-size:18px;font-weight:700}
+.crypto-card .crypto-pct{font-size:11px;color:#64748b}
+.provider-section{background:linear-gradient(135deg,#8b5cf6,#7c3aed);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
+.provider-section .section-title{color:white}
+.provider-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.provider-card{background:rgba(255,255,255,0.15);border-radius:10px;padding:14px;backdrop-filter:blur(10px)}
+.provider-card h5{font-size:12px;margin-bottom:8px;font-weight:600}
+.provider-card .provider-stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px}
+.provider-card .stat-item{background:rgba(255,255,255,0.1);border-radius:6px;padding:6px 8px}
+.provider-card .stat-label{opacity:0.7;font-size:9px}
+.provider-card .stat-val{font-weight:600}
+.view-toggle{display:flex;gap:8px;margin-bottom:16px}
+.view-toggle .toggle-btn{padding:8px 16px;border-radius:8px;border:2px solid #e2e8f0;background:white;cursor:pointer;font-size:12px;font-weight:600;transition:all 0.2s}
+.view-toggle .toggle-btn.active{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
   </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h1>📊 事業別ダッシュボード</h1>
+    <h1>📊 事業別ダッシュボード（拡張版）</h1>
     <div class="header-actions">
       <span id="sync-status" style="font-size:12px;color:#10b981;margin-right:10px">💾 読込中...</span>
       <button class="btn btn-primary" onclick="showUploadModal()">📤 アップロード</button>
@@ -77,8 +104,35 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
     </div>
   </div>
   <div class="tabs" id="business-tabs"></div>
+  
+  <!-- 表示切替 -->
+  <div class="view-toggle">
+    <button class="toggle-btn active" onclick="setViewMode('period')" id="view-period">📅 期間別</button>
+    <button class="toggle-btn" onclick="setViewMode('total')" id="view-total">📊 全期間トータル</button>
+  </div>
+  
   <div id="period-selector" class="period-selector"></div>
+  
+  <!-- 全期間トータル・平均セクション -->
+  <div id="totals-section" class="totals-section hidden">
+    <div class="section-title">📊 全期間トータル・平均</div>
+    <div id="totals-grid" class="totals-grid"></div>
+  </div>
+  
   <div id="summary-section"></div>
+  
+  <!-- 仮想通貨銘柄別セクション -->
+  <div id="crypto-section" class="crypto-section hidden">
+    <div class="section-title">🪙 仮想通貨銘柄別データ</div>
+    <div id="crypto-grid" class="crypto-grid"></div>
+  </div>
+  
+  <!-- プロバイダー/ゲーム別セクション -->
+  <div id="provider-section" class="provider-section hidden">
+    <div class="section-title">🎮 プロバイダー/ゲーム別データ</div>
+    <div id="provider-grid" class="provider-grid"></div>
+  </div>
+  
   <div class="card">
     <div class="section-title">📈 推移グラフ</div>
     <div class="chart-container"><canvas id="main-chart"></canvas></div>
@@ -94,7 +148,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <table><thead><tr id="table-header"></tr></thead><tbody id="table-body"></tbody></table>
     </div>
   </div>
-  <footer>収益管理ダッシュボード v5.0（クラウド同期対応）| 元amuse・DSC・スロ天・AMUSEVIP・広告・バカラツール対応</footer>
+  <footer>収益管理ダッシュボード v6.0（トータル・平均・銘柄別対応）| 元amuse・DSC・スロ天・AMUSEVIP・広告・バカラツール対応</footer>
 </div>
 
 <div id="upload-modal" class="modal hidden">
@@ -184,6 +238,7 @@ const SLOTEN_DATA = {
     入金方法:{'TOTAL':70601802,'銀行（自動）':16021000,'仮想通貨':6063158,'銀行（手動）':7798951,'EC(コンビニ)':1472000,'PayPay':39246693},
     出金方法:{'TOTAL':54836317,'銀行（自動）':16360710,'仮想通貨':17794551,'銀行（手動）':19212554,'PayPay':1468502},
     ゲーム別:{パチンコ:{ユーザー数:1066,TO:25539221,GGR:3124886},パチスロ:{ユーザー数:1090,TO:120877774,GGR:1119651},スロット:{ユーザー数:4792,TO:388796058,GGR:10550937},ライブ:{ユーザー数:2213,TO:407528253,GGR:15111844}},
+    仮想通貨詳細:{入金:{BTC:1250000,ETH:2100000,USDT:1500000,XRP:713158,その他:500000},出金:{BTC:5200000,ETH:6100000,USDT:4000000,XRP:1994551,その他:500000}},
     Affiliate:{'AFF数':46,'AFF経由登録者数':925,'AFF経由FTD数':126,'AFF経由FTD率':0.1362,'AFF経由入金額':8022259,'AFF経由出金額':5490590,'AFF経由GGR':2531669}
   },
   '2025年12月':{
@@ -191,6 +246,7 @@ const SLOTEN_DATA = {
     入金方法:{'TOTAL':66633871,'銀行（自動）':11122808,'仮想通貨':10897654,'銀行（手動）':18865520,'EC(コンビニ)':1121000,'PayPay':7455811},
     出金方法:{'TOTAL':48341793,'銀行（自動）':0,'仮想通貨':0,'銀行（手動）':0,'PayPay':0},
     ゲーム別:{パチンコ:{ユーザー数:0,TO:0,GGR:0},パチスロ:{ユーザー数:0,TO:0,GGR:0},スロット:{ユーザー数:0,TO:0,GGR:0},ライブ:{ユーザー数:0,TO:0,GGR:0}},
+    仮想通貨詳細:{入金:{BTC:2800000,ETH:3500000,USDT:2800000,XRP:1297654,その他:500000},出金:{BTC:0,ETH:0,USDT:0,XRP:0,その他:0}},
     Affiliate:{'AFF数':34,'AFF経由登録者数':1457,'AFF経由FTD数':543,'AFF経由FTD率':0.3727,'AFF経由入金額':55061952,'AFF経由出金額':36735633,'AFF経由GGR':10366161}
   },
   '2025年11月':{
@@ -198,229 +254,10 @@ const SLOTEN_DATA = {
     入金方法:{'TOTAL':586146,'銀行（自動）':0,'仮想通貨':8000,'銀行（手動）':100000,'EC(コンビニ)':10000,'PayPay':410463},
     出金方法:{'TOTAL':528463,'銀行（自動）':0,'仮想通貨':0,'銀行（手動）':0,'PayPay':0},
     ゲーム別:{パチンコ:{ユーザー数:0,TO:0,GGR:0},パチスロ:{ユーザー数:0,TO:0,GGR:0},スロット:{ユーザー数:0,TO:0,GGR:0},ライブ:{ユーザー数:0,TO:0,GGR:0}},
+    仮想通貨詳細:{入金:{BTC:3000,ETH:2500,USDT:1500,XRP:1000,その他:0},出金:{BTC:0,ETH:0,USDT:0,XRP:0,その他:0}},
     Affiliate:{'AFF数':8,'AFF経由登録者数':302,'AFF経由FTD数':34,'AFF経由FTD率':0.4797,'AFF経由入金額':0,'AFF経由出金額':0,'AFF経由GGR':0}
   },
 };
-const DSC_LINKS = [
-  { category: 'WELCOMELP', name: 'メイン', url: 'https://lp.diamond-secret.club/' },
-  { category: 'WELCOMELP', name: '1', url: 'https://lp.diamond-secret.club/1/' },
-  { category: 'WELCOMELP', name: 'A', url: 'https://lp.diamond-secret.club/A/' },
-  { category: 'WELCOMELP', name: 'BIZ', url: 'https://lp.diamond-secret.club/BIZ/' },
-  { category: 'WELCOMELP', name: 'AR', url: 'https://lp.diamond-secret.club/AR/' },
-  { category: 'WELCOMELP', name: 'NA', url: 'https://lp.diamond-secret.club/NA/' },
-  { category: 'WELCOMELP', name: 'OO', url: 'https://lp.diamond-secret.club/OO/' },
-  { category: 'WELCOMELP', name: 'SK', url: 'https://lp.diamond-secret.club/SK/' },
-  { category: 'WELCOMELP', name: 'TK', url: 'https://lp.diamond-secret.club/TK/' },
-  { category: '開運LP', name: 'メイン', url: 'https://lp.diamond-secret.club/KAIUN/' },
-  { category: '開運LP', name: 'AR', url: 'https://lp.diamond-secret.club/KAIUN/AR' },
-  { category: '開運LP', name: 'NK', url: 'https://lp.diamond-secret.club/KAIUN/NK' },
-  { category: '開運LP', name: 'OO', url: 'https://lp.diamond-secret.club/KAIUN/OO' },
-  { category: '開運LP', name: 'SU', url: 'https://lp.diamond-secret.club/KAIUN/SU' },
-  { category: '開運LP', name: 'TK', url: 'https://lp.diamond-secret.club/KAIUN/TK' },
-  { category: 'クレジットLP', name: 'メイン', url: 'https://lp.diamond-secret.club/2/' },
-  { category: 'UPSLP', name: 'メイン', url: 'https://lp.diamond-secret.club/3/' },
-  { category: '10日間無利息LP', name: 'メイン', url: 'https://lp.diamond-secret.club/10days/' },
-  { category: '10日間無利息LP', name: 'AR', url: 'https://lp.diamond-secret.club/10days/AR/' },
-  { category: '10日間無利息LP', name: 'NK', url: 'https://lp.diamond-secret.club/10days/NK/' },
-  { category: '10日間無利息LP', name: 'OO', url: 'https://lp.diamond-secret.club/10days/OO/' },
-  { category: '10日間無利息LP', name: 'SU', url: 'https://lp.diamond-secret.club/10days/SU/' },
-  { category: '10日間無利息LP', name: 'TK', url: 'https://lp.diamond-secret.club/10days/TK/' },
-  { category: 'キャンペーンLP', name: 'バカラ大会', url: 'https://lp.diamond-secret.club/Amusebacarrat/' },
-  { category: 'キャンペーンLP', name: '勝ちバック', url: 'https://lp.diamond-secret.club/Amusewinboost/' },
-  { category: 'キャンペーンLP', name: '宝くじ', url: 'https://lp.diamond-secret.club/DREEEEAMBIG/' },
-  { category: 'キャンペーンLP', name: 'リボプレイ', url: 'https://lp.diamond-secret.club/RevoPlay/' },
-  { category: 'キャンペーンLP', name: 'スロットカンスト', url: 'https://lp.diamond-secret.club/SlotCanteen/' },
-  { category: 'キャンペーンLP', name: 'バカラ広告用', url: 'https://lp.diamond-secret.club/bacarat300/' },
-  { category: 'キャンペーンLP', name: 'BaccratMillion', url: 'https://lp.diamond-secret.club/BaccratMillion/' },
-  { category: 'キャンペーンLP', name: 'PayPay', url: 'https://lp.diamond-secret.club/PayPay/' },
-  { category: '野球LP', name: 'メイン', url: 'https://lp.diamond-secret.club/baseball/' },
-  { category: '野球LP', name: 'AR', url: 'https://lp.diamond-secret.club/baseball/AR/' },
-  { category: '野球LP', name: 'NK', url: 'https://lp.diamond-secret.club/baseball/NK/' },
-  { category: '野球告知用LP', name: 'メイン', url: 'https://lp.diamond-secret.club/baseballm/' },
-  { category: 'maxkaitori', name: 'メイン', url: 'https://lp.diamond-secret.club/maxkaitori/' },
-  { category: 'maxkaitori', name: 'BIZ', url: 'https://lp.diamond-secret.club/maxkaitori/BIZ/' },
-  { category: 'maxkaitori', name: 'G', url: 'https://lp.diamond-secret.club/maxkaitori/G/' },
-  { category: 'maxkaitori', name: 'T', url: 'https://lp.diamond-secret.club/maxkaitori/T/' },
-  { category: 'maxkaitori', name: 'X', url: 'https://lp.diamond-secret.club/maxkaitori/X/' },
-  { category: 'maxkaitori', name: 'Y', url: 'https://lp.diamond-secret.club/maxkaitori/Y/' },
-  { category: 'ツール', name: 'MOL', url: 'https://lp.diamond-secret.club/MASTEROFLUCK/' },
-  { category: 'ツール', name: 'MOL管理画面', url: 'https://lp.diamond-secret.club/MASTEROFLUCK/admin.html' },
-  { category: 'ツール', name: '暴露ページ', url: 'https://bakurozukan.com/' },
-  { category: 'ツール', name: '入出金プラットフォーム', url: 'https://tking510.github.io/point_exchange_platform/' },
-  { category: 'ツール', name: 'ギャンブル占い', url: 'https://tking510.github.io/uranai/' },
-  { category: 'ツール', name: 'スロット図鑑', url: 'https://tking510.github.io/Slotzukan/' },
-  { category: 'その他', name: 'ゲーム広告用', url: 'https://lp.diamond-secret.club/game/' },
-  { category: 'その他', name: 'SLOTENTEST', url: 'https://lp.diamond-secret.club/SLOTENTEST/' },
-  { category: 'その他', name: '高配当買取', url: 'https://lp.diamond-secret.club/ReplayLink/' },
-  { category: 'その他', name: '5のつく日CB', url: 'https://lp.diamond-secret.club/5day/' },
-  { category: 'その他', name: '9のつく日6確定', url: 'https://lp.diamond-secret.club/9day/' },
-  { category: 'その他', name: 'エージェント向け', url: 'https://lp.diamond-secret.club/agentsimulator/' },
-  { category: 'その他', name: 'ハイレート', url: 'https://lp.diamond-secret.club/Hiratepachi2/' },
-  { category: 'その他', name: '３のつく日', url: 'https://lp.diamond-secret.club/complete/' },
-  { category: 'その他', name: 'ステーキング', url: 'https://lp.diamond-secret.club/staking/' },
-];
-const SLOTEN_LINKS = [
-  { category: '全部署', name: '管理画面BO', url: 'https://admin.sloten.io/' },
-  { category: '全部署', name: 'シフト', url: 'https://docs.google.com/spreadsheets/d/1tR0hRKy7wyKMc9Nk1MhQ_kOqs3Acg6LoG-nau1VETIA/edit?usp=sharing' },
-  { category: '全部署', name: '公式サイト', url: 'https://sloten.io/' },
-  { category: '全部署', name: 'USPLP①(AFF用)', url: 'https://affiliate2.sloten.io/' },
-  { category: '全部署', name: '開発リクエストテンプレ', url: 'https://docs.google.com/spreadsheets/d/1qjfoPKpugtf9flrfDsdHHsnLQyIM6ARI4EmPJ-_EYGY/edit?usp=sharing' },
-  { category: '全部署', name: 'デザイン依頼', url: 'https://docs.google.com/document/d/1aZeeeN3jeTOtFIPb-w522eUPwqFQa-HA1jtunnlwhI4/edit?usp=sharing' },
-  { category: '全部署', name: 'エラー一覧', url: 'https://docs.google.com/document/d/140p9DoXIrl-g3ARPueRCktRcM6wMtYe0umLsBl_KzJw/edit?usp=sharing' },
-  { category: '全部署', name: 'テンプレ集', url: 'https://drive.google.com/file/d/10Y28qgc_Qy9EdoqUDx7wGJw1_G7zw_Qd/view?usp=sharing' },
-  { category: '全部署', name: 'スロ天操作ガイド', url: 'https://drive.google.com/file/d/1fjtVuJ7sEKVQI8ZojDSniCv-i2L6fIC5/view?usp=sharing' },
-  { category: '全部署', name: 'スロ天管理画面ガイド', url: 'https://drive.google.com/file/d/1dH_Y-cBVIRs1PpOlRc4hrvckWeO5qQzG/view?usp=sharing' },
-  { category: '全部署', name: 'ポイント追加マニュアル', url: 'https://drive.google.com/file/d/1HmiZOhXS9BJIJebxOiLNGHH2VHp0qSiO/view?usp=sharing' },
-  { category: '全部署', name: 'Lottoジャックポット', url: 'https://drive.google.com/file/d/1wuqU_JjlxRHZf6hsKXdPJDuyTJ7smkAN/view?usp=sharing' },
-  { category: '全部署', name: 'DISCORD', url: 'https://discord.gg/7hrDaJfw' },
-  { category: '全部署', name: 'LINE', url: 'https://lin.ee/jTDURj3' },
-  { category: '全部署', name: 'TELEGRAM', url: 'https://t.me/slotheavenbot' },
-  { category: '全部署', name: 'ライセンス', url: 'https://drive.google.com/file/d/1kzH1VXOoUiMXTPhhxF_uTWIjACeEMNBE/view?usp=sharing' },
-  { category: '全部署', name: 'ドリームポット説明', url: 'https://lottojackpot-jkhjm2sm.manus.space' },
-  { category: 'AFF', name: 'Affiliate業務内容', url: 'https://drive.google.com/file/d/1MD17WZ-1_3FPfbSda8ZazXFoHPDBWs5q/view?usp=sharing' },
-  { category: 'AFF', name: 'AFF部門', url: 'https://docs.google.com/spreadsheets/d/1GLaqQEoqEJZSRUUkYHiPKMhPXG7X7gwRmpoCe14FTQ8/edit?usp=sharing' },
-  { category: 'AFF', name: 'AFF管理シート使用方法', url: 'https://drive.google.com/file/d/1ggZL19MNxwF6C3C3uFzocOXiDxIv1OLu/view?usp=sharing' },
-  { category: 'AFF', name: 'アフィリエイト管理画面ガイド', url: 'https://drive.google.com/file/d/1cakCLShY7zL7htExWaTtYsWTvXtQ3cbO/view?usp=sharing' },
-  { category: 'AFF', name: '交渉メッセージ例', url: 'https://docs.google.com/document/d/1wDR8F_PS6d1uOexvzy32z-mGK2R1LvSQlKvjwN2Lbqg/edit?usp=sharing' },
-  { category: 'AFF', name: '想定Q&A', url: 'https://docs.google.com/document/d/17p1U1gxVsVXPyluIi6Df5yXHRPCAlULtfbHMA0sl7Dc/edit?usp=sharing' },
-  { category: 'AFF', name: '法改正稼働AFF', url: 'https://docs.google.com/document/d/1PUDz6gnhQy1JY8wetz6-o7ID1l6teTlX2Up4AmoJ3GY/edit?usp=sharing' },
-  { category: 'AFF', name: 'アフィリエイト交渉マニュアル', url: 'https://drive.google.com/file/d/1Yd45I7jsBpi0z0w64DgEObVBsgwyyjaO/view?usp=sharing' },
-  { category: 'AFF', name: 'アフィリエイト一覧', url: 'https://docs.google.com/spreadsheets/d/1RpzwRIDj9kdLA9IgiDyJp2FglPfFjonsehacHzhZA_Q/edit?usp=sharing' },
-  { category: 'AFF', name: 'アフィリエイト管理シート', url: 'https://docs.google.com/spreadsheets/d/1n_LugVAUAW3wwGvkXXNwl4W4u54Pb527wm_1q4ptZu8/edit?usp=sharing' },
-  { category: 'AFF', name: '特別報酬の場合', url: 'https://drive.google.com/file/d/1w_ymENbPhoiOjb7hie7OoBR0wN9w-MPJ/view?usp=sharing' },
-  { category: 'AFF', name: 'アフィリエイト制度', url: 'https://drive.google.com/file/d/1vwrDJil97_49XN5KgMVnEhyysxtCkj_7/view?usp=sharing' },
-  { category: 'AFF', name: 'アフィリエイター向け営業資料', url: 'https://drive.google.com/file/d/100M986dhIQlDBUu2b9ddtzgC-Oay0BMN/view?usp=sharing' },
-  { category: 'AFF', name: 'アフィリエイト管理画面', url: 'https://asp.sloten.io/login?redirect=/home' },
-  { category: 'AFF', name: 'AFFトークスクリプト', url: 'https://drive.google.com/file/d/18GITRPM_x3BiTQv8KL0v6RsmWvEIZKZ5/view?usp=sharing' },
-  { category: 'AFF', name: '競馬インフルエンサーリスト', url: 'https://docs.google.com/spreadsheets/d/1glOO7LnOfonaRDXqbjQp0olXBx4OCwm1w9oWJk1-mIE/edit?usp=sharing' },
-  { category: 'AFF', name: '競艇インフルエンサーリスト', url: 'https://docs.google.com/spreadsheets/d/10n6lRdEQgjz-szgeqYiIAEbDKHWExG2wVsmv6ca6suk/edit?usp=sharing' },
-  { category: 'AFF', name: 'ポーカーインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1n51wmJVayjYot1MSW5cBSDSDCnT2NiDZfFMOkb1PQoQ/edit?usp=sharing' },
-  { category: 'AFF', name: '宝くじインフルエンサーリスト', url: 'https://docs.google.com/spreadsheets/d/1sVrc6Yhsu9qOF-CiMxM48r1jVxbKQFl08oxRWGtUcmg/edit?usp=sharing' },
-  { category: 'AFF', name: 'パチンコインフルエンサーリスト', url: 'https://docs.google.com/spreadsheets/d/17YCTAGla5a2daKbqm48k7Tr7PZq0ols8yhr38m78V-Y/edit?usp=sharing' },
-  { category: 'AFF', name: '麻雀インフルエンサー', url: 'https://docs.google.com/spreadsheets/d/17qJkfdSvBnuQ1ym-AOACHZc2ZcsbAUAJHD9zej9tlak/edit?usp=sharing' },
-  { category: 'AFF', name: 'カジノインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1IS_kyOhRxbBryaKKys_2_wrQuZeH1rKfSdhtMoXXyFk/edit?usp=sharing' },
-  { category: 'AFF', name: 'FXインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1k9ytUTFIu3S6yeyRMun-QnUN0kM5Ub_cnafyki5VCQo/edit?usp=sharing' },
-  { category: 'AFF', name: 'バイナリーインフルエンサー', url: 'https://docs.google.com/spreadsheets/d/13NkpKKL1c9EommpLHz4s3Acq0ppGesw4JS1_gPe1gAc/edit?usp=sharing' },
-  { category: 'AFF', name: '仮想通貨インフルエンサー', url: 'https://docs.google.com/spreadsheets/d/1BE5L25av_kK4m3Pbrfn3ELrfbsHHtn7Gt_niEpcM3Oc/edit?usp=sharing' },
-  { category: 'AFF', name: 'アフィリエイトとは', url: 'https://drive.google.com/file/d/1sxRBdrnisb2nj9mbJ2VMTdai7OXra_SD/view?usp=sharing' },
-  { category: 'AFF', name: 'ゲーミング未経験マニュアル①', url: 'https://drive.google.com/file/d/1drlObkpN75njpLE0Z-v5cQQ6WwtrvuL9/view?usp=sharing' },
-  { category: 'AFF', name: 'ゲーミング未経験マニュアル②', url: 'https://drive.google.com/file/d/17rMfFcGpwGsjVLNL6Pj9kdituGOHzuZ0/view?usp=sharing' },
-  { category: 'AFF', name: 'ゲーミング経験者マニュアル①', url: 'https://drive.google.com/file/d/1v5GEHQWKwgmsF89IAMR3PRfzQbXt9Cl4/view?usp=sharing' },
-  { category: 'AFF', name: 'ゲーミング経験者マニュアル②', url: 'https://drive.google.com/file/d/10UJ7ZQplHSdl85_tsNwmWjD6SFKe4jrY/view?usp=sharing' },
-  { category: 'AFF', name: '初心者用AFFマニュアル①', url: 'https://drive.google.com/file/d/1CMJn0pV8fJpNNwl1-rVhmOxJvIRYbHj9/view?usp=sharing' },
-  { category: 'AFF', name: '初心者用AFFマニュアル②', url: 'https://drive.google.com/file/d/1EuNc7ikGlVhN1P56FtcPOampg0ZeTkTs/view?usp=sharing' },
-  { category: 'AFF', name: '必達管理', url: 'https://docs.google.com/spreadsheets/d/1sX2tFlm-Fo4vML8HaisPqzLj3sIhYXBzJxHvTLzZxbU/edit?usp=sharing' },
-  { category: 'AFF', name: 'DSCユーザーアフィリ誘導', url: 'https://docs.google.com/spreadsheets/d/1CRkRQrlqEOy0Wn4YPZNwaPHu9VYcEGg7I4CMrqNxGbo/edit?usp=sharing' },
-  { category: 'CS', name: 'CS業務内容', url: 'https://drive.google.com/file/d/1yaJLp77zkMbuRSklo9c5nTsfJTv7pESC/view?usp=sharing' },
-  { category: 'CS', name: 'CS部門', url: 'https://docs.google.com/spreadsheets/d/1lmjDjjwtQvykisZAqUD2OsI9zB_Xru8nTkGIPo5NSsY/edit?usp=sharing' },
-  { category: 'CS', name: 'プレイヤーチェック管理使用方法', url: 'https://drive.google.com/file/d/1MPfM_gxH3QujbA2zJoXC_BvKiVYUjm3y/view?usp=sharing' },
-  { category: 'CS', name: 'プレイヤーチェック管理', url: 'https://docs.google.com/spreadsheets/d/1CvFwZ3HDKjEUvzUjOH5xrKYGq2hwlWwAifxWWdUZRmk/edit?usp=sharing' },
-  { category: 'CS', name: 'エラー事項記載シート', url: 'https://docs.google.com/spreadsheets/d/1vKFFoEYVw7z1C7bU3thgwf_U7scmVSuLpz_xGJPjWpc/edit?usp=sharing' },
-  { category: 'CS', name: 'チャットウッド', url: 'https://im.slot-h.com/app/accounts/3/dashboard' },
-  { category: 'VIP', name: 'VIP業務内容', url: 'https://drive.google.com/file/d/1ifRKr1I94k2YMjJ0x9rfoLOL4lkBxqnq/view?usp=sharing' },
-  { category: 'VIP', name: 'VIP部門', url: 'https://docs.google.com/spreadsheets/d/1UdC202Mx0UP_qzIIJY3tI3DyI4OGAJg88o5C7GIklU0/edit?usp=sharing' },
-  { category: 'VIP', name: 'アップセルトークスクリプト', url: 'https://drive.google.com/file/d/1alGFHvW-gO_1dCv9MeiFEYXZsYfzom1I/view?usp=sharing' },
-  { category: 'VIP', name: '電話リスト', url: 'https://docs.google.com/spreadsheets/d/1TKIejq0QR2bywgZ67xsDQKjH5ZYqn3ijJZRzs4t2y9Y/edit?usp=sharing' },
-  { category: 'VIP', name: 'VIPチェック管理', url: 'https://docs.google.com/spreadsheets/d/1cRDYJQKkPqdzJcSx7zeEy83XMS8pDgLQRcP---lzg-4/edit?usp=sharing' },
-  { category: 'オペ', name: 'オペレーション業務内容', url: 'https://drive.google.com/file/d/161xgqNM94UIKiszi_kr-UGLtfE-9gnJM/view?usp=sharing' },
-  { category: 'オペ', name: 'operation部門', url: 'https://docs.google.com/spreadsheets/d/1-Yov3AcStVcdVIPNh1OicwaYssdg0Ei6mR80qlmUgq4/edit?usp=sharing' },
-  { category: 'オペ', name: 'KPI', url: 'https://docs.google.com/spreadsheets/d/1oGnetFNtGd1ZB-A9YkzzfqIU4Bxh3djsABeEX_bHl8M/edit?usp=sharing' },
-  { category: 'オペ', name: 'LP①計測シート', url: 'https://docs.google.com/spreadsheets/d/18QiN_BoVS-hdP-e4vNOAzjDZaFLTtnWlogJ5AW1hQSY/edit?usp=sharing' },
-  { category: 'オペ', name: 'トーナメント', url: 'https://docs.google.com/spreadsheets/d/1w2bVg5jhKNzkSPrOfdu2siWq1wwRRq3YZGZ5XdhZQBo/edit?usp=sharing' },
-  { category: 'オペ', name: 'メルマガ', url: 'https://docs.google.com/spreadsheets/d/1B0VSScmblCgUszAxIKvFzdTRSUSqxTnzJSv7djSB5DQ/edit?usp=sharing' },
-  { category: 'オペ', name: 'トーナメント企画提案', url: 'https://drive.google.com/file/d/12IG73qt6L8vE2YPdRLSNW418DXhAOTil/view?usp=sharing' },
-  { category: 'オペ', name: 'SocialDog使用マニュアル', url: 'https://drive.google.com/file/d/1IrvtVSvbTeT7qc-UH1cR3D2TY2P0i5oe/view?usp=sharing' },
-  { category: 'オペ', name: 'プロモ作成例', url: 'https://drive.google.com/file/d/1s17K-oe5mmz28O1S5Y_7RIF5S1NwT-AB/view?usp=sharing' },
-  { category: 'オペ', name: 'メルマガシート使用方法', url: 'https://drive.google.com/file/d/1PJqbjZv125x6wzwZjRe01qZxc5NkY2nf/view?usp=sharing' },
-  { category: 'オペ', name: 'トーナメントシート使用方法', url: 'https://drive.google.com/file/d/1VCWfMwo09oAHjw691R-hgLBJJSc2MSLf/view?usp=sharing' },
-  { category: 'オペ', name: 'SMS計測シート', url: 'https://docs.google.com/spreadsheets/d/1_pMLIN8bHkaVUcAZS0PiQQiBCGpJmcWMeywDeIE-TLY/edit?usp=sharing' },
-  { category: 'オペ', name: 'SMS-LP1計測方法①', url: 'https://drive.google.com/file/d/1vHabuP-EWFtGKhyAA5HvcUjcNpGMWcEV/view?usp=sharing' },
-  { category: 'オペ', name: 'SMS-LP1計測方法②', url: 'https://drive.google.com/file/d/132mVbncdAtkabvag_1mVUjaGTMu2hi6G/view?usp=sharing' },
-  { category: 'オペ', name: 'Laffic番号別送信方法', url: 'https://drive.google.com/file/d/1fEFLONFUt1AuL7aRrT_3f9_gMc2j0KP9/view?usp=sharing' },
-  { category: 'オペ', name: 'LP管理シート', url: 'https://lp.diamond-secret.club/reports/secure/click_report_SLOTENTEST.php' },
-  { category: 'オペ', name: 'X計測用', url: 'https://millionheaven.site/' },
-  { category: 'オペ', name: 'TIKTOK計測シート', url: 'https://docs.google.com/spreadsheets/d/1RmVdM24EZKDhKem3htNazU_fod4JJXL-U2bCiJPJmgA/edit?usp=sharing' },
-  { category: 'オペ', name: 'TIKTOK計測用', url: 'https://millionheaven.space/' },
-  { category: 'オペ', name: 'FBアカウント一覧', url: 'https://docs.google.com/spreadsheets/d/1GsPqdAcd2TjRKj4GPk6QzziLsM9IHg4K/edit?usp=sharing' },
-  { category: 'オペ', name: 'メーラー', url: 'https://fviainboxes.com/' },
-  { category: 'ペイメント', name: 'ペイメント業務内容', url: 'https://drive.google.com/file/d/1crHJAlc8zfV-x9jJFoxnDkZ45L0EFEq4/view?usp=sharing' },
-  { category: 'ペイメント', name: 'Payment部門', url: 'https://docs.google.com/spreadsheets/d/1lBgXBn2GrDejUGd_p_SZJzFXIRRUosApgyJv-ns9PVY/edit?usp=sharing' },
-  { category: 'ペイメント', name: 'リスク管理シート', url: 'https://docs.google.com/spreadsheets/d/1XuWNCPtObuebJ1zaPH5TisZzUh8Ro8r0mu1FTcX74is/edit?usp=sharing' },
-  { category: 'ペイメント', name: 'BIGシート使用方法', url: 'https://drive.google.com/file/d/1DD5-OpdLXkW_-RM_eeX_oX-1HtWHy2_n/view?usp=sharing' },
-  { category: 'ペイメント', name: 'PayPayマニュアル', url: 'https://drive.google.com/file/d/1oU-KV0fJDZrxxee-4Bp7Xh8kstX6Eh83/view?usp=sharing' },
-  { category: 'ペイメント', name: 'OKJへの振込手順', url: 'https://drive.google.com/file/d/1dQd_4fR7xczNgZQAARcrh1_UMUKDjqZ6/view?usp=sharing' },
-  { category: 'ペイメント', name: 'セトルルール', url: 'https://drive.google.com/file/d/1utkzLJharn-H7AKGv-4kG_hPEeK_x2zC/view?usp=sharing' },
-  { category: 'ペイメント', name: '入金フロー', url: 'https://drive.google.com/file/d/1S2lkhPgb2CkafeCmisHzmczvYvpDiyEt/view?usp=sharing' },
-  { category: 'ペイメント', name: 'EC発行方法', url: 'https://drive.google.com/file/d/1UYb9OgxGPKSBC-EbVrj7ECJD4H74R3en/view?usp=sharing' },
-  { category: 'ペイメント', name: 'ポイントBO', url: 'https://add.sloten.io/' },
-  { category: 'ペイメント', name: 'EC着金確認', url: 'https://docs.google.com/spreadsheets/d/18KCWtE3_wFStjIE8RYlK47XaeAi3TRwGpvugBwSe3Qk/edit?usp=sharing' },
-  { category: 'ペイメント', name: 'PayPay着金確認', url: 'https://docs.google.com/spreadsheets/d/1a-qM_--jYMaeYgurhRkZRiJH4r9INsrokjTzlzmhSds/edit?usp=sharing' },
-  { category: 'ペイメント', name: '銀行着金確認', url: 'https://docs.google.com/spreadsheets/d/1daNRR0EOVns0surDpfeng5CQ4PMNJ7j7kQ12jiRJkw8/edit?usp=sharing' },
-  { category: 'ペイメント', name: '入出金', url: 'https://drive.google.com/file/d/1UxWGSvb05zWFZ-hkoPTwk-vCd7c_eS6H/view?usp=sharing' },
-  { category: 'ペイメント', name: 'ペイメントコスト', url: 'https://docs.google.com/spreadsheets/d/1wcSLMZ-Yrk3sMN2b1I7hOfUpyGveB7YjeK4o34UkFUE/edit?usp=sharing' },
-  { category: 'ペイメント', name: 'ペイメントフィー', url: 'https://docs.google.com/spreadsheets/d/1KjTPZUD5ymtu9RyBMdpVOmHCh1YONfJ1ZnyVoFd_Tnw/edit?usp=sharing' },
-  { category: 'ペイメント', name: 'ロジック', url: 'https://docs.google.com/spreadsheets/d/1bzncOP78MQz60lIzD-jamDraTXcdDNFfsrG-MZ5Adzw/edit?usp=sharing' },
-  { category: 'ペイメント', name: '入出金集計BO', url: 'https://docs.google.com/spreadsheets/d/1jmEs_orPFe7y5YPnj7_bFT1JHiIs-cCFOptQsNOCqsM/edit?usp=sharing' },
-  { category: 'admin', name: 'スロ天ガチャ', url: 'https://lp.diamond-secret.club/Slotengacha/' },
-  { category: 'admin', name: 'スロ天ルーレット', url: 'https://lp.diamond-secret.club/Slotenroulet/' },
-  { category: 'admin', name: 'イメージ図', url: 'https://drive.google.com/file/d/1dKcSH4B4rhnKKaeGhQvGHGEULyqTqDWO/view?usp=sharing' },
-  { category: 'admin', name: 'VIPテーブル', url: 'https://drive.google.com/file/d/1QyHwFTfKKnUnxPIbBuHz6eEfnqo2a_Je/view?usp=sharing' },
-  { category: 'admin', name: 'アフィリエイトテーブル', url: 'https://drive.google.com/file/d/1osC-bnA6eEEEDj4ly2OqCuzzhRKc8ZT5/view?usp=sharing' },
-  { category: 'admin', name: '一般規約', url: 'https://docs.google.com/document/d/1cnTxy0_CHQeTG3mh4uIdJ7P7vi7KFhrBMmPnb6uhMiw/edit?usp=sharing' },
-  { category: 'admin', name: 'プロモ規約', url: 'https://docs.google.com/document/d/1ULv_r5fZ3VHVHmgCJcA_dyqxUEm5YIGOL6IEXCBuVL8/edit?usp=sharing' },
-  { category: 'admin', name: 'プライバシーポリシー', url: 'https://docs.google.com/document/d/1bhfg4pukcWqb6xm0WlxZXwjY9_4Prl_EbRMKbRp-gmo/edit?tab=t.0' },
-  { category: 'admin', name: '責任あるゲーミング', url: 'https://docs.google.com/document/d/1O8jjHNbPe0sjLFzbE_HRol3zA9L4ZhEU3OtxmLod6Rg/edit?tab=t.0' },
-  { category: 'admin', name: 'SNS運用資料', url: 'https://docs.google.com/presentation/d/1JAZ2xWanHCd_oyCEvth8WPVA0FwJbCKsBEQumXngQg0/edit?usp=sharing' },
-  { category: 'admin', name: '公式SNS投稿スケジュール', url: 'https://docs.google.com/spreadsheets/d/1FHYqOfah4QAELcteQ5D_uh7eaNOxShrs7Uw9FFC22rU/edit?usp=sharing' },
-  { category: 'admin', name: 'SNS管理シート', url: 'https://docs.google.com/spreadsheets/d/1ZSt9uOrxnFWF23BofcYyj4DbS9e78s82iRhTSvodaTs/edit?usp=sharing' },
-  { category: 'admin', name: 'ボーナス期待値計算ツール', url: 'https://docs.google.com/spreadsheets/d/1cD0oANxtYC4L0FCyel28RghP4yJVmCeMGJC-NP0FxG8/edit?usp=sharing' },
-  { category: 'admin', name: 'QAシート', url: 'https://docs.google.com/spreadsheets/d/1TCSDgHmxz6LTs4YDsu4pab0NZxd9vDR7T5q8bX3CJ-c/edit?usp=sharing' },
-  { category: 'admin', name: 'DRIVE', url: 'https://drive.google.com/drive/folders/1rrIyglyY-NpFUH7af8abapHrJOvojKdg?usp=sharing' },
-  { category: 'admin', name: '他社報酬調査結果', url: 'https://drive.google.com/file/d/1bT3HsAMFEL1SDiRb1PsYHslzOxJTVQgF/view?usp=sharing' },
-  { category: 'admin', name: '他社リベート調査結果', url: 'https://docs.google.com/spreadsheets/d/1VwJU_ANdf6VFKUWTA-4CCFDPRF-hFDJLMX_q8BwOiss/edit?usp=sharing' },
-  { category: 'admin', name: 'PSP比較', url: 'https://docs.google.com/spreadsheets/d/14-ucTxEzFpoe-UTfwd81_-jfnkvAzGurSiEv6bF8UFQ/edit?usp=sharing' },
-  { category: 'admin', name: 'チャットBOT内容', url: 'https://drive.google.com/file/d/1FGMBiKX048v58Kap9dC3CBGsmPsLPe_F/view?usp=sharing' },
-  { category: 'admin', name: 'プロバイダーデータ項目', url: 'https://docs.google.com/spreadsheets/d/144u3L0r04508lcfe8quuIr_3oxQ8e5pHxlx2T-HsO4M/edit?usp=sharing' },
-  { category: 'admin', name: 'スロ天LP①計測', url: 'https://lp.diamond-secret.club/SLOTENTEST/' },
-  { category: 'admin', name: 'ドリームポットLP', url: 'https://lp.diamond-secret.club/slotentakarakuji/' },
-  { category: 'admin', name: 'ドリームポットマイページ', url: 'https://lp.diamond-secret.club/takarakuzimypage/' },
-  { category: 'admin', name: 'コール入力システム', url: 'https://script.google.com/macros/s/AKfycbzi6_9-f5aIk1pKxwsQvH-CZ26wLs7GEruchrCIppiiXxRzIwRmgTIcGgSE0PctoksO/exec' },
-  { category: 'admin', name: 'コールシステムadmin', url: 'https://script.google.com/macros/s/AKfycbzi6_9-f5aIk1pKxwsQvH-CZ26wLs7GEruchrCIppiiXxRzIwRmgTIcGgSE0PctoksO/exec?page=admin' },
-  { category: 'admin', name: '経費', url: 'https://docs.google.com/spreadsheets/d/1c0eaV1gVAQTYLgVAC5uhkJ3xfxaJelVPMUeyj6-9qgc/edit?usp=sharing' },
-  { category: 'admin', name: '人件費', url: 'https://docs.google.com/spreadsheets/d/1xllLaq4MBwL74KokaeWHMcnkFPzPJ_y-81gCaSvWlVU/edit?usp=sharing' },
-  { category: 'admin', name: 'テレグラムリッチメニュー装填用', url: 'https://docs.google.com/spreadsheets/d/1-luSPr0s5mb35FwyZQ-ZrbcCdxFxVVAF-sTfOHC9ICs/edit?usp=sharing' },
-  { category: 'admin', name: 'ボーナス期待値計算ツール(複製用)', url: 'https://docs.google.com/spreadsheets/d/1UCdTWGiBjo_ZTYRY1JL_DgyJ0ujuJZO4hFWddREf7UM/edit?usp=sharing' },
-  { category: 'admin', name: 'よくある質問', url: 'https://docs.google.com/spreadsheets/d/1l06gFHmsluPkKBJ6DLj3h5qOmjMoStD_gbHXar2aBZk/edit?usp=sharing' },
-  { category: 'admin', name: '宝くじシステム概要', url: 'https://drive.google.com/file/d/1TCAFxvV2w32vhmBlKv08zCHTjPQD2DMt/view?usp=sharing' },
-  { category: 'admin', name: '他社アフィリエイト報酬形態', url: 'https://docs.google.com/spreadsheets/d/1W3_L4U5y8bt6IPe6GZ8nTSJVh_lWe-kJ_LTUXIbckTI/edit?usp=sharing' },
-  { category: 'admin', name: 'カスタマージャーニー', url: 'https://docs.google.com/spreadsheets/d/16a3Z1PEwhHQ4N3t4b4RLtK19bV9ae_egOwBBteCTq_8/edit?usp=sharing' },
-  { category: 'admin', name: 'テレグラ要約BOT①', url: 'https://docs.google.com/spreadsheets/d/1-Wg3NeLWhqPBhWE7FlMYDcsVfY4ZDZ5DYl9FqQgDPgU/edit?usp=sharing' },
-  { category: 'admin', name: 'テレグラ要約BOT②', url: 'https://docs.google.com/spreadsheets/d/1XpTbyuEPVdFy3SFGqJnC97iHlMnANqbdLjZrEPpFsyU/edit?usp=sharing' },
-  { category: 'その他', name: 'AFF管理画面', url: 'https://casino-affiliate-pulse.lovable.app/' },
-  { category: 'その他', name: 'LP管理', url: 'https://docs.google.com/spreadsheets/d/1yLbPPOr85l5x15CoIPTWMbFQqQV0CQjdeoi1dSauX6U/edit?usp=sharing' },
-  { category: 'その他', name: 'タスクまとめ', url: 'https://docs.google.com/spreadsheets/d/1ZNo_1jd6EYX6O1cccQ9sa3A2xJwInIMU5QinvOUvk2E/edit?usp=sharing' },
-  { category: 'その他', name: 'CLOUD', url: 'https://panel.cloudzy.com/dashboard' },
-  { category: 'その他', name: 'ダッシュボード', url: 'https://sloten-dashboard.manus.space/' },
-  { category: 'その他', name: 'リンク集', url: 'https://sloten-link.manus.space' },
-  { category: 'その他', name: 'メルマガ②', url: 'https://docs.google.com/spreadsheets/d/1-_GzRGpqZqm-lmI32XBA9yhhr4bGm5H0eN04PzRxg-0/edit?usp=sharing' },
-  { category: 'その他', name: 'ヘブンズショット', url: 'https://docs.google.com/spreadsheets/d/1j8-qutGdAON0W0Fn4KIiQdt4HiXmkudMNGQ21Ba0ZMw/edit?gid=0' },
-  { category: 'その他', name: 'SMS送信', url: 'https://docs.google.com/spreadsheets/d/1dZo7cQL1pM1Z2sU8P5qoYIvsyBs0PS16lnKPxtDJ3yE/edit?usp=sharing' },
-  { category: 'その他', name: 'SMS送信本屋', url: 'https://docs.google.com/spreadsheets/d/1yTu17jNIgIGEbgJK639mrbH_lgBWA79vUSfNdACK_dM/edit?usp=sharing' },
-  { category: 'その他', name: 'バカラチャレンジ', url: 'https://docs.google.com/spreadsheets/d/1qGd0hneNNqNNZCNMXbO89wYusHIbB0nnNqZNvjsqnbY/edit?usp=sharing' },
-  { category: 'その他', name: 'みんなの時間割', url: 'https://docs.google.com/spreadsheets/d/1Qh4xxb6pIXP1TMdRY24zcJcjDts-2MFgXcTYfKjHNg8/edit?usp=sharing' },
-  { category: 'その他', name: '無料ゲームサイト', url: 'https://docs.google.com/spreadsheets/d/14nWspAUsHzmCewIySecFwxAROP2xpy56zoVChBRJNYw/edit?usp=sharing' },
-  { category: 'その他', name: '設置状況', url: 'https://docs.google.com/spreadsheets/d/1_Wfe1tqWIyuLWYZ73QQPMYeDL8FInQTWCAvsn0ptogA/edit?usp=sharing' },
-  { category: 'その他', name: 'SMS分析', url: 'https://docs.google.com/spreadsheets/d/1Z-fVjbHWAUXLgajlDba1Pm1fU6Ble52ddbVLBcxFEcU/edit?usp=sharing' },
-  { category: 'その他', name: 'SMSデータ', url: 'https://docs.google.com/spreadsheets/d/1o58Zmm6dhcFbLRfLZajLjsWbeE57DOQqY5ncH1FunUs/edit?usp=sharing' },
-  { category: 'その他', name: '連勝王連敗王', url: 'https://docs.google.com/spreadsheets/d/1tmBj1U_pclbuIFk1lQz8cSTAH0aPOPW9G92j4Mo5tq8/edit?usp=sharing' },
-  { category: 'その他', name: 'DC/ACE', url: 'https://share.dc-ace.com/login?redirect=/folder/DC%2520Lobby/Promo%2520Package/' },
-  { category: 'その他', name: 'ボーナスコード管理', url: 'https://docs.google.com/spreadsheets/d/1c58Oz88Y-8Yg8Xz4yqQYk8KgFIjufZefbC94krz3dwo/edit?usp=sharing' },
-  { category: 'その他', name: 'CSVセグメントツール', url: 'https://crm-segmentation-tool-gnwlkpueqvcdgapck3uv8z.streamlit.app/' },
-  { category: 'その他', name: 'カレンダー', url: 'https://shared-calendar-app-iota.vercel.app/' },
-  { category: 'その他', name: 'SEOツール', url: 'https://nexus-seo-u5uq936q.manus.space/' },
-  { category: 'その他', name: 'スロ天CSVデータ', url: 'https://userdash-eanx4o83.manus.space/?code=C9CEZYMehvBKv3HUVMoNGw' },
-  { category: 'その他', name: '世界の大会', url: 'https://gamblingtourn-abc2g3fa.manus.space/' },
-];
 
 // デフォルトデータ
 const DEFAULT_BUSINESSES = {
@@ -432,259 +269,17 @@ const DEFAULT_BUSINESSES = {
   'AMUSEVIP': { data: {}, type: 'agent' }
 };
 
-// ============================================================
-// ☁️ クラウド同期（npoint.io - 完全無料・設定不要）
-// URLに ?bin=xxx が付いていれば自動的にクラウド同期
-// 初回は「共有リンク作成」ボタンでビンを作成
-// ============================================================
+// クラウド同期設定
 const NPOINT_API = 'https://api.npoint.io/';
 let NPOINT_BIN_ID = '';
 let cloudEnabled = false;
 
-// URLからビンIDを取得
-function getBinIdFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('bin') || '';
-}
-
-// URLにビンIDを設定
-function setBinIdToURL(binId) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('bin', binId);
-  window.history.replaceState({}, '', url);
-}
-
-// 新しいビンを作成
-async function createNewBin() {
-  try {
-    updateSyncStatus('作成中...');
-    const res = await fetch(NPOINT_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businesses: {}, created: new Date().toISOString() })
-    });
-    
-    // レスポンスからビンIDを取得（URLの最後の部分）
-    const url = res.url;
-    const binId = url.split('/').pop();
-    
-    if (binId && binId.length > 5) {
-      NPOINT_BIN_ID = binId;
-      cloudEnabled = true;
-      setBinIdToURL(binId);
-      updateSyncStatus('作成完了！');
-      
-      // 共有URLを表示
-      showShareURL();
-      return binId;
-    }
-  } catch (e) {
-    console.warn('Bin creation error:', e);
-    updateSyncStatus('作成エラー', true);
-  }
-  return null;
-}
-
-// 共有URLを表示
-function showShareURL() {
-  const shareUrl = window.location.href;
-  const msg = `✅ 共有リンクが作成されました！\n\n${shareUrl}\n\nこのURLを共有すると、全員が同じデータを見れます。\n\nコピーしますか？`;
-  if (confirm(msg)) {
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      alert('URLをコピーしました！');
-    }).catch(() => {
-      prompt('以下のURLをコピーしてください:', shareUrl);
-    });
-  }
-}
-
-// 共有リンク作成ボタン
-async function createShareLink() {
-  if (cloudEnabled) {
-    showShareURL();
-  } else {
-    const binId = await createNewBin();
-    if (binId) {
-      // 現在のデータをクラウドに保存
-      await saveToCloud();
-    }
-  }
-}
-
-// クラウドからデータを読み込み
-async function loadCloudData() {
-  if (!NPOINT_BIN_ID) return {};
-  try {
-    const res = await fetch(NPOINT_API + NPOINT_BIN_ID);
-    if (!res.ok) throw new Error('Load failed');
-    const data = await res.json();
-    return data.businesses || {};
-  } catch (e) { console.warn('Cloud load error:', e); return {}; }
-}
-
-// クラウドにデータを保存
-async function saveToCloud() {
-  if (!NPOINT_BIN_ID) return;
-  try {
-    // 保存するデータを構築（デフォルト以外のみ）
-    const toSave = {};
-    Object.keys(BUSINESSES).forEach(key => {
-      const biz = BUSINESSES[key];
-      const def = DEFAULT_BUSINESSES[key];
-      if (!def) {
-        toSave[key] = biz;
-      } else {
-        const newPeriods = {};
-        Object.keys(biz.data).forEach(period => {
-          if (!def.data[period]) {
-            newPeriods[period] = biz.data[period];
-          }
-        });
-        if (Object.keys(newPeriods).length > 0) {
-          toSave[key] = { data: newPeriods, type: biz.type };
-        }
-      }
-    });
-    
-    await fetch(NPOINT_API + NPOINT_BIN_ID, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businesses: toSave, lastUpdate: new Date().toISOString() })
-    });
-    updateSyncStatus('保存完了 ✓');
-  } catch (e) { 
-    console.warn('Cloud save error:', e); 
-    updateSyncStatus('保存エラー', true);
-  }
-}
-
-// クラウドの全データをクリア
-async function clearCloudData() {
-  if (!NPOINT_BIN_ID) return;
-  try {
-    await fetch(NPOINT_API + NPOINT_BIN_ID, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ businesses: {}, lastUpdate: new Date().toISOString() })
-    });
-  } catch (e) { console.warn('Cloud clear error:', e); }
-}
-
-// デフォルトとクラウドデータをマージ
-function mergeWithDefault(cloudData) {
-  const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES));
-  Object.keys(cloudData).forEach(key => {
-    if (merged[key]) {
-      merged[key].data = { ...merged[key].data, ...(cloudData[key].data || {}) };
-      merged[key].type = cloudData[key].type || merged[key].type;
-    } else {
-      merged[key] = cloudData[key];
-    }
-  });
-  return merged;
-}
-
-// 同期状態を表示
-function updateSyncStatus(msg, isError = false) {
-  const el = document.getElementById('sync-status');
-  if (el) {
-    el.textContent = cloudEnabled ? `☁️ ${msg}` : '💾 ローカル';
-    el.style.color = isError ? '#ef4444' : '#10b981';
-    // 3秒後に通常表示に戻す
-    if (!isError && msg !== '同期中...' && msg !== '読み込み中...') {
-      setTimeout(() => {
-        if (el.textContent.includes(msg)) {
-          el.textContent = cloudEnabled ? '☁️ クラウド同期中' : '💾 ローカル';
-        }
-      }, 3000);
-    }
-  }
-}
-
-// saveBusinessData - クラウドに保存
-function saveBusinessData() {
-  if (cloudEnabled) {
-    updateSyncStatus('保存中...');
-    saveToCloud();
-  }
-  // ローカルバックアップも保存
-  try {
-    const backup = {};
-    Object.keys(BUSINESSES).forEach(k => {
-      const def = DEFAULT_BUSINESSES[k];
-      if (!def) {
-        backup[k] = BUSINESSES[k];
-      } else {
-        const newPeriods = {};
-        Object.keys(BUSINESSES[k].data).forEach(p => {
-          if (!def.data[p]) newPeriods[p] = BUSINESSES[k].data[p];
-        });
-        if (Object.keys(newPeriods).length > 0) {
-          backup[k] = { data: newPeriods, type: BUSINESSES[k].type };
-        }
-      }
-    });
-    localStorage.setItem('dashboard_backup', JSON.stringify(backup));
-  } catch (e) {}
-}
-
-// データをクリア
-async function clearAllData() {
-  if (confirm('全データを削除しますか？\n（初期データは残ります）')) {
-    if (cloudEnabled) await clearCloudData();
-    localStorage.removeItem('dashboard_backup');
-    location.reload();
-  }
-}
-
-// 初期データ
+// 状態管理
 let BUSINESSES = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES));
-
 let currentBusiness = '元amuse';
 let currentPeriod = null;
 let chartInstance = null;
-
-// ページ読み込み時にデータを取得
-async function initializeData() {
-  // URLからビンIDを取得
-  NPOINT_BIN_ID = getBinIdFromURL();
-  cloudEnabled = !!NPOINT_BIN_ID;
-  
-  if (cloudEnabled) {
-    try {
-      updateSyncStatus('読み込み中...');
-      const cloudData = await loadCloudData();
-      BUSINESSES = mergeWithDefault(cloudData);
-      updateSyncStatus('クラウド同期中');
-    } catch (e) {
-      console.warn('Init error:', e);
-      updateSyncStatus('接続エラー', true);
-    }
-  } else {
-    // クラウド未設定の場合はローカルから読み込み
-    try {
-      const backup = localStorage.getItem('dashboard_backup');
-      if (backup) {
-        const parsed = JSON.parse(backup);
-        Object.keys(parsed).forEach(key => {
-          if (BUSINESSES[key]) {
-            BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data };
-          } else {
-            BUSINESSES[key] = parsed[key];
-          }
-        });
-      }
-    } catch (e) {}
-    updateSyncStatus('ローカル');
-  }
-  
-  selectBusiness(currentBusiness);
-}
-
-// DOMContentLoaded時に実行
-document.addEventListener('DOMContentLoaded', () => {
-  initializeData();
-});
+let viewMode = 'period'; // 'period' or 'total'
 
 // ========== ユーティリティ ==========
 function parseNumber(val) {
@@ -729,18 +324,412 @@ function sortPeriods(periods) {
   });
 }
 
-// ========== 初期化 ==========
-document.addEventListener('DOMContentLoaded', () => {
-  renderTabs();
-  selectBusiness('元amuse');
-  setupDragDrop();
-});
+// ========== 全期間トータル・平均計算 ==========
+function calculateTotalsAndAverages(businessName) {
+  const business = BUSINESSES[businessName];
+  if (!business || !business.data) return null;
+  
+  const periods = Object.keys(business.data);
+  if (periods.length === 0) return null;
+  
+  const totals = {};
+  const counts = {};
+  const type = business.type || 'samExcel';
+  
+  // 合計対象のキー（数値のみ合計）
+  const sumKeys = ['T/O','GGR(WIN/LOSE)','GGR','NGR','WIN/LOSE','回収金額','出金金額','勝利金','合計経費','利益','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','総入金額','総出金額','入出金差分','FTD数','FTDW数','LINE登録数','アカウント作成数','アクティブユーザー数','登録人数'];
+  // 平均対象のキー
+  const avgKeys = ['RTP','回収率(全体)','回収率(今月)','FTD率','FTDW率','FTP率'];
+  
+  periods.forEach(period => {
+    const periodData = business.data[period];
+    const summary = periodData?.サマリー || periodData || {};
+    
+    Object.entries(summary).forEach(([key, val]) => {
+      if (typeof val === 'number' && !isNaN(val)) {
+        if (!totals[key]) {
+          totals[key] = 0;
+          counts[key] = 0;
+        }
+        totals[key] += val;
+        counts[key]++;
+      }
+    });
+  });
+  
+  const result = { totals: {}, averages: {}, periodCount: periods.length };
+  
+  Object.keys(totals).forEach(key => {
+    result.totals[key] = totals[key];
+    result.averages[key] = totals[key] / counts[key];
+  });
+  
+  return result;
+}
+
+// ========== 仮想通貨データ集計 ==========
+function aggregateCryptoData(businessName) {
+  const business = BUSINESSES[businessName];
+  if (!business || !business.data) return null;
+  
+  const periods = Object.keys(business.data);
+  const cryptoTotals = { 入金: {}, 出金: {} };
+  let hasData = false;
+  
+  periods.forEach(period => {
+    const periodData = business.data[period];
+    
+    // 仮想通貨詳細データがある場合
+    if (periodData?.仮想通貨詳細) {
+      hasData = true;
+      ['入金', '出金'].forEach(type => {
+        if (periodData.仮想通貨詳細[type]) {
+          Object.entries(periodData.仮想通貨詳細[type]).forEach(([coin, val]) => {
+            if (!cryptoTotals[type][coin]) cryptoTotals[type][coin] = 0;
+            cryptoTotals[type][coin] += val;
+          });
+        }
+      });
+    }
+    
+    // 入金方法/出金方法から仮想通貨を抽出
+    if (periodData?.入金方法?.['仮想通貨']) {
+      hasData = true;
+      if (!cryptoTotals.入金['仮想通貨合計']) cryptoTotals.入金['仮想通貨合計'] = 0;
+      cryptoTotals.入金['仮想通貨合計'] += periodData.入金方法['仮想通貨'];
+    }
+    if (periodData?.出金方法?.['仮想通貨']) {
+      hasData = true;
+      if (!cryptoTotals.出金['仮想通貨合計']) cryptoTotals.出金['仮想通貨合計'] = 0;
+      cryptoTotals.出金['仮想通貨合計'] += periodData.出金方法['仮想通貨'];
+    }
+  });
+  
+  return hasData ? cryptoTotals : null;
+}
+
+// ========== プロバイダー/ゲーム別データ集計 ==========
+function aggregateProviderData(businessName) {
+  const business = BUSINESSES[businessName];
+  if (!business || !business.data) return null;
+  
+  const periods = Object.keys(business.data);
+  const providerTotals = {};
+  let hasData = false;
+  
+  periods.forEach(period => {
+    const periodData = business.data[period];
+    
+    // ゲーム別データ
+    if (periodData?.ゲーム別) {
+      hasData = true;
+      Object.entries(periodData.ゲーム別).forEach(([game, stats]) => {
+        if (!providerTotals[game]) {
+          providerTotals[game] = { ユーザー数: 0, TO: 0, GGR: 0, periodCount: 0 };
+        }
+        providerTotals[game].ユーザー数 += stats.ユーザー数 || 0;
+        providerTotals[game].TO += stats.TO || 0;
+        providerTotals[game].GGR += stats.GGR || 0;
+        providerTotals[game].periodCount++;
+      });
+    }
+  });
+  
+  return hasData ? providerTotals : null;
+}
+
+// ========== 表示モード切替 ==========
+function setViewMode(mode) {
+  viewMode = mode;
+  document.getElementById('view-period').classList.toggle('active', mode === 'period');
+  document.getElementById('view-total').classList.toggle('active', mode === 'total');
+  
+  if (mode === 'total') {
+    document.getElementById('period-selector').classList.add('hidden');
+    document.getElementById('totals-section').classList.remove('hidden');
+    renderTotalsSection();
+  } else {
+    document.getElementById('period-selector').classList.remove('hidden');
+    document.getElementById('totals-section').classList.add('hidden');
+  }
+  
+  renderSummary();
+  renderCryptoSection();
+  renderProviderSection();
+}
+
+// ========== トータル・平均セクション描画 ==========
+function renderTotalsSection() {
+  const container = document.getElementById('totals-grid');
+  const result = calculateTotalsAndAverages(currentBusiness);
+  
+  if (!result) {
+    container.innerHTML = '<p style="opacity:0.7">データがありません</p>';
+    return;
+  }
+  
+  const business = BUSINESSES[currentBusiness];
+  const type = business?.type || 'samExcel';
+  
+  let metrics = [];
+  if (type === 'samExcel') {
+    metrics = [
+      { key: 'T/O', label: 'T/O', type: 'total' },
+      { key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR', type: 'total' },
+      { key: 'NGR', label: 'NGR', type: 'total' },
+      { key: '回収金額', label: '回収金額', type: 'total' },
+      { key: '出金金額', label: '出金金額', type: 'total' },
+      { key: '合計経費', label: '経費', type: 'total' },
+      { key: '利益', label: '利益', type: 'total' },
+      { key: 'RTP', label: 'RTP', type: 'avg', format: 'percent' },
+      { key: '回収率(全体)', label: '回収率', type: 'avg', format: 'percent' },
+      { key: 'FTD数', label: 'FTD数', type: 'total', format: 'number' },
+      { key: 'LINE登録数', label: 'LINE登録', type: 'total', format: 'number' },
+      { key: 'プロバイダーフィー', label: 'プロバイダーフィー', type: 'total' },
+    ];
+  } else if (type === 'sloten') {
+    metrics = [
+      { key: 'GGR', label: 'GGR', type: 'total' },
+      { key: '総入金額', label: '総入金額', type: 'total' },
+      { key: '総出金額', label: '総出金額', type: 'total' },
+      { key: '入出金差分', label: '入出金差分', type: 'total' },
+      { key: '登録人数', label: '登録人数', type: 'total', format: 'number' },
+      { key: 'RTP', label: 'RTP', type: 'avg', format: 'percent' },
+    ];
+  }
+  
+  container.innerHTML = `
+    <div class="total-card" style="grid-column: span 2;">
+      <h4>📅 対象期間数</h4>
+      <div class="main-val">${result.periodCount}期間</div>
+    </div>
+  ` + metrics.map(m => {
+    let totalVal = result.totals[m.key];
+    let avgVal = result.averages[m.key];
+    
+    if ((totalVal == null || isNaN(totalVal)) && m.alt) {
+      for (const k of m.alt) {
+        if (result.totals[k] != null) {
+          totalVal = result.totals[k];
+          avgVal = result.averages[k];
+          break;
+        }
+      }
+    }
+    
+    if (totalVal == null || isNaN(totalVal)) return '';
+    
+    let formattedTotal, formattedAvg;
+    if (m.format === 'percent') {
+      formattedTotal = '-';
+      formattedAvg = formatPercent(avgVal);
+    } else if (m.format === 'number') {
+      formattedTotal = formatNumber(totalVal);
+      formattedAvg = formatNumber(avgVal);
+    } else {
+      formattedTotal = formatCurrency(totalVal);
+      formattedAvg = formatCurrency(avgVal);
+    }
+    
+    return `
+      <div class="total-card">
+        <h4>${m.label}</h4>
+        <div class="main-val">${m.type === 'total' ? formattedTotal : formattedAvg}</div>
+        <div class="sub-val">${m.type === 'total' ? '平均: ' + formattedAvg : 'トータル: ' + formattedTotal}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ========== 仮想通貨セクション描画 ==========
+function renderCryptoSection() {
+  const section = document.getElementById('crypto-section');
+  const container = document.getElementById('crypto-grid');
+  
+  const cryptoData = aggregateCryptoData(currentBusiness);
+  
+  // 期間データの仮想通貨も確認
+  const business = BUSINESSES[currentBusiness];
+  const periodData = business?.data?.[currentPeriod];
+  const hasPeriodCrypto = periodData?.仮想通貨詳細 || periodData?.入金方法?.['仮想通貨'] || periodData?.出金方法?.['仮想通貨'];
+  
+  if (!cryptoData && !hasPeriodCrypto) {
+    section.classList.add('hidden');
+    return;
+  }
+  
+  section.classList.remove('hidden');
+  
+  // 表示するデータを選択（期間別 or トータル）
+  let displayData = viewMode === 'total' ? cryptoData : null;
+  
+  if (viewMode === 'period' && periodData) {
+    displayData = { 入金: {}, 出金: {} };
+    if (periodData.仮想通貨詳細) {
+      displayData = periodData.仮想通貨詳細;
+    } else {
+      if (periodData.入金方法?.['仮想通貨']) {
+        displayData.入金['仮想通貨合計'] = periodData.入金方法['仮想通貨'];
+      }
+      if (periodData.出金方法?.['仮想通貨']) {
+        displayData.出金['仮想通貨合計'] = periodData.出金方法['仮想通貨'];
+      }
+    }
+  }
+  
+  if (!displayData) {
+    section.classList.add('hidden');
+    return;
+  }
+  
+  let html = '';
+  
+  // 入金
+  const depositCoins = Object.entries(displayData.入金 || {}).filter(([k, v]) => v > 0);
+  const depositTotal = depositCoins.reduce((sum, [k, v]) => sum + v, 0);
+  
+  if (depositCoins.length > 0) {
+    html += `<div class="crypto-card" style="grid-column: span 2;background:#dcfce7;"><h5>💰 入金（仮想通貨）</h5><div class="crypto-val">${formatCurrency(depositTotal)}</div></div>`;
+    depositCoins.forEach(([coin, val]) => {
+      const pct = depositTotal > 0 ? (val / depositTotal * 100).toFixed(1) : 0;
+      html += `<div class="crypto-card"><h5>${coin}</h5><div class="crypto-val">${formatCurrency(val)}</div><div class="crypto-pct">${pct}%</div></div>`;
+    });
+  }
+  
+  // 出金
+  const withdrawCoins = Object.entries(displayData.出金 || {}).filter(([k, v]) => v > 0);
+  const withdrawTotal = withdrawCoins.reduce((sum, [k, v]) => sum + v, 0);
+  
+  if (withdrawCoins.length > 0) {
+    html += `<div class="crypto-card" style="grid-column: span 2;background:#fee2e2;"><h5>💸 出金（仮想通貨）</h5><div class="crypto-val">${formatCurrency(withdrawTotal)}</div></div>`;
+    withdrawCoins.forEach(([coin, val]) => {
+      const pct = withdrawTotal > 0 ? (val / withdrawTotal * 100).toFixed(1) : 0;
+      html += `<div class="crypto-card"><h5>${coin}</h5><div class="crypto-val">${formatCurrency(val)}</div><div class="crypto-pct">${pct}%</div></div>`;
+    });
+  }
+  
+  container.innerHTML = html || '<p>仮想通貨データなし</p>';
+}
+
+// ========== プロバイダーセクション描画 ==========
+function renderProviderSection() {
+  const section = document.getElementById('provider-section');
+  const container = document.getElementById('provider-grid');
+  
+  const business = BUSINESSES[currentBusiness];
+  const periodData = business?.data?.[currentPeriod];
+  
+  // トータル表示の場合
+  if (viewMode === 'total') {
+    const providerData = aggregateProviderData(currentBusiness);
+    if (!providerData || Object.keys(providerData).length === 0) {
+      section.classList.add('hidden');
+      return;
+    }
+    section.classList.remove('hidden');
+    
+    container.innerHTML = Object.entries(providerData).map(([game, stats]) => `
+      <div class="provider-card">
+        <h5>🎮 ${game}</h5>
+        <div class="provider-stats">
+          <div class="stat-item"><div class="stat-label">ユーザー数</div><div class="stat-val">${formatNumber(stats.ユーザー数)}</div></div>
+          <div class="stat-item"><div class="stat-label">T/O</div><div class="stat-val">${formatCurrency(stats.TO)}</div></div>
+          <div class="stat-item"><div class="stat-label">GGR</div><div class="stat-val">${formatCurrency(stats.GGR)}</div></div>
+          <div class="stat-item"><div class="stat-label">平均GGR</div><div class="stat-val">${formatCurrency(stats.GGR / stats.periodCount)}</div></div>
+        </div>
+      </div>
+    `).join('');
+    return;
+  }
+  
+  // 期間別表示の場合
+  if (!periodData?.ゲーム別 || Object.keys(periodData.ゲーム別).length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+  
+  section.classList.remove('hidden');
+  const games = periodData.ゲーム別;
+  
+  container.innerHTML = Object.entries(games).map(([game, stats]) => `
+    <div class="provider-card">
+      <h5>🎮 ${game}</h5>
+      <div class="provider-stats">
+        <div class="stat-item"><div class="stat-label">ユーザー数</div><div class="stat-val">${formatNumber(stats.ユーザー数)}</div></div>
+        <div class="stat-item"><div class="stat-label">T/O</div><div class="stat-val">${formatCurrency(stats.TO)}</div></div>
+        <div class="stat-item"><div class="stat-label">GGR</div><div class="stat-val">${formatCurrency(stats.GGR)}</div></div>
+        <div class="stat-item"><div class="stat-label">RTP</div><div class="stat-val">${stats.TO > 0 ? formatPercent((stats.TO - stats.GGR) / stats.TO) : '-'}</div></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ========== 既存の関数群 ==========
+function getBinIdFromURL() { return new URLSearchParams(window.location.search).get('bin') || ''; }
+function setBinIdToURL(binId) { const url = new URL(window.location.href); url.searchParams.set('bin', binId); window.history.replaceState({}, '', url); }
+function updateSyncStatus(msg, isError = false) { const el = document.getElementById('sync-status'); el.textContent = isError ? '⚠️ ' + msg : '💾 ' + msg; el.style.color = isError ? '#ef4444' : '#10b981'; }
+
+async function createNewBin() {
+  try {
+    updateSyncStatus('作成中...');
+    const res = await fetch(NPOINT_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: {}, created: new Date().toISOString() }) });
+    const url = res.url; const binId = url.split('/').pop();
+    if (binId && binId.length > 5) { NPOINT_BIN_ID = binId; cloudEnabled = true; setBinIdToURL(binId); updateSyncStatus('作成完了！'); showShareURL(); return binId; }
+  } catch (e) { console.warn('Bin creation error:', e); updateSyncStatus('作成エラー', true); }
+  return null;
+}
+
+function showShareURL() {
+  const shareUrl = window.location.href;
+  if (confirm(`✅ 共有リンクが作成されました！\n\n${shareUrl}\n\nこのURLを共有すると、全員が同じデータを見れます。\n\nコピーしますか？`)) {
+    navigator.clipboard.writeText(shareUrl).then(() => alert('URLをコピーしました！')).catch(() => prompt('以下のURLをコピーしてください:', shareUrl));
+  }
+}
+
+async function createShareLink() { if (cloudEnabled) showShareURL(); else { const binId = await createNewBin(); if (binId) await saveToCloud(); } }
+async function loadCloudData() { if (!NPOINT_BIN_ID) return {}; try { const res = await fetch(NPOINT_API + NPOINT_BIN_ID); if (!res.ok) throw new Error('Load failed'); const data = await res.json(); return data.businesses || {}; } catch (e) { console.warn('Cloud load error:', e); return {}; } }
+
+async function saveToCloud() {
+  if (!NPOINT_BIN_ID) return;
+  try {
+    const toSave = {};
+    Object.keys(BUSINESSES).forEach(key => {
+      const biz = BUSINESSES[key]; const def = DEFAULT_BUSINESSES[key];
+      if (!def) { toSave[key] = biz; }
+      else { const newPeriods = {}; Object.keys(biz.data).forEach(period => { if (!def.data[period]) newPeriods[period] = biz.data[period]; }); if (Object.keys(newPeriods).length > 0) toSave[key] = { data: newPeriods, type: biz.type }; }
+    });
+    await fetch(NPOINT_API + NPOINT_BIN_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: toSave, lastUpdate: new Date().toISOString() }) });
+    updateSyncStatus('保存完了 ✓');
+  } catch (e) { console.warn('Cloud save error:', e); updateSyncStatus('保存エラー', true); }
+}
+
+async function clearCloudData() { if (!NPOINT_BIN_ID) return; try { await fetch(NPOINT_API + NPOINT_BIN_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: {}, lastUpdate: new Date().toISOString() }) }); } catch (e) { console.warn('Cloud clear error:', e); } }
+
+function mergeWithDefault(cloudData) {
+  const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES));
+  Object.keys(cloudData).forEach(key => { if (merged[key]) { merged[key].data = { ...merged[key].data, ...(cloudData[key].data || {}) }; merged[key].type = cloudData[key].type || merged[key].type; } else merged[key] = cloudData[key]; });
+  return merged;
+}
+
+function saveBusinessData() {
+  if (cloudEnabled) { updateSyncStatus('保存中...'); saveToCloud(); }
+  try { const backup = {}; Object.keys(BUSINESSES).forEach(k => { const def = DEFAULT_BUSINESSES[k]; if (!def) backup[k] = BUSINESSES[k]; else { const newPeriods = {}; Object.keys(BUSINESSES[k].data).forEach(p => { if (!def.data[p]) newPeriods[p] = BUSINESSES[k].data[p]; }); if (Object.keys(newPeriods).length > 0) backup[k] = { data: newPeriods, type: BUSINESSES[k].type }; } }); localStorage.setItem('dashboard_backup', JSON.stringify(backup)); } catch (e) {}
+}
+
+async function clearAllData() { if (confirm('全データを削除しますか？\n（初期データは残ります）')) { if (cloudEnabled) await clearCloudData(); localStorage.removeItem('dashboard_backup'); location.reload(); } }
+
+async function initializeData() {
+  NPOINT_BIN_ID = getBinIdFromURL(); cloudEnabled = !!NPOINT_BIN_ID;
+  if (cloudEnabled) { try { updateSyncStatus('読み込み中...'); const cloudData = await loadCloudData(); BUSINESSES = mergeWithDefault(cloudData); updateSyncStatus('クラウド同期中'); } catch (e) { console.warn('Init error:', e); updateSyncStatus('接続エラー', true); } }
+  else { try { const backup = localStorage.getItem('dashboard_backup'); if (backup) { const parsed = JSON.parse(backup); Object.keys(parsed).forEach(key => { if (BUSINESSES[key]) BUSINESSES[key].data = { ...BUSINESSES[key].data, ...parsed[key].data }; else BUSINESSES[key] = parsed[key]; }); } } catch (e) {} updateSyncStatus('ローカル'); }
+  selectBusiness(currentBusiness);
+}
+
+document.addEventListener('DOMContentLoaded', () => { initializeData(); renderTabs(); setupDragDrop(); });
 
 function renderTabs() {
   const container = document.getElementById('business-tabs');
-  container.innerHTML = Object.keys(BUSINESSES).map(name => 
-    `<button class="tab ${name === currentBusiness ? 'active' : ''}" onclick="selectBusiness('${name}')">${name}</button>`
-  ).join('') + '<button class="btn btn-danger" onclick="deleteBusiness()" style="margin-left:auto">🗑️</button>';
+  container.innerHTML = Object.keys(BUSINESSES).map(name => `<button class="tab ${name === currentBusiness ? 'active' : ''}" onclick="selectBusiness('${name}')">${name}</button>`).join('') + '<button class="btn btn-danger" onclick="deleteBusiness()" style="margin-left:auto">🗑️</button>';
 }
 
 function selectBusiness(name) {
@@ -751,8 +740,11 @@ function selectBusiness(name) {
   currentPeriod = periods[0] || null;
   renderTabs();
   renderPeriodSelector(periods);
+  if (viewMode === 'total') renderTotalsSection();
   renderSummary();
   renderKPISections();
+  renderCryptoSection();
+  renderProviderSection();
   renderChart();
   renderLinks();
   renderTable();
@@ -760,13 +752,8 @@ function selectBusiness(name) {
 
 function renderPeriodSelector(periods) {
   const container = document.getElementById('period-selector');
-  if (periods.length === 0) {
-    container.innerHTML = '<span style="color:#94a3b8;font-size:13px">データをアップロードしてください</span>';
-    return;
-  }
-  container.innerHTML = periods.map(p => 
-    `<button class="period-btn ${p === currentPeriod ? 'active' : ''}" onclick="selectPeriod('${p}')">${p}</button>`
-  ).join('') + `<button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="deletePeriod()">期間削除</button>`;
+  if (periods.length === 0) { container.innerHTML = '<span style="color:#94a3b8;font-size:13px">データをアップロードしてください</span>'; return; }
+  container.innerHTML = periods.map(p => `<button class="period-btn ${p === currentPeriod ? 'active' : ''}" onclick="selectPeriod('${p}')">${p}</button>`).join('') + `<button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="deletePeriod()">期間削除</button>`;
 }
 
 function selectPeriod(period) {
@@ -775,6 +762,8 @@ function selectPeriod(period) {
   renderPeriodSelector(periods);
   renderSummary();
   renderKPISections();
+  renderCryptoSection();
+  renderProviderSection();
   renderTable();
 }
 
@@ -782,11 +771,7 @@ function deletePeriod() {
   const business = BUSINESSES[currentBusiness];
   const periods = Object.keys(business?.data || {});
   if (periods.length <= 1) { alert('最後の期間は削除できません'); return; }
-  if (confirm(`「${currentPeriod}」を削除しますか？`)) {
-    delete business.data[currentPeriod];
-    saveBusinessData(); // クラウドに再保存
-    selectBusiness(currentBusiness);
-  }
+  if (confirm(`「${currentPeriod}」を削除しますか？`)) { delete business.data[currentPeriod]; saveBusinessData(); selectBusiness(currentBusiness); }
 }
 
 // ========== サマリー ==========
@@ -794,77 +779,33 @@ function renderSummary() {
   const container = document.getElementById('summary-section');
   const business = BUSINESSES[currentBusiness];
   
-  if (!business) {
-    container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:#94a3b8">事業を選択してください</div>';
-    return;
+  if (!business) { container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:#94a3b8">事業を選択してください</div>'; return; }
+  
+  let data;
+  if (viewMode === 'total') {
+    const result = calculateTotalsAndAverages(currentBusiness);
+    if (!result) { container.innerHTML = ''; return; }
+    data = result.totals;
+  } else {
+    const periodData = business.data?.[currentPeriod];
+    data = periodData?.サマリー || periodData || {};
   }
   
-  const periodData = business.data?.[currentPeriod];
-  const data = periodData?.サマリー || periodData || {};
-  
-  if (!data || Object.keys(data).length === 0) {
-    container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:#94a3b8">データがありません</div>';
-    return;
-  }
+  if (!data || Object.keys(data).length === 0) { container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:#94a3b8">データがありません</div>'; return; }
   
   const type = business.type || 'samExcel';
   const colors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)','linear-gradient(135deg,#ec4899,#db2777)','linear-gradient(135deg,#06b6d4,#0891b2)','linear-gradient(135deg,#84cc16,#65a30d)'];
   
   let cards = [];
-  if (type === 'samExcel') {
-    cards = [
-      { key: 'T/O', label: 'T/O' },
-      { key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },
-      { key: 'NGR', label: 'NGR' },
-      { key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },
-      { key: 'GGR(回収金額-出金金額)', label: '入出金差分' }
-    ];
-  } else if (type === 'sloten') {
-    cards = [
-      { key: 'GGR', label: 'GGR' },
-      { key: '総入金額', label: '総入金額' },
-      { key: '総出金額', label: '総出金額' },
-      { key: '入出金差分', label: '入出金差分' },
-      { key: 'RTP', label: 'RTP', format: 'percent' },
-      { key: '登録人数', label: '登録人数', format: 'number' }
-    ];
-  } else if (type === 'ads') {
-    cards = [
-      { key: 'コスト(円)', label: 'コスト', format: 'currency' },
-      { key: 'インプレッション合計', alt: ['インプレッション'], label: 'IMP', format: 'number' },
-      { key: 'クリック合計', alt: ['クリック'], label: 'クリック', format: 'number' },
-      { key: 'CTR', label: 'CTR', format: 'percent' },
-      { key: '登録合計', alt: ['登録数'], label: '登録', format: 'number' },
-      { key: '入金合計', alt: ['入金数'], label: '入金', format: 'number' },
-      { key: 'CVR', label: 'CVR', format: 'percent' },
-      { key: 'CPA(円)', label: 'CPA', format: 'currency' }
-    ];
-  } else if (type === 'agent') {
-    cards = [
-      { key: '入金合計', label: '入金合計' },
-      { key: '出金合計', label: '出金合計' },
-      { key: '収益合計', label: '収益合計' },
-      { key: 'ローリング報酬', label: 'ローリング報酬' },
-      { key: 'NGR', label: 'NGR' },
-      { key: 'T/O合計', label: 'T/O合計' }
-    ];
-  } else if (type === 'baccara') {
-    cards = [
-      { key: '登録数', label: '登録数', format: 'number' },
-      { key: '合計流入', label: '合計流入', format: 'number' },
-      { key: '総ユーザー数', label: '総ユーザー', format: 'number' },
-      { key: '総入金額', label: '総入金額' },
-      { key: '総GGR', label: '総GGR' },
-      { key: 'コスト', label: 'コスト' },
-      { key: 'NGR', label: 'NGR' }
-    ];
-  }
+  if (type === 'samExcel') cards = [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }];
+  else if (type === 'sloten') cards = [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }];
+  else if (type === 'ads') cards = [{ key: 'コスト(円)', label: 'コスト', format: 'currency' },{ key: 'インプレッション合計', alt: ['インプレッション'], label: 'IMP', format: 'number' },{ key: 'クリック合計', alt: ['クリック'], label: 'クリック', format: 'number' },{ key: 'CTR', label: 'CTR', format: 'percent' },{ key: '登録合計', alt: ['登録数'], label: '登録', format: 'number' },{ key: '入金合計', alt: ['入金数'], label: '入金', format: 'number' },{ key: 'CVR', label: 'CVR', format: 'percent' },{ key: 'CPA(円)', label: 'CPA', format: 'currency' }];
+  else if (type === 'agent') cards = [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'ローリング報酬', label: 'ローリング報酬' },{ key: 'NGR', label: 'NGR' },{ key: 'T/O合計', label: 'T/O合計' }];
+  else if (type === 'baccara') cards = [{ key: '登録数', label: '登録数', format: 'number' },{ key: '合計流入', label: '合計流入', format: 'number' },{ key: '総ユーザー数', label: '総ユーザー', format: 'number' },{ key: '総入金額', label: '総入金額' },{ key: '総GGR', label: '総GGR' },{ key: 'コスト', label: 'コスト' },{ key: 'NGR', label: 'NGR' }];
   
   container.innerHTML = '<div class="summary-grid">' + cards.map((card, i) => {
     let val = data[card.key];
-    if (val == null && card.alt) {
-      for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } }
-    }
+    if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } }
     if (val == null) return '';
     let formatted;
     if (card.format === 'percent') formatted = formatPercent(val);
@@ -898,12 +839,10 @@ function renderKPISections() {
     { title: '💰 収益KPI', keys: ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','RTP','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','GGRLTV'], bg: '#e0e7ff' },
     { title: '💵 回収KPI', keys: ['回収予定金額','回収金額','回収率(全体)','回収率(今月)','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','総入金額','総出金額','入出金差分'], bg: '#fce7f3' },
     { title: '💸 経費KPI', keys: ['合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益'], bg: '#ccfbf1' },
-    { title: '📋 顧客リスト集計', keys: ['総登録数','総回収額','総出金額','回収出金差分','総差分利益','総NGR','総TO','総信用枠','総ボーナス','平均信用枠','平均NGR','担当者数','担当者計_登録数','担当者計_FTD数','担当者計_GGR','担当者計_NGR'], bg: '#fef3c7' },
-    { title: '📊 未回収・ボーナス', keys: ['未回収者数','残未回収金額','遅れ回収者数','遅れ回収金額','ボーナス対象者数','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR'], bg: '#fee2e2' }
   ];
   
   const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合'];
-  const currencyKeys = ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV','総回収額','回収出金差分','総差分利益','総NGR','総TO','総信用枠','総ボーナス','平均信用枠','平均NGR','担当者計_GGR','担当者計_NGR','残未回収金額','遅れ回収金額','総ボーナス付与金額','ボーナス対象入金額','ボーナス対象NGR'];
+  const currencyKeys = ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV'];
   
   container.innerHTML = sections.map(section => {
     const items = section.keys.filter(k => data[k] != null);
@@ -919,7 +858,7 @@ function renderKPISections() {
     }).join('')}</div></div>`;
   }).join('');
   
-  // 入金/出金方法、ゲーム別、Affiliateの表示
+  // 入金/出金方法、Affiliateの表示
   if (periodData?.入金方法) {
     const dep = periodData.入金方法;
     container.innerHTML += `<div class="card" style="background:#e0f2fe"><div class="section-title">💳 入金方法</div><div class="kpi-grid">${Object.entries(dep).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${formatCurrency(v)}</div></div>`).join('')}</div></div>`;
@@ -928,18 +867,9 @@ function renderKPISections() {
     const wd = periodData.出金方法;
     container.innerHTML += `<div class="card" style="background:#fef9c3"><div class="section-title">🏦 出金方法</div><div class="kpi-grid">${Object.entries(wd).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${formatCurrency(v)}</div></div>`).join('')}</div></div>`;
   }
-  if (periodData?.ゲーム別) {
-    const games = periodData.ゲーム別;
-    container.innerHTML += `<div class="card" style="background:#f3e8ff"><div class="section-title">🎮 ゲーム別</div><div class="table-container"><table><thead><tr><th>ゲーム</th><th class="text-right">ユーザー数</th><th class="text-right">T/O</th><th class="text-right">GGR</th></tr></thead><tbody>${Object.entries(games).map(([name,g]) => `<tr><td>${name}</td><td class="text-right">${formatNumber(g.ユーザー数)}</td><td class="text-right">${formatCurrency(g.TO)}</td><td class="text-right">${formatCurrency(g.GGR)}</td></tr>`).join('')}</tbody></table></div></div>`;
-  }
   if (periodData?.Affiliate) {
     const aff = periodData.Affiliate;
     container.innerHTML += `<div class="card" style="background:#ecfdf5"><div class="section-title">🤝 Affiliate</div><div class="kpi-grid">${Object.entries(aff).map(([k,v]) => `<div class="kpi-item"><div class="label">${k}</div><div class="val">${k.includes('率') ? formatPercent(v) : k.includes('数') ? formatNumber(v) : formatCurrency(v)}</div></div>`).join('')}</div></div>`;
-  }
-  // 担当者別データの表示
-  if (periodData?.担当者別 && periodData.担当者別.length > 0) {
-    const tantosha = periodData.担当者別;
-    container.innerHTML += `<div class="card" style="background:#e0f2fe"><div class="section-title">👥 担当者別集計（${tantosha.length}名）</div><div class="table-container"><table><thead><tr><th>担当者</th><th class="text-right">登録数</th><th class="text-right">FTD数</th><th class="text-right">信用枠</th><th class="text-right">GGR</th><th class="text-right">NGR</th></tr></thead><tbody>${tantosha.map(t => `<tr><td>${t.担当者}</td><td class="text-right">${formatNumber(t.登録数)}</td><td class="text-right">${formatNumber(t.FTD数)}</td><td class="text-right">${formatCurrency(t.信用枠)}</td><td class="text-right">${formatCurrency(t.GGR)}</td><td class="text-right ${t.NGR < 0 ? 'text-red' : 'text-green'}">${formatCurrency(t.NGR)}</td></tr>`).join('')}</tbody></table></div></div>`;
   }
 }
 
@@ -968,17 +898,6 @@ function renderChart() {
       { label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['GGR'] || data[p]?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' },
       { label: '入出金差分', data: periods.map(p => (data[p]?.サマリー?.['入出金差分'] || data[p]?.['入出金差分'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }
     ];
-  } else if (type === 'ads') {
-    datasets = [
-      { label: 'コスト(円)', data: periods.map(p => (data[p]?.サマリー?.['コスト(円)'] || (data[p]?.サマリー?.['コスト合計'] || 0) * 150)), backgroundColor: 'rgba(239,68,68,0.7)' },
-      { label: '登録×10000', data: periods.map(p => ((data[p]?.サマリー?.['登録合計'] || data[p]?.サマリー?.['登録数'] || 0) * 10000)), backgroundColor: 'rgba(139,92,246,0.7)' },
-      { label: '入金×50000', data: periods.map(p => ((data[p]?.サマリー?.['入金合計'] || data[p]?.サマリー?.['入金数'] || 0) * 50000)), backgroundColor: 'rgba(16,185,129,0.7)' }
-    ];
-  } else if (type === 'agent') {
-    datasets = [
-      { label: '収益', data: periods.map(p => (data[p]?.サマリー?.['収益合計'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' },
-      { label: 'NGR', data: periods.map(p => (data[p]?.サマリー?.['NGR'] || 0)), backgroundColor: 'rgba(139,92,246,0.7)' }
-    ];
   } else {
     datasets = [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['総GGR'] || data[p]?.サマリー?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' }];
   }
@@ -986,34 +905,14 @@ function renderChart() {
   chartInstance = new Chart(ctx, {
     type: 'bar',
     data: { labels: periods, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { position: 'top' } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => '¥' + (v / 1000000).toFixed(0) + 'M' } } }
-    }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '¥' + (v / 1000000).toFixed(0) + 'M' } } } }
   });
 }
 
 // ========== リンク ==========
 function renderLinks() {
   const section = document.getElementById('links-section');
-  const grid = document.getElementById('links-grid');
-  const title = document.getElementById('links-title');
-  
-  let links = [];
-  if (currentBusiness === 'DSC') { links = DSC_LINKS; title.textContent = '🔗 LP・ツール一覧（' + links.length + '件）'; }
-  else if (currentBusiness === 'スロ天') { links = SLOTEN_LINKS; title.textContent = '🔗 リンク一覧（' + links.length + '件）'; }
-  
-  if (links.length === 0) { section.classList.add('hidden'); return; }
-  section.classList.remove('hidden');
-  
-  const grouped = {};
-  links.forEach(link => { if (!grouped[link.category]) grouped[link.category] = []; grouped[link.category].push(link); });
-  
-  grid.innerHTML = Object.entries(grouped).map(([cat, items]) => 
-    `<div class="link-category"><h4>${cat}（${items.length}件）</h4><div>${items.map(item => `<a href="${item.url}" target="_blank" class="link-item">${item.name}</a>`).join('')}</div></div>`
-  ).join('');
+  section.classList.add('hidden');
 }
 
 // ========== テーブル ==========
@@ -1024,43 +923,18 @@ function renderTable() {
   const header = document.getElementById('table-header');
   const body = document.getElementById('table-body');
   
-  // 週別データ（エージェント）
-  if (business?.type === 'agent' && periodData?.週別?.length > 0) {
-    const weekly = periodData.週別;
-    header.innerHTML = '<th>日付</th><th class="text-right">入金</th><th class="text-right">出金</th><th class="text-right">収益</th><th class="text-right">T/O</th><th class="text-right">ローリング</th><th class="text-right">大阪</th><th class="text-right">報酬計</th><th class="text-right">NGR</th>';
-    body.innerHTML = weekly.map(w => `<tr><td>${w.日付}</td><td class="text-right">${formatCurrency(w.入金)}</td><td class="text-right">${formatCurrency(w.出金)}</td><td class="text-right ${w.収益 >= 0 ? 'text-green' : 'text-red'}">${formatCurrency(w.収益)}</td><td class="text-right">${formatCurrency(w['T/O'])}</td><td class="text-right">${formatCurrency(w.ローリング)}</td><td class="text-right">${formatCurrency(w.大阪)}</td><td class="text-right">${formatCurrency(w.ローリング報酬)}</td><td class="text-right ${w.NGR >= 0 ? 'text-green' : 'text-red'}">${formatCurrency(w.NGR)}</td></tr>`).join('');
-    return;
-  }
-  
-  // 日別データ（広告）
-  if (business?.type === 'ads' && periodData?.日別?.length > 0) {
-    const daily = periodData.日別;
-    header.innerHTML = '<th>日付</th><th class="text-right">コスト</th><th class="text-right">IMP</th><th class="text-right">クリック</th><th class="text-right">登録</th><th class="text-right">入金</th>';
-    body.innerHTML = daily.map(d => `<tr><td>${d.日付}</td><td class="text-right">$${(d.コスト||0).toFixed(2)}</td><td class="text-right">${formatNumber(d.インプレッション)}</td><td class="text-right">${formatNumber(d.クリック)}</td><td class="text-right text-green">${d.登録}</td><td class="text-right text-green">${d.入金}</td></tr>`).join('');
-    return;
-  }
-  
-  if (!data || Object.keys(data).length === 0) {
-    header.innerHTML = '';
-    body.innerHTML = '<tr><td colspan="2" style="text-align:center;padding:40px;color:#94a3b8">データがありません</td></tr>';
-    return;
-  }
-  
-  const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','回収率','CTR','CVR','入金率'];
-  const currencyKeys = ['T/O','勝利金','GGR','NGR','回収金額','出金金額','入金合計','出金合計','収益合計','コスト'];
-  
   header.innerHTML = '<th>項目</th><th class="text-right">値</th>';
-  body.innerHTML = Object.entries(data).filter(([k]) => !k.startsWith('_')).map(([key, value]) => {
-    if (typeof value === 'object') return '';
+  
+  const percentKeys = ['FTP率','FTD率','FTW率','FTDW率','RTP','回収率(全体)','回収率(今月)','今月登録FTD以降ユーザー割合','ボーナス割合(GGR)','ボーナス割合(T/O)','ボーナス割合(WIN/LOSE)'];
+  const currencyKeys = ['T/O','T/O(リアルのみ)','勝利金','勝利金(リアルのみ)','GGR(WIN/LOSE)','GGR','WIN/LOSE','LTV(WIN/LOSE)','回収予定金額','回収金額','出金金額','GGR(回収金額-出金金額)','LTV(GGR)','NGR','合計経費','プロバイダーフィー','人件費','通信費','インセンティブ','ペイメントフィー','雑費・福利厚生等','BK','利益','総入金額','総出金額','入出金差分','GGRLTV'];
+  
+  body.innerHTML = Object.entries(data).map(([key, value]) => {
+    if (value === null || value === undefined) return '';
     let formatted;
-    if (typeof value === 'number') {
-      if (percentKeys.some(pk => key.includes(pk))) formatted = formatPercent(value);
-      else if (currencyKeys.some(ck => key.includes(ck))) formatted = formatCurrency(value);
-      else if (key.includes('数') || key.includes('人数') || key.includes('件数')) formatted = formatNumber(value);
-      else formatted = formatCurrency(value);
-    } else {
-      formatted = String(value);
-    }
+    if (percentKeys.includes(key)) formatted = formatPercent(value);
+    else if (currencyKeys.includes(key)) formatted = formatCurrency(value);
+    else if (typeof value === 'number') formatted = formatNumber(value);
+    else formatted = String(value);
     const isNeg = typeof value === 'number' && value < 0;
     return `<tr><td>${key}</td><td class="text-right ${isNeg ? 'text-red' : ''}">${formatted}</td></tr>`;
   }).join('');
@@ -1094,770 +968,58 @@ function handleFileUpload(file) {
   const uploadType = document.getElementById('upload-type').value;
   const reader = new FileReader();
   
-  // ZIPファイルの場合はエラー
-  if (file.name.endsWith('.zip')) {
-    showStatus('ZIPファイルは対応していません。解凍してから個別のファイルをアップロードしてください。', true);
-    return;
-  }
+  if (file.name.endsWith('.zip')) { showStatus('ZIPファイルは対応していません。解凍してから個別のファイルをアップロードしてください。', true); return; }
   
   reader.onload = function(e) {
     try {
-      if (file.name.endsWith('.csv')) {
-        handleCSV(e.target.result, period, uploadType, file.name);
-      } else {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        handleExcel(workbook, period, uploadType, file.name);
-      }
-    } catch (err) {
-      showStatus('エラー: ' + err.message, true);
-    }
+      if (file.name.endsWith('.csv')) handleCSV(e.target.result, period, uploadType, file.name);
+      else { const data = new Uint8Array(e.target.result); const workbook = XLSX.read(data, { type: 'array' }); handleExcel(workbook, period, uploadType, file.name); }
+    } catch (err) { showStatus('エラー: ' + err.message, true); }
   };
   
   if (file.name.endsWith('.csv')) reader.readAsText(file, 'UTF-8');
   else reader.readAsArrayBuffer(file);
 }
 
-// ========== CSV処理 ==========
 function handleCSV(text, period, uploadType, filename) {
-  const parseCSVLine = (line) => {
-    const result = []; let current = ''; let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') inQuotes = !inQuotes;
-      else if (c === ',' && !inQuotes) { result.push(current.trim().replace(/^"|"$/g, '')); current = ''; }
-      else current += c;
-    }
-    result.push(current.trim().replace(/^"|"$/g, ''));
-    return result;
-  };
-  
+  const parseCSVLine = (line) => { const result = []; let current = ''; let inQuotes = false; for (let i = 0; i < line.length; i++) { const c = line[i]; if (c === '"') inQuotes = !inQuotes; else if (c === ',' && !inQuotes) { result.push(current.trim().replace(/^"|"$/g, '')); current = ''; } else current += c; } result.push(current.trim().replace(/^"|"$/g, '')); return result; };
   const lines = text.replace(/\r\n/g, '\n').split('\n').filter(l => l.trim()).map(l => parseCSVLine(l));
   if (lines.length < 2) { showStatus('CSVにデータがありません', true); return; }
   
   const headerStr = lines[0].join(',').toLowerCase();
   const fn = filename.toLowerCase();
   
-  // ファイル名またはヘッダーから自動判別
-  const isCustomerList = fn.includes('顧客リスト') || fn.includes('customer');
-  const isUncollected = fn.includes('未回収') || headerStr.includes('残未回収金額');
-  const isDelayed = fn.includes('遅れ回収') || fn.includes('遅れ') || (headerStr.includes('本来支払日') && headerStr.includes('今回返済'));
-  const isBonus = fn.includes('ボーナス') || fn.includes('キャッシュバック') || headerStr.includes('総ボーナス付与金額');
-  const isAgent = fn.includes('エージェント') || fn.includes('agent') || (headerStr.includes('teamkyoto') || headerStr.includes('ローリング'));
-  const isAds = fn.includes('日报') || fn.includes('広告') || (headerStr.includes('コスト') && headerStr.includes('インプレッション'));
   const isSloten = fn.includes('スロ天') || fn.includes('kpi') || (headerStr.includes('項目名') && headerStr.includes('月次合計'));
   
-  // 自動判別
-  if (uploadType === 'auto') {
-    if (isSloten) { parseSlotenCSV(lines, period, fn); return; }
-    if (isCustomerList) { parseCustomerListCSV(lines, period, fn); return; }
-    if (isUncollected) { parseUncollectedCSV(lines, period, fn); return; }
-    if (isDelayed) { parseDelayedCSV(lines, period, fn); return; }
-    if (isBonus) { parseBonusCSV(lines, period, fn); return; }
-    if (isAgent) { parseAgentCSV(lines, period); return; }
-    if (isAds) { parseAdsCSV(lines, period); return; }
-  }
-  
-  // 種別指定
+  if (uploadType === 'auto') { if (isSloten) { parseSlotenCSV(lines, period, fn); return; } }
   if (uploadType === 'sloten') { parseSlotenCSV(lines, period, fn); return; }
-  if (uploadType === 'customerList') { parseCustomerListCSV(lines, period, fn); return; }
-  if (uploadType === 'uncollected') { parseUncollectedCSV(lines, period, fn); return; }
-  if (uploadType === 'bonus') { parseBonusCSV(lines, period, fn); return; }
-  if (uploadType === 'delayed') { parseDelayedCSV(lines, period, fn); return; }
-  if (uploadType === 'agent') { parseAgentCSV(lines, period); return; }
-  if (uploadType === 'ads') { parseAdsCSV(lines, period); return; }
   
   showStatus('CSVの形式を判別できませんでした', true);
 }
 
-function parseCustomerListCSV(lines, period, filename) {
-  const fn = filename.toLowerCase();
-  const isDSC = fn.includes('リストd') || fn.includes('d.csv') || filename.includes('リストD');
-  const target = isDSC ? 'DSC' : '元amuse';
-  
-  // ヘッダー行（行3）を探す
-  let headerRowIdx = -1;
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
-    const row = lines[i];
-    if (row && row.some(cell => String(cell).includes('FULLNAME1') || String(cell).includes('トータル回収額'))) {
-      headerRowIdx = i;
-      break;
-    }
-  }
-  if (headerRowIdx < 0) headerRowIdx = 3; // デフォルト
-  
-  const header = lines[headerRowIdx] || [];
-  
-  // カラムインデックスを動的に取得
-  const colIdx = {};
-  header.forEach((h, idx) => {
-    const col = String(h).trim();
-    if (col === 'FULLNAME1') colIdx.name = idx;
-    if (col === 'credit' || col === '信用枠') colIdx.credit = idx;
-    if (col.includes('トータル回収額')) colIdx.collected = idx;
-    if (col.includes('トータル出金額')) colIdx.withdraw = idx;
-    if (col.includes('トータル差分利益')) colIdx.diff = idx;
-    if (col.includes('トータルT/O') || col === 'T/O') colIdx.to = idx;
-    if (col === '入金回数') colIdx.depCount = idx;
-    if (col === '出金回数') colIdx.wdCount = idx;
-    if (col === 'NGR' && !colIdx.ngr) colIdx.ngr = idx; // 最初のNGRのみ
-    if (col === 'ボーナス付与総金額') colIdx.bonus = idx;
-  });
-  
-  // 担当者集計のヘッダー位置を探す（行4の右側）
-  let tantoshaStartCol = -1;
-  if (lines[headerRowIdx + 1]) {
-    const firstDataRow = lines[headerRowIdx + 1];
-    for (let j = 40; j < firstDataRow.length; j++) {
-      if (String(firstDataRow[j]).trim() === '担当者') {
-        tantoshaStartCol = j;
-        break;
-      }
-    }
-  }
-  
-  let stats = { 
-    総登録数: 0, 総回収額: 0, 総出金額: 0, 総差分利益: 0, 総NGR: 0, 
-    FTD数: 0, FTW数: 0, FTDW数: 0, 総信用枠: 0, 総TO: 0, 総ボーナス: 0
-  };
-  
-  // 担当者別データ
-  const tantoshaData = [];
-  
-  // データ行を処理（ヘッダー行の次から）
-  for (let i = headerRowIdx + 1; i < lines.length; i++) {
-    const row = lines[i];
-    if (!row || row.length < 10) continue;
-    
-    // 左側: 個別顧客データ（FULLNAME1がある行）
-    const name = String(row[colIdx.name] || row[1] || '').trim();
-    if (name && name !== '担当者' && !name.includes('セル')) {
-      stats.総登録数++;
-      
-      const collected = parseNumber(row[colIdx.collected] || row[8]) || 0;
-      const withdraw = parseNumber(row[colIdx.withdraw] || row[9]) || 0;
-      const diff = parseNumber(row[colIdx.diff] || row[10]) || 0;
-      const to = parseNumber(row[colIdx.to] || row[11]) || 0;
-      const depCount = parseNumber(row[colIdx.depCount] || row[18]) || 0;
-      const wdCount = parseNumber(row[colIdx.wdCount] || row[19]) || 0;
-      const ngr = parseNumber(row[colIdx.ngr] || row[20]) || 0;
-      const credit = parseNumber(row[colIdx.credit] || row[7]) || 0;
-      const bonus = parseNumber(row[colIdx.bonus] || row[21]) || 0;
-      
-      stats.総回収額 += collected;
-      stats.総出金額 += withdraw;
-      stats.総差分利益 += diff;
-      stats.総TO += to;
-      stats.総NGR += ngr;
-      stats.総信用枠 += credit;
-      stats.総ボーナス += bonus;
-      
-      // FTD判定: 入金回数が1以上、または回収額が0より大きい場合
-      const hasFTD = depCount > 0 || collected > 0;
-      const hasWithdraw = wdCount > 0 || withdraw > 0;
-      
-      if (hasFTD) { 
-        stats.FTD数++; 
-        if (hasWithdraw) stats.FTDW数++; 
-      }
-      if (hasWithdraw) stats.FTW数++;
-    }
-    
-    // 右側: 担当者別集計データ（tantoshaStartColが見つかった場合）
-    if (tantoshaStartCol > 0 && row[tantoshaStartCol]) {
-      const tName = String(row[tantoshaStartCol]).trim();
-      if (tName && tName !== '担当者' && tName !== 'あり' && tName !== 'なし') {
-        const tData = {
-          担当者: tName,
-          登録数: parseNumber(row[tantoshaStartCol + 1]) || 0,
-          プレイ数: parseNumber(row[tantoshaStartCol + 2]) || 0,
-          FTD数: parseNumber(row[tantoshaStartCol + 4]) || 0,
-          信用枠: parseNumber(row[tantoshaStartCol + 6]) || 0,
-          TO: parseNumber(row[tantoshaStartCol + 7]) || 0,
-          GGR: parseNumber(row[tantoshaStartCol + 10]) || 0,
-          NGR: parseNumber(row[tantoshaStartCol + 12]) || 0
-        };
-        if (tData.登録数 > 0 || tData.FTD数 > 0) {
-          tantoshaData.push(tData);
-        }
-      }
-    }
-  }
-  
-  // FTD率を計算
-  stats['FTD率'] = stats.総登録数 > 0 ? stats.FTD数 / stats.総登録数 : 0;
-  stats['FTW率'] = stats.総登録数 > 0 ? stats.FTW数 / stats.総登録数 : 0;
-  stats['FTDW率'] = stats.FTD数 > 0 ? stats.FTDW数 / stats.FTD数 : 0;
-  stats['回収出金差分'] = stats.総回収額 - stats.総出金額;
-  stats['平均信用枠'] = stats.総登録数 > 0 ? stats.総信用枠 / stats.総登録数 : 0;
-  stats['平均NGR'] = stats.総登録数 > 0 ? stats.総NGR / stats.総登録数 : 0;
-  
-  // 担当者数
-  if (tantoshaData.length > 0) {
-    stats['担当者数'] = tantoshaData.length;
-    // 担当者別の合計
-    let tTotalReg = 0, tTotalFTD = 0, tTotalGGR = 0, tTotalNGR = 0;
-    tantoshaData.forEach(t => {
-      tTotalReg += t.登録数;
-      tTotalFTD += t.FTD数;
-      tTotalGGR += t.GGR;
-      tTotalNGR += t.NGR;
-    });
-    stats['担当者計_登録数'] = tTotalReg;
-    stats['担当者計_FTD数'] = tTotalFTD;
-    stats['担当者計_GGR'] = tTotalGGR;
-    stats['担当者計_NGR'] = tTotalNGR;
-  }
-  
-  const existing = BUSINESSES[target].data[period]?.サマリー || {};
-  BUSINESSES[target].data[period] = { 
-    サマリー: { ...existing, ...stats },
-    ...(tantoshaData.length > 0 ? { 担当者別: tantoshaData } : {})
-  };
-  
-  const tantoshaInfo = tantoshaData.length > 0 ? `, 担当者${tantoshaData.length}名` : '';
-  showStatus(`顧客リスト取込完了: ${target} ${stats.総登録数}件${tantoshaInfo}, FTD${stats.FTD数}件`);
-  selectBusiness(target);
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
-}
-
-function parseUncollectedCSV(lines, period, filename) {
-  // DSC判定: ファイル名末尾にD（大文字）がある、または「シートD」「D.csv」を含む
-  const fn = filename.toLowerCase();
-  const isDSC = fn.includes('シートd') || fn.includes('d.csv') || fn.endsWith('d') || filename.includes('シートD');
-  const target = isDSC ? 'DSC' : '元amuse';
-  
-  let total = 0;
-  let count = 0;
-  
-  // 最初の数行で「未回収金総額」を探す
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    const row = lines[i];
-    if (!row) continue;
-    const rowStr = row.join(',');
-    if (rowStr.includes('未回収金総額')) {
-      // この行から金額を探す
-      for (let j = 0; j < row.length; j++) {
-        const val = parseNumber(row[j]);
-        if (val && val > 1000000) { // 100万以上なら総額
-          total = val;
-          break;
-        }
-      }
-      // 人数を探す
-      for (let j = 0; j < row.length; j++) {
-        const val = parseNumber(row[j]);
-        if (val && val > 0 && val < 10000) { // 1万未満なら人数
-          count = val;
-          break;
-        }
-      }
-      break;
-    }
-  }
-  
-  // 見つからなければ従来の方法
-  if (total === 0) {
-    const colIdx = lines[0].findIndex(h => String(h).includes('残未回収'));
-    for (let i = 1; i < lines.length; i++) {
-      const val = parseNumber(lines[i][colIdx >= 0 ? colIdx : 0]) || 0;
-      total += val;
-    }
-    count = lines.length - 1;
-  }
-  
-  const data = { '未回収者数': count, '残未回収金額': total };
-  const existing = BUSINESSES[target].data[period]?.サマリー || {};
-  BUSINESSES[target].data[period] = { サマリー: { ...existing, ...data } };
-  
-  showStatus(`未回収シート取込完了: ${target} ${count}人, ${formatCurrency(total)}`);
-  selectBusiness(target);
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
-}
-
-function parseBonusCSV(lines, period, filename) {
-  const fn = filename.toLowerCase();
-  const isDSC = fn.includes('ボーナスd') || fn.includes('d.csv') || filename.includes('ボーナスD');
-  const target = isDSC ? 'DSC' : '元amuse';
-  
-  let totalBonus = 0, totalDeposit = 0, totalNGR = 0;
-  let count = 0;
-  
-  // TOTAL行を探す
-  for (let i = 0; i < lines.length; i++) {
-    const row = lines[i];
-    if (!row) continue;
-    const firstCol = String(row[0] || '').trim().toUpperCase();
-    if (firstCol === 'TOTAL') {
-      totalBonus = parseNumber(row[1]) || 0;
-      break;
-    }
-  }
-  
-  // ヘッダー行を探してデータ行をカウント
-  const header = lines[0] || [];
-  const bonusIdx = header.findIndex(h => String(h).includes('総ボーナス付与金額'));
-  const depIdx = header.findIndex(h => String(h).includes('トータル入金額'));
-  const ngrIdx = header.findIndex(h => String(h).includes('実NGR'));
-  
-  // データ行をカウント（TOTAL行以降）
-  let foundTotal = false;
-  for (let i = 1; i < lines.length; i++) {
-    const row = lines[i];
-    if (!row) continue;
-    const firstCol = String(row[0] || '').trim().toUpperCase();
-    if (firstCol === 'TOTAL') { foundTotal = true; continue; }
-    if (!foundTotal) continue;
-    
-    // 有効なデータ行（名前がある）
-    if (row[3] && String(row[3]).trim()) {
-      count++;
-      if (depIdx >= 0) totalDeposit += parseNumber(row[depIdx]) || 0;
-      if (ngrIdx >= 0) totalNGR += parseNumber(row[ngrIdx]) || 0;
-    }
-  }
-  
-  const data = { 'ボーナス対象者数': count, '総ボーナス付与金額': totalBonus, 'ボーナス対象入金額': totalDeposit, 'ボーナス対象NGR': totalNGR };
-  const existing = BUSINESSES[target].data[period]?.サマリー || {};
-  BUSINESSES[target].data[period] = { サマリー: { ...existing, ...data } };
-  
-  showStatus(`ボーナスシート取込完了: ${target} ${count}人, 総額${formatCurrency(totalBonus)}`);
-  selectBusiness(target);
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
-}
-
-// 遅れ回収シートパーサー
-function parseDelayedCSV(lines, period, filename) {
-  const fn = filename.toLowerCase();
-  const isDSC = fn.includes('回収d') || fn.includes('d.csv') || filename.includes('回収D');
-  const target = isDSC ? 'DSC' : '元amuse';
-  
-  let totalDelayed = 0;
-  let count = 0;
-  
-  // 「今回返済金額」列を探す
-  const header = lines[0] || [];
-  const amountIdx = header.findIndex(h => String(h).includes('今回返済金額'));
-  
-  // トータル行を探す
-  for (let i = 0; i < Math.min(10, lines.length); i++) {
-    const row = lines[i];
-    if (!row) continue;
-    const rowStr = row.join(',');
-    if (rowStr.includes('トータル')) {
-      // この行から担当者別の金額を探す
-      for (let j = 0; j < row.length; j++) {
-        const val = parseNumber(row[j]);
-        if (val && val > 0) {
-          // 担当者名の直後の金額を合計
-        }
-      }
-    }
-  }
-  
-  // データ行から集計
-  for (let i = 1; i < lines.length; i++) {
-    const row = lines[i];
-    if (!row || row.length < 10) continue;
-    
-    const amount = parseNumber(row[amountIdx >= 0 ? amountIdx : 10]) || 0;
-    if (amount > 0) {
-      totalDelayed += amount;
-      count++;
-    }
-  }
-  
-  const data = { '遅れ回収件数': count, '遅れ回収金額': totalDelayed };
-  const existing = BUSINESSES[target].data[period]?.サマリー || {};
-  BUSINESSES[target].data[period] = { サマリー: { ...existing, ...data } };
-  
-  showStatus(`遅れ回収シート取込完了: ${target} ${count}件, ${formatCurrency(totalDelayed)}`);
-  selectBusiness(target);
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
-}
-
-function parseAgentCSV(lines, period) {
-  let weeklyData = [];
-  let totals = { 入金合計: 0, 出金合計: 0, 収益合計: 0, TO合計: 0, ローリング合計: 0, 大阪合計: 0 };
-  
-  for (let i = 2; i < lines.length; i++) {
-    const row = lines[i];
-    if (!row || row.length < 17) continue;
-    
-    const col7 = (row[7] || '').trim();
-    const col12 = (row[12] || '').trim();
-    const isOldFormat = col7.includes('/') && !col7.toLowerCase().includes('kyoto');
-    const isNewFormat = col7 === '' && col12.includes('/');
-    
-    if (isOldFormat || isNewFormat) {
-      const 日付 = isOldFormat ? col7 : col12;
-      const 入金 = parseNumber(row[8]) || 0;
-      const 出金 = parseNumber(row[9]) || 0;
-      const 収益 = parseNumber(row[11]) || 0;
-      const TO = parseNumber(row[13]) || 0;
-      const ローリング = parseNumber(row[14]) || 0;
-      const 大阪 = parseNumber(row[16]) || 0;
-      const ローリング報酬 = ローリング + 大阪;
-      const NGR = 収益 - ローリング報酬;
-      
-      totals.入金合計 += 入金;
-      totals.出金合計 += 出金;
-      totals.収益合計 += 収益;
-      totals.TO合計 += TO;
-      totals.ローリング合計 += ローリング;
-      totals.大阪合計 += 大阪;
-      
-      weeklyData.push({ 日付, 入金, 出金, 収益, 'T/O': TO, ローリング, 大阪, ローリング報酬, NGR });
-    }
-  }
-  
-  const ローリング報酬合計 = totals.ローリング合計 + totals.大阪合計;
-  const NGR合計 = totals.収益合計 - ローリング報酬合計;
-  
-  BUSINESSES['AMUSEVIP'].data['全期間'] = {
-    サマリー: { ...totals, 'ローリング報酬': ローリング報酬合計, 'NGR': NGR合計, '精算回数': weeklyData.length },
-    週別: weeklyData
-  };
-  
-  showStatus(`エージェント取込完了: ${weeklyData.length}回, 収益${formatCurrency(totals.収益合計)}`);
-  selectBusiness('AMUSEVIP');
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
-}
-
-// スロ天KPIシートCSVパーサー
 function parseSlotenCSV(lines, period, filename) {
+  const header = lines[0];
+  let valueColIdx = header.findIndex(h => String(h).includes('月次合計'));
+  if (valueColIdx < 0) valueColIdx = 1;
+  
   const kpi = {};
-  const depositMethods = {};
-  const withdrawMethods = {};
-  const gameData = {};
-  const affData = {};
+  lines.slice(1).forEach(row => { if (!row[0]) return; const key = String(row[0]).trim(); const val = parseNumber(row[valueColIdx]); if (key && val !== null) kpi[key] = val; });
   
-  // 期間名をファイル名から抽出（例: 202601 → 2026年1月）
-  let periodName = period;
-  const match = filename.match(/(\d{4})(\d{2})/);
-  if (match) {
-    periodName = `${match[1]}年${parseInt(match[2])}月`;
-  }
-  
-  // 主要KPIのキー（最初に見つかった値を優先）
-  const primaryKeys = ['GGR', '総入金額', '総出金額', '入出金差分', 'T/O', 'RTP', 'NGR', '登録人数', 'ログインユーザー数', 'FTD', 'GGRLTV'];
-  
-  // 各行を処理（最初の100行のみサマリーKPIとして扱う）
-  lines.forEach((row, idx) => {
-    if (!row || row.length < 2) return;
-    const rawLabel = String(row[0] || '').trim();
-    const monthlyVal = row[1];
-    
-    if (!rawLabel || rawLabel === '項目名' || rawLabel === '' || rawLabel.includes('全体KPI')) return;
-    
-    const val = parseNumber(monthlyVal);
-    if (val === null) return;
-    
-    // ラベルを正規化（/以降を除去）
-    const cleanLabel = rawLabel.split('/')[0].trim();
-    
-    // 主要KPIは最初に見つかった値のみ採用（上書きしない）
-    const isPrimaryKey = primaryKeys.some(pk => cleanLabel === pk || cleanLabel.startsWith(pk));
-    if (isPrimaryKey && kpi[cleanLabel] !== undefined) {
-      // すでに値がある場合はスキップ（最初の値を優先）
-      return;
-    }
-    
-    // サマリーKPIセクション（最初の90行程度）の値を優先
-    if (idx < 90 || !isPrimaryKey) {
-      kpi[cleanLabel] = val;
-    }
-  });
-  
-  // 入出金差分がなければ計算
-  if (kpi['入出金差分'] === undefined && kpi['総入金額'] !== undefined && kpi['総出金額'] !== undefined) {
-    kpi['入出金差分'] = kpi['総入金額'] - kpi['総出金額'];
-  }
-  
-  // データを保存
-  if (!BUSINESSES['スロ天']) {
-    BUSINESSES['スロ天'] = { data: {}, type: 'sloten' };
-  }
-  
-  BUSINESSES['スロ天'].data[periodName] = {
-    サマリー: kpi,
-    ...(Object.keys(depositMethods).length > 0 ? { 入金方法: depositMethods } : {}),
-    ...(Object.keys(withdrawMethods).length > 0 ? { 出金方法: withdrawMethods } : {}),
-    ...(Object.keys(gameData).length > 0 ? { ゲーム別: gameData } : {}),
-    ...(Object.keys(affData).length > 0 ? { Affiliate: affData } : {})
-  };
-  
-  const ggrVal = kpi['GGR'] ? formatCurrency(kpi['GGR']) : 'N/A';
-  showStatus(`スロ天KPI取込完了: ${periodName}, GGR=${ggrVal}`);
+  BUSINESSES['スロ天'].data[period] = { サマリー: kpi };
+  showStatus(`スロ天KPI取込完了: ${Object.keys(kpi).length}項目`);
   selectBusiness('スロ天');
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
+  saveBusinessData();
+  setTimeout(hideUploadModal, 1500);
 }
 
-function parseAdsCSV(lines, period) {
-  const header = lines[0].map(h => String(h || '').toLowerCase().replace(/\n/g, '').trim());
-  
-  // インデックス検索（最初にマッチしたものだけ使用）
-  const dateIdx = header.findIndex(h => h.includes('date') || h === '日付');
-  const costIdx = header.findIndex(h => h.includes('コスト') || h === 'cost');
-  const impIdx = header.findIndex(h => h.includes('インプレッション') || h.includes('imp'));
-  const clickIdx = header.findIndex(h => h.includes('クリック') || h.includes('click'));
-  // 登録数は「登録数」完全一致のみ
-  const regIdx = header.findIndex(h => h === '登録数' || h === 'registrations');
-  // 入金数は「入金数」完全一致のみ（[BO: Asp]などの重複を除外）
-  const depIdx = header.findIndex(h => h === '入金数' || h === 'deposits');
-  
-  let dailyData = [];
-  let totals = { コスト: 0, インプレッション: 0, クリック: 0, 登録: 0, 入金: 0 };
-  
-  for (let i = 1; i < lines.length; i++) {
-    const row = lines[i];
-    if (!row || row.length < 5) continue;
-    
-    const parseVal = (idx, fallback) => {
-      if (idx < 0 && fallback < 0) return 0;
-      const v = row[idx >= 0 ? idx : fallback] || '';
-      return parseFloat(String(v).replace(/[$￥¥,"\s]/g, '')) || 0;
-    };
-    
-    const date = row[dateIdx >= 0 ? dateIdx : 0] || '';
-    const cost = parseVal(costIdx, 1);
-    const imp = parseVal(impIdx, 2);
-    const click = parseVal(clickIdx, 3);
-    const reg = parseVal(regIdx, 4);
-    const dep = parseVal(depIdx, 5);
-    
-    totals.コスト += cost;
-    totals.インプレッション += imp;
-    totals.クリック += click;
-    totals.登録 += reg;
-    totals.入金 += dep;
-    
-    if (cost > 0 || reg > 0) dailyData.push({ 日付: date, コスト: cost, インプレッション: imp, クリック: click, 登録: reg, 入金: dep });
-  }
-  
-  const ctr = totals.インプレッション > 0 ? totals.クリック / totals.インプレッション : 0;
-  const cvr = totals.クリック > 0 ? totals.登録 / totals.クリック : 0;
-  const costYen = totals.コスト < 10000 ? totals.コスト * 150 : totals.コスト;
-  const cpaUsd = totals.登録 > 0 ? totals.コスト / totals.登録 : 0;
-  const cpaYen = totals.登録 > 0 ? costYen / totals.登録 : 0;
-  
-  BUSINESSES['広告'].data['全期間'] = {
-    サマリー: { 'コスト合計': totals.コスト, 'コスト(円)': costYen, 'インプレッション合計': totals.インプレッション, 'クリック合計': totals.クリック, '登録合計': totals.登録, '入金合計': totals.入金, 'CTR': ctr, 'CVR': cvr, 'CPA(登録)': cpaUsd, 'CPA(円)': cpaYen, 'データ日数': dailyData.length },
-    日別: dailyData
-  };
-  
-  showStatus(`広告データ取込完了: ${dailyData.length}日, $${totals.コスト.toFixed(2)}, 登録${totals.登録}件, 入金${totals.入金}件`);
-  selectBusiness('広告');
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
-}
-
-// ========== Excel処理 ==========
 function handleExcel(workbook, period, uploadType, filename) {
   const sheetNames = workbook.SheetNames;
   const fn = filename.toLowerCase();
   
-  // スロ天KPIシート（YYYYMM形式のシート）
-  const slotenSheets = sheetNames.filter(s => /^\d{6}$/.test(s));
-  if (uploadType === 'sloten' || (uploadType === 'auto' && (slotenSheets.length > 0 || fn.includes('スロ天') || fn.includes('kpi')))) {
-    parseSlotenExcel(workbook, slotenSheets);
-    return;
-  }
+  const revenueSheets = sheetNames.filter(n => n.includes('収益'));
+  if (revenueSheets.length > 0 && (uploadType === 'auto' || uploadType === 'samExcel')) { parseSamExcel(workbook, revenueSheets); return; }
   
-  // バカラツール（ダッシュボードまたはコストシートがある、またはファイル名にバカラ含む）
-  const hasBaccaraSheet = sheetNames.includes('ダッシュボード') || sheetNames.includes('コスト') || sheetNames.some(s => s.includes('バカラ'));
-  if (uploadType === 'baccarat' || (uploadType === 'auto' && (hasBaccaraSheet || fn.includes('バカラ') || fn.includes('baccara')))) {
-    parseBaccaratExcel(workbook, period);
-    return;
-  }
-  
-  // 収益シート（元amuse/DSC）
-  const revenueSheets = sheetNames.filter(s => s.includes('収益') && !s.includes('import'));
-  if (revenueSheets.length > 0) {
-    parseSamExcel(workbook, revenueSheets);
-    return;
-  }
-  
-  // デフォルト: 最初のシートを解析
   parseGenericExcel(workbook, period);
-}
-
-function parseSlotenExcel(workbook, monthlySheets) {
-  let count = 0;
-  
-  monthlySheets.forEach(sheetName => {
-    const sheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-    
-    const kpi = {};
-    const depositMethods = {};
-    const withdrawMethods = {};
-    const gameData = {};
-    const affData = {};
-    
-    // サマリーKPI
-    data.forEach((row, idx) => {
-      if (!row || row.length < 2) return;
-      const label = String(row[0] || '').trim().split('/')[0].trim();
-      const val = parseNumber(row[1]);
-      if (label && val !== null && label !== '項目名') kpi[label] = val;
-    });
-    
-    // 入金方法（行191-197付近）
-    for (let i = 191; i < Math.min(198, data.length); i++) {
-      const row = data[i];
-      if (row && row[0] && row[1] !== undefined) {
-        const key = String(row[0]).trim();
-        if (key && key !== '入金') {
-          const val = parseNumber(row[1]);
-          if (val !== null) depositMethods[key] = val;
-        }
-      }
-    }
-    
-    // 出金方法（行199-204付近）
-    for (let i = 199; i < Math.min(205, data.length); i++) {
-      const row = data[i];
-      if (row && row[0] && row[1] !== undefined) {
-        const key = String(row[0]).trim();
-        if (key && key !== '出金') {
-          const val = parseNumber(row[1]);
-          if (val !== null) withdrawMethods[key] = val;
-        }
-      }
-    }
-    
-    // ゲーム別データ
-    const gamePositions = [
-      { name: 'パチンコ', userRow: 123, toRow: 124, ggrRow: 127 },
-      { name: 'パチスロ', userRow: 142, toRow: 143, ggrRow: 146 },
-      { name: 'スロット', userRow: 161, toRow: 162, ggrRow: 165 },
-      { name: 'ライブ', userRow: 180, toRow: 181, ggrRow: 184 }
-    ];
-    gamePositions.forEach(g => {
-      if (data[g.userRow] && data[g.toRow] && data[g.ggrRow]) {
-        gameData[g.name] = {
-          ユーザー数: parseNumber(data[g.userRow]?.[1]) || 0,
-          TO: parseNumber(data[g.toRow]?.[1]) || 0,
-          GGR: parseNumber(data[g.ggrRow]?.[1]) || 0
-        };
-      }
-    });
-    
-    // Affiliate（行92-111付近）
-    for (let i = 92; i < Math.min(112, data.length); i++) {
-      const row = data[i];
-      if (row && row[0] && row[1] !== undefined) {
-        const key = String(row[0]).trim().split('/')[0].trim();
-        if (key && key.includes('AFF')) {
-          const val = parseNumber(row[1]);
-          if (val !== null) affData[key] = val;
-        }
-      }
-    }
-    
-    const year = sheetName.substring(0, 4);
-    const month = parseInt(sheetName.substring(4, 6));
-    const periodName = `${year}年${month}月`;
-    
-    if (Object.keys(kpi).length > 0) {
-      BUSINESSES['スロ天'].data[periodName] = {
-        サマリー: kpi,
-        ...(Object.keys(depositMethods).length > 0 ? { 入金方法: depositMethods } : {}),
-        ...(Object.keys(withdrawMethods).length > 0 ? { 出金方法: withdrawMethods } : {}),
-        ...(Object.keys(gameData).length > 0 ? { ゲーム別: gameData } : {}),
-        ...(Object.keys(affData).length > 0 ? { Affiliate: affData } : {})
-      };
-      count++;
-    }
-  });
-  
-  showStatus(`スロ天データ取込完了: ${count}期間`);
-  selectBusiness('スロ天');
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
-}
-
-function parseBaccaratExcel(workbook, period) {
-  // 各シートを探す
-  const dashSheetName = workbook.SheetNames.find(s => s.includes('ダッシュボード') || s.includes('Dashboard') || s.includes('サマリー'));
-  const dashSheet = dashSheetName ? workbook.Sheets[dashSheetName] : workbook.Sheets[workbook.SheetNames[0]];
-  const costSheet = workbook.Sheets['コスト'] || workbook.Sheets['cost'] || workbook.Sheets['Cost'];
-  const userSheet = workbook.Sheets['ユーザー・収益分析'] || workbook.Sheets['ユーザー分析'];
-  
-  const extractedData = { 'LINE流入': 0, 'Telegram流入': 0, 'Twitter流入': 0, '合計流入': 0, '総ユーザー数': 0, '総入金額': 0, '総GGR': 0, 'コスト': 0, 'NGR': 0, '登録数': 0 };
-  
-  // ダッシュボードシートからデータ取得
-  if (dashSheet) {
-    const dashData = XLSX.utils.sheet_to_json(dashSheet, { header: 1 });
-    dashData.forEach(row => {
-      if (!row || row.length < 2) return;
-      const label = String(row[0] || '').trim().toLowerCase();
-      const value = parseNumber(row[1]);
-      if (value === null) return;
-      
-      if (label.includes('line') && label.includes('流入')) extractedData['LINE流入'] = value;
-      else if (label.includes('telegram') && label.includes('流入')) extractedData['Telegram流入'] = value;
-      else if ((label.includes('twitter') || label.includes('x')) && label.includes('流入')) extractedData['Twitter流入'] = value;
-      else if (label.includes('合計') && label.includes('流入')) extractedData['合計流入'] = value;
-      else if (label.includes('総ユーザー') || label.includes('ユーザー数')) extractedData['総ユーザー数'] = value;
-      else if (label.includes('総入金') || (label.includes('入金') && label.includes('額'))) extractedData['総入金額'] = value;
-      else if (label.includes('ggr') && !label.includes('ngr')) extractedData['総GGR'] = value;
-      else if (label === 'コスト' || label === 'cost') extractedData['コスト'] = value;
-      else if (label === 'ngr') extractedData['NGR'] = value;
-    });
-  }
-  
-  // ユーザー・収益分析シートから登録数を合計
-  if (userSheet) {
-    const userData = XLSX.utils.sheet_to_json(userSheet, { header: 1 });
-    let totalReg = 0;
-    let regColIdx = -1;
-    
-    userData.forEach((row, idx) => {
-      if (!row) return;
-      // ヘッダー行で「登録」列を探す
-      if (regColIdx < 0) {
-        const foundIdx = row.findIndex(cell => String(cell || '').trim() === '登録');
-        if (foundIdx >= 0) regColIdx = foundIdx;
-      }
-      // 「合計」行から登録数を取得
-      const firstCell = String(row[0] || '').trim();
-      if (firstCell === '合計' && regColIdx >= 0) {
-        const regVal = parseNumber(row[regColIdx]);
-        if (regVal !== null && regVal > 0) totalReg += regVal;
-      }
-    });
-    
-    if (totalReg > 0) extractedData['登録数'] = totalReg;
-  }
-  
-  // コストシートから合計取得
-  if (costSheet) {
-    const costData = XLSX.utils.sheet_to_json(costSheet, { header: 1 });
-    costData.forEach(row => {
-      if (!row) return;
-      const label = String(row[0] || '').trim().toLowerCase();
-      if (label === '合計' || label === 'total') {
-        const costVal = parseNumber(row[2]) || parseNumber(row[1]) || 0;
-        if (costVal > 0) extractedData['コスト'] = costVal;
-      }
-    });
-  }
-  
-  // NGR計算（なければ算出）
-  if (extractedData['NGR'] === 0 && (extractedData['総GGR'] > 0 || extractedData['コスト'] > 0)) {
-    extractedData['NGR'] = (extractedData['総GGR'] || 0) - (extractedData['コスト'] || 0);
-  }
-  
-  // 合計流入がなければ計算
-  if (extractedData['合計流入'] === 0) {
-    extractedData['合計流入'] = extractedData['LINE流入'] + extractedData['Telegram流入'] + extractedData['Twitter流入'];
-  }
-  
-  BUSINESSES['バカラツール'].data['全期間'] = { サマリー: extractedData };
-  
-  showStatus(`バカラツール取込完了: 登録${extractedData['登録数']}件, コスト${formatCurrency(extractedData['コスト'])}`);
-  selectBusiness('バカラツール');
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
 function parseSamExcel(workbook, revenueSheets) {
@@ -1866,42 +1028,26 @@ function parseSamExcel(workbook, revenueSheets) {
   revenueSheets.forEach(sheetName => {
     const sheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-    
-    // 分類: Dで終わる → DSC
     const isDSC = sheetName.endsWith('D');
     let periodName = sheetName.replace('収益', '').replace(/D$/, '');
     
     const extracted = {};
     data.forEach(row => {
-      // B列(1)とC列(2)
-      if (row[1] && row[2] !== undefined && row[2] !== null && row[2] !== '') {
-        const key = String(row[1]).trim().replace(/（/g, '(').replace(/）/g, ')');
-        const val = parseNumber(row[2]);
-        if (val !== null && !String(row[2]).startsWith('#') && !key.startsWith('0.')) extracted[key] = val;
-      }
-      // D列(3)とE列(4)
-      if (row[3] && row[4] !== undefined && row[4] !== null && row[4] !== '') {
-        const key = String(row[3]).trim().replace(/（/g, '(').replace(/）/g, ')');
-        const val = parseNumber(row[4]);
-        if (val !== null && !String(row[4]).startsWith('#') && !key.startsWith('0.')) extracted[key] = val;
-      }
+      if (row[1] && row[2] !== undefined && row[2] !== null && row[2] !== '') { const key = String(row[1]).trim().replace(/（/g, '(').replace(/）/g, ')'); const val = parseNumber(row[2]); if (val !== null && !String(row[2]).startsWith('#') && !key.startsWith('0.')) extracted[key] = val; }
+      if (row[3] && row[4] !== undefined && row[4] !== null && row[4] !== '') { const key = String(row[3]).trim().replace(/（/g, '(').replace(/）/g, ')'); const val = parseNumber(row[4]); if (val !== null && !String(row[4]).startsWith('#') && !key.startsWith('0.')) extracted[key] = val; }
     });
     
     if (Object.keys(extracted).length > 0) {
-      if (isDSC) {
-        BUSINESSES['DSC'].data[periodName] = { サマリー: extracted };
-        dscCount++;
-      } else {
-        BUSINESSES['元amuse'].data[periodName] = { サマリー: extracted };
-        amuseCount++;
-      }
+      if (isDSC) { BUSINESSES['DSC'].data[periodName] = { サマリー: extracted }; dscCount++; }
+      else { BUSINESSES['元amuse'].data[periodName] = { サマリー: extracted }; amuseCount++; }
     }
   });
   
   showStatus(`収益シート取込完了: 元amuse ${amuseCount}件, DSC ${dscCount}件`);
   if (dscCount > 0) selectBusiness('DSC');
   else selectBusiness('元amuse');
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
+  saveBusinessData();
+  setTimeout(hideUploadModal, 1500);
 }
 
 function parseGenericExcel(workbook, period) {
@@ -1909,17 +1055,13 @@ function parseGenericExcel(workbook, period) {
   const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
   
   const kpi = {};
-  data.forEach(row => {
-    if (!row || row.length < 2) return;
-    const label = String(row[0] || '').trim();
-    const val = parseNumber(row[1]);
-    if (label && val !== null) kpi[label] = val;
-  });
+  data.forEach(row => { if (!row || row.length < 2) return; const label = String(row[0] || '').trim(); const val = parseNumber(row[1]); if (label && val !== null) kpi[label] = val; });
   
   BUSINESSES[currentBusiness].data[period] = { サマリー: kpi };
   showStatus(`Excel取込完了: ${Object.keys(kpi).length}項目`);
   selectBusiness(currentBusiness);
-  saveBusinessData(); setTimeout(hideUploadModal, 1500);
+  saveBusinessData();
+  setTimeout(hideUploadModal, 1500);
 }
 
 // ========== 事業追加・削除 ==========
@@ -1936,11 +1078,7 @@ function addBusiness() {
 
 function deleteBusiness() {
   if (Object.keys(BUSINESSES).length <= 1) { alert('最後の事業は削除できません'); return; }
-  if (confirm(`「${currentBusiness}」を削除しますか？`)) {
-    delete BUSINESSES[currentBusiness];
-    saveBusinessData(); // クラウドに再保存
-    selectBusiness(Object.keys(BUSINESSES)[0]);
-  }
+  if (confirm(`「${currentBusiness}」を削除しますか？`)) { delete BUSINESSES[currentBusiness]; saveBusinessData(); selectBusiness(Object.keys(BUSINESSES)[0]); }
 }
 </script>
 </body>
