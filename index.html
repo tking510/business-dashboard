@@ -328,7 +328,40 @@ function sortPeriods(periods) {
 function getBinIdFromURL() { return new URLSearchParams(window.location.search).get('bin') || ''; }
 function setBinIdToURL(binId) { const url = new URL(window.location.href); url.searchParams.set('bin', binId); window.history.replaceState({}, '', url); }
 function updateSyncStatus(msg, isError = false) { const el = document.getElementById('sync-status'); el.textContent = isError ? '⚠️ ' + msg : '💾 ' + msg; el.style.color = isError ? '#ef4444' : '#10b981'; }
-async function createNewBin() { try { updateSyncStatus('作成中...'); const res = await fetch(NPOINT_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ businesses: {}, created: new Date().toISOString() }) }); const binId = res.url.split('/').pop(); if (binId && binId.length > 5) { NPOINT_BIN_ID = binId; cloudEnabled = true; setBinIdToURL(binId); updateSyncStatus('作成完了！'); showShareURL(); return binId; } } catch (e) { updateSyncStatus('作成エラー', true); } return null; }
+async function createNewBin() { 
+  try { 
+    updateSyncStatus('作成中...'); 
+    const fetchPromise = fetch(NPOINT_API, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ businesses: {}, created: new Date().toISOString() })
+    });
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000));
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    const binId = data.id || res.url.split('/').pop(); 
+    if (binId && binId.length > 5) { 
+      NPOINT_BIN_ID = binId; 
+      cloudEnabled = true; 
+      setBinIdToURL(binId); 
+      updateSyncStatus('作成完了！'); 
+      showShareURL(); 
+      return binId; 
+    } else {
+      throw new Error('Invalid bin ID');
+    }
+  } catch (e) { 
+    console.error('createNewBin error:', e);
+    updateSyncStatus('作成エラー', true); 
+    if (window.self !== window.top || e.message === 'Failed to fetch') {
+      alert('⚠️ この環境では共有リンクを作成できません。\\n\\nダウンロードしてブラウザで直接開いてください。\\n（iframe内ではCORS制限があります）');
+    } else {
+      alert('共有リンクの作成に失敗しました。\\nネットワーク接続を確認してください。');
+    }
+  } 
+  return null; 
+}
 function showShareURL() { const shareUrl = window.location.href; if (confirm(`✅ 共有リンク:\n${shareUrl}\n\nコピーしますか？`)) { navigator.clipboard.writeText(shareUrl).then(() => alert('コピーしました！')).catch(() => prompt('URLをコピー:', shareUrl)); } }
 async function createShareLink() { if (cloudEnabled) showShareURL(); else { const binId = await createNewBin(); if (binId) await saveToCloud(); } }
 async function loadCloudData() { if (!NPOINT_BIN_ID) return {}; try { const res = await fetch(NPOINT_API + NPOINT_BIN_ID); if (!res.ok) throw new Error('Load failed'); const data = await res.json(); return data.businesses || {}; } catch (e) { return {}; } }
