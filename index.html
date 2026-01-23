@@ -276,32 +276,36 @@ const SLOTEN_DATA = {
 const KONIBET_DATA = {
   '2020年12月':{
     サマリー: {
+      // 基本指標
       '登録人数': 655,
       'ログインユーザー数': 4310,
       'FTD数': 114,
-      '初回入金額': 4724256, // $31,495.04 × 150
       '入金者数': 566,
       '総入金額': 55017008, // $366,780.05 × 150
-      '出金者数': 233,
-      '総出金額': 41983200, // $279,888.00 × 150
-      '入出金差分': 13033808, // $86,892.05 × 150
-      'アクティブプレイ人数': 54,
       'T/O': 489307826, // $3,262,052.17 × 150
+      'アクティブプレイ人数': 54,
+      // 収益指標
       'GGR': 17124231, // $114,161.54 × 150
-      '勝利金': 471841260, // $3,145,608.40 × 150
+      '入出金差分': 13033808, // $86,892.05 × 150
       'ボーナス': 8460362, // $56,402.41 × 150
-      'ゲームプロバイダーフィー': 1505054, // $10,033.69 × 150
-      'PSP手数料': 4397816, // $29,318.77 × 150
       'NGR': 3103337, // $20,688.91 × 150
-      'RTP': 0.9611,
+      // 比率指標
       '新規入金転移率': 0.1866,
-      '平均入金額': 98583, // $657.23 × 150
+      '平均入金額': 98585, // $657.23 × 150
       '出金人数割合': 0.4399,
       'T/O倍率': 10.69,
-      'T/O倍率(Bonus込)': 8.77,
       'ボーナス付与率': 0.1948,
       'GGR率': 0.3175,
       'NGR率': 0.0564,
+      // その他
+      '初回入金額': 4724256, // $31,495.04 × 150
+      '出金者数': 233,
+      '総出金額': 41983200, // $279,888.00 × 150
+      '勝利金': 471841260, // $3,145,608.40 × 150
+      'ゲームプロバイダーフィー': 1505054, // $10,033.69 × 150
+      'PSP手数料': 4397816, // $29,318.77 × 150
+      'RTP': 0.9611,
+      'T/O倍率(Bonus込)': 8.77,
       '入金目標': 59339883, // $395,599.22 × 150
       '為替レート(USD/JPY)': 150
     }
@@ -843,7 +847,60 @@ function renderSummary() {
   if (!data || Object.keys(data).length === 0) { container.innerHTML = '<div class="card" style="text-align:center;padding:40px;color:#94a3b8">データがありません</div>'; return; }
   const type = business.type || 'samExcel';
   const colors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)','linear-gradient(135deg,#ec4899,#db2777)'];
-  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'konibet' ? [{ key: '登録', label: '登録', format: 'number' },{ key: 'FTD', label: 'FTD', format: 'number' },{ key: 'MAU', label: 'MAU', format: 'number' },{ key: '入金額', label: '入金額' },{ key: 'ターンオーバー', label: 'T/O' },{ key: 'NGR', label: 'NGR' }] : type === 'ads' ? [{ key: 'コスト($)', label: 'コスト($)', format: 'number' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: 'CPA(税込)', label: 'CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : type === 'baccara' ? [{ key: '登録数', label: '登録数', format: 'number' },{ key: '総GGR', label: 'GGR' },{ key: 'コスト', label: 'コスト' },{ key: 'NGR', label: 'NGR' }] : [];
+  
+  // Konibet専用の詳細サマリー表示
+  if (type === 'konibet') {
+    // 基本指標グループ
+    const basicCards = [
+      { key: '登録人数', alt: ['登録'], label: '登録人数', format: 'number' },
+      { key: 'FTD数', alt: ['FTD', '初回入金人数(FTD)'], label: 'FTD数', format: 'number' },
+      { key: '入金者数', alt: ['入金人数'], label: '入金者数', format: 'number' },
+      { key: '総入金額', alt: ['入金額'], label: '総入金額' },
+      { key: 'T/O', alt: ['ターンオーバー'], label: 'T/O' },
+      { key: 'アクティブプレイ人数', alt: ['アクティブプレイ数', 'ベット人数', 'MAU'], label: 'アクティブ人数', format: 'number' }
+    ];
+    // 収益指標グループ
+    const revenueCards = [
+      { key: 'GGR', label: 'GGR' },
+      { key: '入出金差分', alt: ['入金と出金の差'], label: '入出金差分' },
+      { key: 'ボーナス', alt: ['ボーナス（FS除く）'], label: 'ボーナス' },
+      { key: 'NGR', label: 'NGR' }
+    ];
+    // 比率指標グループ
+    const ratioCards = [
+      { key: '新規入金転移率', label: '新規入金転移率', format: 'percent' },
+      { key: '平均入金額', alt: ['平均入金額(人数/デイリ)'], label: '平均入金額' },
+      { key: '出金人数割合', label: '出金人数割合', format: 'percent' },
+      { key: 'T/O倍率', label: 'T/O倍率', format: 'number' },
+      { key: 'ボーナス付与率', alt: ['ボーナス付与率(入金に対して)'], label: 'ボーナス付与率', format: 'percent' },
+      { key: 'GGR率', alt: ['入金額に対してのGGR割合'], label: 'GGR率', format: 'percent' },
+      { key: 'NGR率', alt: ['入金に対してのNGR割合'], label: 'NGR率', format: 'percent' }
+    ];
+    
+    const renderCardGroup = (cards, title, bgColors) => {
+      const cardHtml = cards.map((card, i) => {
+        let val = data[card.key];
+        if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } }
+        if (val == null) return '';
+        let formatted = card.format === 'percent' ? formatPercent(val) : card.format === 'number' ? formatNumber(val) : formatCurrency(val);
+        const bg = val < 0 && card.format !== 'percent' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : bgColors[i % bgColors.length];
+        return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`;
+      }).filter(h => h).join('');
+      if (!cardHtml) return '';
+      return `<div style="margin-bottom:16px"><div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600">${title}</div><div class="summary-grid">${cardHtml}</div></div>`;
+    };
+    
+    const basicColors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#0ea5e9,#0284c7)','linear-gradient(135deg,#06b6d4,#0891b2)','linear-gradient(135deg,#14b8a6,#0d9488)','linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#22c55e,#16a34a)'];
+    const revenueColors = ['linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#f97316,#ea580c)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
+    const ratioColors = ['linear-gradient(135deg,#6366f1,#4f46e5)','linear-gradient(135deg,#8b5cf6,#7c3aed)','linear-gradient(135deg,#a855f7,#9333ea)','linear-gradient(135deg,#d946ef,#c026d3)','linear-gradient(135deg,#ec4899,#db2777)','linear-gradient(135deg,#f43f5e,#e11d48)','linear-gradient(135deg,#fb7185,#f43f5e)'];
+    
+    container.innerHTML = renderCardGroup(basicCards, '📊 基本指標', basicColors) + 
+                         renderCardGroup(revenueCards, '💰 収益指標', revenueColors) + 
+                         renderCardGroup(ratioCards, '📈 比率指標', ratioColors);
+    return;
+  }
+  
+  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'ads' ? [{ key: 'コスト($)', label: 'コスト($)', format: 'number' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: 'CPA(税込)', label: 'CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : type === 'baccara' ? [{ key: '登録数', label: '登録数', format: 'number' },{ key: '総GGR', label: 'GGR' },{ key: 'コスト', label: 'コスト' },{ key: 'NGR', label: 'NGR' }] : [];
   container.innerHTML = '<div class="summary-grid">' + cards.map((card, i) => { let val = data[card.key]; if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } } if (val == null) return ''; let formatted = card.key === 'RTP' ? formatRTP(val) : card.format === 'percent' ? formatPercent(val) : card.format === 'number' ? formatNumber(val) : formatCurrency(val); const bg = val < 0 && card.format !== 'percent' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : colors[i % colors.length]; return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`; }).join('') + '</div>';
 }
 
@@ -1121,15 +1178,7 @@ function parseKonibetDailyCSV(lines, period, filename) {
   const rateInput = document.getElementById('usd-jpy-rate');
   const USD_TO_JPY = rateInput ? parseFloat(rateInput.value) || 150 : 150;
   
-  // 期間名を取得（ファイル名またはヘッダーから）
-  let periodName = period;
-  const dateMatch = lines[1] && lines[1].find && lines[1].find(cell => String(cell).match(/\d{4}\/\d{1,2}\/\d{1,2}/));
-  if (dateMatch) {
-    const m = String(dateMatch).match(/(\d{4})\/(\d{1,2})/);
-    if (m) periodName = `${m[1]}年${parseInt(m[2])}月`;
-  }
-  
-  // KPIマッピング（列Bの名目 → KPI名）
+  // KPIマッピング（名目 → KPI名）
   const kpiMapping = {
     '登録': '登録人数',
     'ログイン': 'ログインユーザー数',
@@ -1151,10 +1200,12 @@ function parseKonibetDailyCSV(lines, period, filename) {
     'ボーナス': 'ボーナス',
     'ゲームフィー': 'ゲームプロバイダーフィー',
     'PSP手数料': 'PSP手数料',
+    'AFF報酬': 'AFF報酬',
     'NGR': 'NGR',
     'アカウント内残高': 'アカウント残高',
     '新規入金転移率': '新規入金転移率',
     '平均入金額(人数/デイリ)': '平均入金額',
+    '平均入金額(daily)': '平均入金額',
     '出金人数割合': '出金人数割合',
     '出金割合(ボーナス込み)': '出金割合',
     'T/O倍率': 'T/O倍率',
@@ -1172,29 +1223,36 @@ function parseKonibetDailyCSV(lines, period, filename) {
   const usdFields = [
     '初回入金額', '入金額', '出金額', '入金と出金の差', 'ターンオーバー', 
     'GGR', 'win額', 'ボーナス（FS除く）', 'ボーナス', 'ゲームフィー', 
-    'PSP手数料', 'NGR', 'アカウント内残高', '平均入金額(人数/デイリ)',
-    '実際の出金額', 'LTV(GGRベース)', 'LTV(NGRベース)', 'ボーナス＋プロバイダー＋PSP'
+    'PSP手数料', 'NGR', 'アカウント内残高', '平均入金額(人数/デイリ)', '平均入金額(daily)',
+    '実際の出金額', 'LTV(GGRベース)', 'LTV(NGRベース)', 'ボーナス＋プロバイダー＋PSP',
+    'ボーナス＋プロバイダー＋PSP＋AFF', 'AFF報酬'
   ];
   
   const summary = {};
-  const dailyData = [];
   let headerRowIndex = -1;
-  let dateColumns = [];
+  let labelColIndex = -1;  // 名目の列
+  let totalColIndex = -1;  // 合計の列
   
   // ヘッダー行を探す（「名目」を含む行）
+  // 2つの形式に対応: 
+  // 形式1: 列0が空、列1が「名目」、列4が「合計」
+  // 形式2: 列0が「名目」、列3が「合計」
   for (let i = 0; i < lines.length; i++) {
     const row = lines[i];
     if (!row) continue;
-    const col1 = String(row[1] || '').trim();
-    if (col1 === '名目') {
+    
+    // 列0が「名目」の場合（形式2）
+    if (String(row[0] || '').trim() === '名目') {
       headerRowIndex = i;
-      // 日付列を取得（列F以降、index 5以降）
-      for (let j = 5; j < row.length; j++) {
-        const cell = String(row[j] || '').trim();
-        if (cell && cell.includes('月') && cell.includes('日')) {
-          dateColumns.push({ index: j, date: cell });
-        }
-      }
+      labelColIndex = 0;
+      totalColIndex = 3;
+      break;
+    }
+    // 列1が「名目」の場合（形式1）
+    if (String(row[1] || '').trim() === '名目') {
+      headerRowIndex = i;
+      labelColIndex = 1;
+      totalColIndex = 4;
       break;
     }
   }
@@ -1204,16 +1262,41 @@ function parseKonibetDailyCSV(lines, period, filename) {
     return;
   }
   
+  // 期間名を取得（ヘッダー行の日付から）
+  let periodName = period;
+  const headerRow = lines[headerRowIndex];
+  for (let j = totalColIndex + 1; j < headerRow.length; j++) {
+    const cell = String(headerRow[j] || '').trim();
+    // 「1月1日(金)」や「12月1日(火)」形式
+    const dateMatch = cell.match(/(\d{1,2})月(\d{1,2})日/);
+    if (dateMatch) {
+      const month = parseInt(dateMatch[1]);
+      // ファイル名から年を推測
+      const yearMatch = filename.match(/(202\d)/);
+      const year = yearMatch ? yearMatch[1] : (month >= 10 ? '2020' : '2021');
+      periodName = `${year}年${month}月`;
+      break;
+    }
+  }
+  
+  // 期間入力欄から年を取得（もしあれば）
+  const inputPeriod = document.getElementById('upload-period')?.value || '';
+  const inputYearMatch = inputPeriod.match(/(202\d)/);
+  if (inputYearMatch) {
+    const m = periodName.match(/(\d{1,2})月/);
+    if (m) periodName = `${inputYearMatch[1]}年${m[1]}月`;
+  }
+  
   // データ行を読み取り
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
     const row = lines[i];
-    if (!row || row.length < 5) continue;
+    if (!row || row.length < totalColIndex + 1) continue;
     
-    const rawLabel = String(row[1] || '').trim();
+    const rawLabel = String(row[labelColIndex] || '').trim();
     if (!rawLabel || rawLabel === '' || rawLabel.startsWith('統計')) continue;
     
-    // 合計列（列E、index 4）の値を取得
-    const totalVal = row[4];
+    // 合計列の値を取得
+    const totalVal = row[totalColIndex];
     if (totalVal === undefined || totalVal === null || totalVal === '') continue;
     
     // KPI名をマッピング
@@ -1228,13 +1311,16 @@ function parseKonibetDailyCSV(lines, period, filename) {
       val = val * USD_TO_JPY;
     }
     
-    // パーセンテージフィールドの場合はそのまま（0-1に変換不要、表示時に処理）
+    // パーセンテージフィールドの場合
     const isPercent = rawLabel.includes('率') || rawLabel.includes('割合') || rawLabel.includes('RTP');
     if (isPercent && Math.abs(val) > 1) {
       val = val / 100; // パーセント表記を小数に変換
     }
     
-    summary[kpiName] = val;
+    // 重複キーは最初の値を優先（GGRなど）
+    if (summary[kpiName] === undefined) {
+      summary[kpiName] = val;
+    }
   }
   
   // 計算項目を追加
