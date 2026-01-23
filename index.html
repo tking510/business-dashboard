@@ -1125,22 +1125,24 @@ function handleCSV(text, period, uploadType, filename) {
   const fn = filename.toLowerCase();
   
   // 全行のテキストを結合してチェック
-  const allText = lines.slice(0, 40).map(r => r.join(',')).join(' ').toLowerCase();
+  const allText = lines.slice(0, 60).map(r => r.join(',')).join(' ').toLowerCase();
   
   const isCustomerList = fn.includes('顧客リスト') || fn.includes('customer');
   const isUncollected = fn.includes('未回収') || headerStr.includes('残未回収金額');
   const isDelayed = fn.includes('遅れ回収') || fn.includes('遅れ');
-  const isBonus = fn.includes('ボーナス') || fn.includes('キャッシュバック');
+  const isBonus = fn.includes('ボーナス') && !allText.includes('ターンオーバー');
   const isAgent = fn.includes('エージェント') || fn.includes('agent') || headerStr.includes('teamkyoto');
   const isAds = fn.includes('日报') || fn.includes('広告') || (headerStr.includes('コスト') && headerStr.includes('インプレッション'));
-  const isSloten = fn.includes('スロ天') || (fn.includes('kpi') && !fn.includes('konibet')) || (headerStr.includes('項目名') && headerStr.includes('月次'));
+  const isSloten = fn.includes('スロ天') || (headerStr.includes('項目名') && headerStr.includes('月次'));
   const isKonibet = fn.includes('konibet') || fn.includes('コニベット') || (headerStr.includes('sign-up') && headerStr.includes('ftd') && headerStr.includes('mau') && headerStr.includes('deposits'));
   
   // Konibet日次KPIシート（日本語フォーマット）の検出
-  // 「名目」「ロジック」「登録」などのキーワードと日付形式（2020/12/1など）があるかチェック
+  // 複数のパターンに対応
   const isKonibetDaily = (allText.includes('名目') && allText.includes('登録') && allText.includes('ggr') && allText.includes('ngr')) ||
                          (allText.includes('ロジック') && allText.match(/\d{4}\/\d{1,2}\/\d{1,2}/)) ||
-                         (allText.includes('初回入金人数') && allText.includes('ターンオーバー'));
+                         (allText.includes('初回入金人数') && allText.includes('ターンオーバー')) ||
+                         (allText.includes('目標') && allText.includes('合計') && allText.includes('登録') && allText.includes('ggr')) ||
+                         (allText.includes('合計') && allText.includes('ftd') && allText.includes('ターンオーバー') && allText.includes('ngr'));
   
   if (uploadType === 'auto') {
     // Konibet日次KPIシート（日本語）を優先的にチェック
@@ -1216,7 +1218,9 @@ function parseKonibetDailyCSV(lines, period, filename) {
     'RTP(ゲーム種類ごとに計測していく必要あり)': 'RTP',
     'RTP': 'RTP',
     'LTV(GGRベース)': 'LTV(GGR)',
-    'LTV(NGRベース)': 'LTV(NGR)'
+    'LTV(GGRベース)実入金人数': 'LTV(GGR)',
+    'LTV(NGRベース)': 'LTV(NGR)',
+    'LTV(NGRベース)実入金人数': 'LTV(NGR)'
   };
   
   // USDフィールド（為替換算が必要なフィールド）
@@ -1225,34 +1229,48 @@ function parseKonibetDailyCSV(lines, period, filename) {
     'GGR', 'win額', 'ボーナス（FS除く）', 'ボーナス', 'ゲームフィー', 
     'PSP手数料', 'NGR', 'アカウント内残高', '平均入金額(人数/デイリ)', '平均入金額(daily)',
     '実際の出金額', 'LTV(GGRベース)', 'LTV(NGRベース)', 'ボーナス＋プロバイダー＋PSP',
-    'ボーナス＋プロバイダー＋PSP＋AFF', 'AFF報酬'
+    'ボーナス＋プロバイダー＋PSP＋AFF', 'AFF報酬', 'LTV(GGRベース)実入金人数', 'LTV(NGRベース)実入金人数'
   ];
   
   const summary = {};
   let headerRowIndex = -1;
-  let labelColIndex = -1;  // 名目の列
+  let labelColIndex = -1;  // KPI名の列
   let totalColIndex = -1;  // 合計の列
   
-  // ヘッダー行を探す（「名目」を含む行）
-  // 2つの形式に対応: 
+  // ヘッダー行を探す
+  // 複数の形式に対応:
   // 形式1: 列0が空、列1が「名目」、列4が「合計」
   // 形式2: 列0が「名目」、列3が「合計」
-  for (let i = 0; i < lines.length; i++) {
+  // 形式3: 列0が空、列1が「目標」、列3が「合計」（KPI名は列0）
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
     const row = lines[i];
     if (!row) continue;
     
-    // 列0が「名目」の場合（形式2）
-    if (String(row[0] || '').trim() === '名目') {
+    // 「合計」列を探す
+    let totalIdx = row.findIndex(cell => String(cell || '').trim() === '合計');
+    if (totalIdx < 0) continue;
+    
+    // 形式を判定
+    const col0 = String(row[0] || '').trim();
+    const col1 = String(row[1] || '').trim();
+    
+    if (col0 === '名目') {
+      // 形式2: 列0が「名目」
       headerRowIndex = i;
       labelColIndex = 0;
-      totalColIndex = 3;
+      totalColIndex = totalIdx;
       break;
-    }
-    // 列1が「名目」の場合（形式1）
-    if (String(row[1] || '').trim() === '名目') {
+    } else if (col1 === '名目') {
+      // 形式1: 列1が「名目」
       headerRowIndex = i;
       labelColIndex = 1;
-      totalColIndex = 4;
+      totalColIndex = totalIdx;
+      break;
+    } else if (col1 === '目標' || col0 === '' && totalIdx >= 0) {
+      // 形式3: 「目標」ヘッダー または 空+合計（KPI名は次行から列0）
+      headerRowIndex = i;
+      labelColIndex = 0;
+      totalColIndex = totalIdx;
       break;
     }
   }
@@ -1271,20 +1289,17 @@ function parseKonibetDailyCSV(lines, period, filename) {
     const dateMatch = cell.match(/(\d{1,2})月(\d{1,2})日/);
     if (dateMatch) {
       const month = parseInt(dateMatch[1]);
-      // ファイル名から年を推測
+      // ファイル名から年を推測、なければ期間入力欄から
       const yearMatch = filename.match(/(202\d)/);
-      const year = yearMatch ? yearMatch[1] : (month >= 10 ? '2020' : '2021');
+      let year = yearMatch ? yearMatch[1] : null;
+      if (!year) {
+        const inputPeriod = document.getElementById('upload-period')?.value || '';
+        const inputYearMatch = inputPeriod.match(/(202\d)/);
+        year = inputYearMatch ? inputYearMatch[1] : '2022';
+      }
       periodName = `${year}年${month}月`;
       break;
     }
-  }
-  
-  // 期間入力欄から年を取得（もしあれば）
-  const inputPeriod = document.getElementById('upload-period')?.value || '';
-  const inputYearMatch = inputPeriod.match(/(202\d)/);
-  if (inputYearMatch) {
-    const m = periodName.match(/(\d{1,2})月/);
-    if (m) periodName = `${inputYearMatch[1]}年${m[1]}月`;
   }
   
   // データ行を読み取り
@@ -1292,8 +1307,11 @@ function parseKonibetDailyCSV(lines, period, filename) {
     const row = lines[i];
     if (!row || row.length < totalColIndex + 1) continue;
     
-    const rawLabel = String(row[labelColIndex] || '').trim();
+    let rawLabel = String(row[labelColIndex] || '').trim();
     if (!rawLabel || rawLabel === '' || rawLabel.startsWith('統計')) continue;
+    
+    // スペースや特殊文字を正規化
+    rawLabel = rawLabel.replace(/\s+/g, '');
     
     // 合計列の値を取得
     const totalVal = row[totalColIndex];
