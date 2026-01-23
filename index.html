@@ -1142,7 +1142,9 @@ function handleCSV(text, period, uploadType, filename) {
                          (allText.includes('ロジック') && allText.match(/\d{4}\/\d{1,2}\/\d{1,2}/)) ||
                          (allText.includes('初回入金人数') && allText.includes('ターンオーバー')) ||
                          (allText.includes('目標') && allText.includes('合計') && allText.includes('登録') && allText.includes('ggr')) ||
-                         (allText.includes('合計') && allText.includes('ftd') && allText.includes('ターンオーバー') && allText.includes('ngr'));
+                         (allText.includes('合計') && allText.includes('ftd') && allText.includes('ターンオーバー') && allText.includes('ngr')) ||
+                         (allText.includes('前月') && allText.includes('合計') && allText.includes('登録') && allText.includes('ggr')) ||
+                         (allText.includes('先月比較') && allText.includes('合計') && allText.includes('ターンオーバー'));
   
   if (uploadType === 'auto') {
     // Konibet日次KPIシート（日本語）を優先的にチェック
@@ -1238,10 +1240,7 @@ function parseKonibetDailyCSV(lines, period, filename) {
   let totalColIndex = -1;  // 合計の列
   
   // ヘッダー行を探す
-  // 複数の形式に対応:
-  // 形式1: 列0が空、列1が「名目」、列4が「合計」
-  // 形式2: 列0が「名目」、列3が「合計」
-  // 形式3: 列0が空、列1が「目標」、列3が「合計」（KPI名は列0）
+  // 複数の形式に対応: 「合計」列を探してその位置を基準にする
   for (let i = 0; i < Math.min(5, lines.length); i++) {
     const row = lines[i];
     if (!row) continue;
@@ -1250,29 +1249,11 @@ function parseKonibetDailyCSV(lines, period, filename) {
     let totalIdx = row.findIndex(cell => String(cell || '').trim() === '合計');
     if (totalIdx < 0) continue;
     
-    // 形式を判定
-    const col0 = String(row[0] || '').trim();
-    const col1 = String(row[1] || '').trim();
-    
-    if (col0 === '名目') {
-      // 形式2: 列0が「名目」
-      headerRowIndex = i;
-      labelColIndex = 0;
-      totalColIndex = totalIdx;
-      break;
-    } else if (col1 === '名目') {
-      // 形式1: 列1が「名目」
-      headerRowIndex = i;
-      labelColIndex = 1;
-      totalColIndex = totalIdx;
-      break;
-    } else if (col1 === '目標' || col0 === '' && totalIdx >= 0) {
-      // 形式3: 「目標」ヘッダー または 空+合計（KPI名は次行から列0）
-      headerRowIndex = i;
-      labelColIndex = 0;
-      totalColIndex = totalIdx;
-      break;
-    }
+    // 形式を判定（データ行の最初の列にKPI名がある）
+    headerRowIndex = i;
+    labelColIndex = 0;  // KPI名は常に列0
+    totalColIndex = totalIdx;
+    break;
   }
   
   if (headerRowIndex < 0) {
@@ -1316,6 +1297,9 @@ function parseKonibetDailyCSV(lines, period, filename) {
     // 合計列の値を取得
     const totalVal = row[totalColIndex];
     if (totalVal === undefined || totalVal === null || totalVal === '') continue;
+    
+    // #DIV/0! などのエラー値をスキップ
+    if (String(totalVal).includes('#')) continue;
     
     // KPI名をマッピング
     const kpiName = kpiMapping[rawLabel] || rawLabel;
