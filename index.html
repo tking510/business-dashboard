@@ -6,6 +6,8 @@
   <title>事業別ダッシュボード v7 - Konibet対応</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;min-height:100vh}
@@ -101,6 +103,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <button class="btn btn-primary" onclick="showUploadModal()">📤 アップロード</button>
       <button class="btn btn-secondary" onclick="createShareLink()">🔗 共有リンク</button>
       <button class="btn btn-secondary" onclick="showAddBusinessModal()">➕ 事業追加</button>
+      <button class="btn btn-secondary" onclick="generateSalesReport()">📄 営業報告書作成</button>
       <button class="btn btn-danger" onclick="clearAllData()">🗑️</button>
     </div>
   </div>
@@ -2165,6 +2168,87 @@ function parseGenericExcel(workbook, period) {
 
 function addBusiness() { const name = document.getElementById('new-business-name').value.trim(); const type = document.getElementById('new-business-type').value; if (!name) { alert('事業名を入力してください'); return; } if (BUSINESSES[name]) { alert('同名の事業が存在します'); return; } BUSINESSES[name] = { data: {}, type: type }; saveBusinessData(); hideAddBusinessModal(); selectBusiness(name); }
 function deleteBusiness() { if (Object.keys(BUSINESSES).length <= 1) { alert('最後の事業は削除できません'); return; } if (confirm(`「${currentBusiness}」を削除しますか？`)) { delete BUSINESSES[currentBusiness]; saveBusinessData(); selectBusiness(Object.keys(BUSINESSES)[0]); } }
+
+// PDF営業報告書生成関数
+async function generateSalesReport() {
+  if (!currentBusiness || !currentPeriod) {
+    alert('事業と期間を選択してください');
+    return;
+  }
+  
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = 210;
+  const pageHeight = 297;
+  
+  // 日本語フォント対応のため、テキストを画像として埋め込む
+  const business = BUSINESSES[currentBusiness];
+  const periodData = business.data[currentPeriod];
+  
+  if (!periodData || !periodData.サマリー) {
+    alert('選択した期間のデータがありません');
+    return;
+  }
+  
+  const summary = periodData.サマリー;
+  const today = new Date().toLocaleDateString('ja-JP');
+  
+  // ページ1: 表紙
+  pdf.setFontSize(28);
+  pdf.text('Sales Report', pageWidth / 2, 60, { align: 'center' });
+  pdf.setFontSize(20);
+  pdf.text(currentBusiness, pageWidth / 2, 80, { align: 'center' });
+  pdf.text(currentPeriod, pageWidth / 2, 100, { align: 'center' });
+  pdf.setFontSize(12);
+  pdf.text(`Created: ${today}`, pageWidth / 2, 120, { align: 'center' });
+  
+  // ページ2: グラフをキャプチャ
+  pdf.addPage();
+  pdf.setFontSize(16);
+  pdf.text('Performance Chart', 20, 20);
+  
+  const chartCanvas = document.getElementById('main-chart');
+  if (chartCanvas) {
+    try {
+      const chartImage = await html2canvas(chartCanvas);
+      const imgData = chartImage.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 20, 30, 170, 100);
+    } catch (e) {
+      console.error('Chart capture failed:', e);
+    }
+  }
+  
+  // ページ3: 主要指標
+  pdf.addPage();
+  pdf.setFontSize(16);
+  pdf.text('Key Metrics', 20, 20);
+  
+  let yPos = 40;
+  const metrics = [
+    { label: 'Revenue', key: '総入金額' },
+    { label: 'Withdrawal', key: '総出金額' },
+    { label: 'Net', key: '入出金差分' },
+    { label: 'GGR', key: 'GGR' },
+    { label: 'NGR', key: 'NGR' },
+    { label: 'Users', key: '登録人数' },
+    { label: 'Active Users', key: 'アクティブプレイ人数' }
+  ];
+  
+  pdf.setFontSize(12);
+  metrics.forEach(metric => {
+    if (summary[metric.key] !== undefined) {
+      const value = typeof summary[metric.key] === 'number' ? summary[metric.key].toLocaleString() : summary[metric.key];
+      pdf.text(`${metric.label}: ${value}`, 30, yPos);
+      yPos += 10;
+    }
+  });
+  
+  // PDFダウンロード
+  const filename = `営業報告書_${currentBusiness}_${currentPeriod}_${new Date().getTime()}.pdf`;
+  pdf.save(filename);
+  
+  alert(`営業報告書を作成しました: ${filename}`);
+}
 </script>
 </body>
 </html>
