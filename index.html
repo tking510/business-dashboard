@@ -1250,12 +1250,13 @@ function renderSummary() {
   
   // バカラツール専用の詳細サマリー表示
   if (type === 'baccara') {
-    const flowCards = [
-      { key: 'LINE流入', label: 'LINE流入', format: 'number' },
-      { key: 'Telegram流入', label: 'Telegram', format: 'number' },
-      { key: 'Twitter流入', label: 'Twitter', format: 'number' },
-      { key: 'その他SNS流入', label: 'その他SNS', format: 'number' },
-      { key: '合計流入', label: '合計流入', format: 'number' }
+    const followerCards = [
+      { key: 'Twitter', label: 'Twitter', format: 'number' },
+      { key: 'Instagram', label: 'Instagram', format: 'number' },
+      { key: 'TikTok', label: 'TikTok', format: 'number' },
+      { key: 'YouTube', label: 'YouTube', format: 'number' },
+      { key: 'LINE公式', label: 'LINE公式', format: 'number' },
+      { key: '合計フォロワー', label: '合計', format: 'number' }
     ];
     const bizCards = [
       { key: '総ユーザー数', label: 'ユーザー数', format: 'number' },
@@ -1276,9 +1277,9 @@ function renderSummary() {
       if (!cardHtml) return '';
       return `<div style="margin-bottom:16px"><div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600">${title}</div><div class="summary-grid">${cardHtml}</div></div>`;
     };
-    const flowColors = ['linear-gradient(135deg,#06b6d4,#0891b2)','linear-gradient(135deg,#0ea5e9,#0284c7)','linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#6366f1,#4f46e5)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
+    const followerColors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#ec4899,#db2777)','linear-gradient(135deg,#000000,#333333)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#22c55e,#16a34a)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
     const bizColors = ['linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#f97316,#ea580c)','linear-gradient(135deg,#22c55e,#16a34a)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
-    container.innerHTML = renderCardGroup(flowCards, '📱 流入数', flowColors) + renderCardGroup(bizCards, '💰 収益', bizColors);
+    container.innerHTML = renderCardGroup(followerCards, '📱 SNSフォロワー数', followerColors) + renderCardGroup(bizCards, '💰 収益', bizColors);
     return;
   }
   
@@ -2169,11 +2170,47 @@ function parseBaccaratExcel(workbook, period) {
   const dashSheet = dashSheetName ? workbook.Sheets[dashSheetName] : null;
   const costSheet = workbook.Sheets['コスト'] || workbook.Sheets['cost'];
   const userSheet = workbook.Sheets['ユーザー・収益分析'] || workbook.Sheets['ユーザー分析'];
+  const followerSheet = workbook.Sheets['SNSフォロワー数'] || workbook.Sheets['フォロワー数'];
   
   const extractedData = {
-    'LINE流入': 0, 'Telegram流入': 0, 'Twitter流入': 0, 'その他SNS流入': 0, '合計流入': 0,
+    'Twitter': 0, 'Instagram': 0, 'TikTok': 0, 'YouTube': 0, 'LINE公式': 0,
     '総ユーザー数': 0, '総入金額': 0, '平均T/O': 0, '総GGR': 0, 'コミッション': 0, 'コスト': 0, 'NGR': 0
   };
+  
+  // SNSフォロワー数シートから最新データを取得
+  if (followerSheet) {
+    const followerData = XLSX.utils.sheet_to_json(followerSheet, { header: 1 });
+    // ヘッダー行を探す
+    let colMap = {};
+    followerData.forEach((row, idx) => {
+      if (!row) return;
+      const first = String(row[0] || '').trim();
+      if (first === '日付' || first.includes('日付')) {
+        row.forEach((cell, colIdx) => {
+          const h = String(cell || '').trim();
+          if (h === 'Twitter' || h === 'X') colMap['Twitter'] = colIdx;
+          else if (h === 'Instagram') colMap['Instagram'] = colIdx;
+          else if (h === 'TikTok') colMap['TikTok'] = colIdx;
+          else if (h === 'YouTube') colMap['YouTube'] = colIdx;
+          else if (h.includes('LINE')) colMap['LINE公式'] = colIdx;
+        });
+      }
+    });
+    // 最新の有効なデータを下から探す
+    for (let i = followerData.length - 1; i >= 0; i--) {
+      const row = followerData[i];
+      if (!row) continue;
+      let hasData = false;
+      for (const [key, colIdx] of Object.entries(colMap)) {
+        const val = parseNumber(row[colIdx]);
+        if (val !== null && val > 0 && extractedData[key] === 0) {
+          extractedData[key] = val;
+          hasData = true;
+        }
+      }
+      if (hasData) break;
+    }
+  }
   
   // ダッシュボードシートからサマリーデータを抽出
   if (dashSheet) {
@@ -2184,14 +2221,8 @@ function parseBaccaratExcel(workbook, period) {
       const value = parseNumber(row[1]);
       if (value === null) return;
       
-      // 流入数
-      if (label.includes('LINE流入')) extractedData['LINE流入'] = value;
-      else if (label.includes('Telegram流入')) extractedData['Telegram流入'] = value;
-      else if (label.includes('Twitter流入')) extractedData['Twitter流入'] = value;
-      else if (label.includes('その他SNS')) extractedData['その他SNS流入'] = value;
-      else if (label.includes('合計流入')) extractedData['合計流入'] = value;
       // ユーザー・収益
-      else if (label.includes('総ユーザー')) extractedData['総ユーザー数'] = value;
+      if (label.includes('総ユーザー')) extractedData['総ユーザー数'] = value;
       else if (label.includes('総入金')) extractedData['総入金額'] = value;
       else if (label.includes('平均T/O') || label.includes('平均TO')) extractedData['平均T/O'] = value;
       else if (label.includes('総GGR') || (label.includes('GGR') && !label.includes('NGR'))) extractedData['総GGR'] = value;
@@ -2257,11 +2288,9 @@ function parseBaccaratExcel(workbook, period) {
     extractedData['NGR'] = extractedData['総GGR'] - extractedData['コスト'];
   }
   
-  // 合計流入が0の場合は各SNSの合計
-  if (extractedData['合計流入'] === 0) {
-    extractedData['合計流入'] = extractedData['LINE流入'] + extractedData['Telegram流入'] + 
-                               extractedData['Twitter流入'] + extractedData['その他SNS流入'];
-  }
+  // フォロワー数合計を計算
+  extractedData['合計フォロワー'] = extractedData['Twitter'] + extractedData['Instagram'] + 
+                                   extractedData['TikTok'] + extractedData['YouTube'] + extractedData['LINE公式'];
   
   // データを保存
   BUSINESSES['バカラツール'].data['全期間'] = { サマリー: extractedData };
