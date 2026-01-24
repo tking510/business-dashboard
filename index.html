@@ -6,8 +6,6 @@
   <title>事業別ダッシュボード v7 - Konibet対応</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;min-height:100vh}
@@ -103,7 +101,6 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <button class="btn btn-primary" onclick="showUploadModal()">📤 アップロード</button>
       <button class="btn btn-secondary" onclick="createShareLink()">🔗 共有リンク</button>
       <button class="btn btn-secondary" onclick="showAddBusinessModal()">➕ 事業追加</button>
-      <button class="btn btn-secondary" onclick="generateSalesReport()">📄 営業報告書作成</button>
       <button class="btn btn-danger" onclick="clearAllData()">🗑️</button>
     </div>
   </div>
@@ -1251,7 +1248,41 @@ function renderSummary() {
     return;
   }
   
-  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'ads' ? [{ key: 'コスト($)', label: 'コスト($)', format: 'number' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: 'CPA(税込)', label: 'CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : type === 'baccara' ? [{ key: '登録数', label: '登録数', format: 'number' },{ key: '総GGR', label: 'GGR' },{ key: 'コスト', label: 'コスト' },{ key: 'NGR', label: 'NGR' }] : [];
+  // バカラツール専用の詳細サマリー表示
+  if (type === 'baccara') {
+    const flowCards = [
+      { key: 'LINE流入', label: 'LINE流入', format: 'number' },
+      { key: 'Telegram流入', label: 'Telegram', format: 'number' },
+      { key: 'Twitter流入', label: 'Twitter', format: 'number' },
+      { key: 'その他SNS流入', label: 'その他SNS', format: 'number' },
+      { key: '合計流入', label: '合計流入', format: 'number' }
+    ];
+    const bizCards = [
+      { key: '総ユーザー数', label: 'ユーザー数', format: 'number' },
+      { key: '総入金額', label: '総入金額' },
+      { key: '平均T/O', label: '平均T/O' },
+      { key: '総GGR', label: 'GGR' },
+      { key: 'コスト', label: 'コスト' },
+      { key: 'NGR', label: 'NGR' }
+    ];
+    const renderCardGroup = (cards, title, bgColors) => {
+      const cardHtml = cards.map((card, i) => {
+        let val = data[card.key];
+        if (val == null) return '';
+        let formatted = card.format === 'number' ? formatNumber(val) : formatCurrency(val);
+        const bg = val < 0 ? 'linear-gradient(135deg,#ef4444,#dc2626)' : bgColors[i % bgColors.length];
+        return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`;
+      }).filter(h => h).join('');
+      if (!cardHtml) return '';
+      return `<div style="margin-bottom:16px"><div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600">${title}</div><div class="summary-grid">${cardHtml}</div></div>`;
+    };
+    const flowColors = ['linear-gradient(135deg,#06b6d4,#0891b2)','linear-gradient(135deg,#0ea5e9,#0284c7)','linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#6366f1,#4f46e5)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
+    const bizColors = ['linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#f97316,#ea580c)','linear-gradient(135deg,#22c55e,#16a34a)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
+    container.innerHTML = renderCardGroup(flowCards, '📱 流入数', flowColors) + renderCardGroup(bizCards, '💰 収益', bizColors);
+    return;
+  }
+  
+  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'ads' ? [{ key: 'コスト($)', label: 'コスト($)', format: 'number' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: 'CPA(税込)', label: 'CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : [];
   container.innerHTML = '<div class="summary-grid">' + cards.map((card, i) => { let val = data[card.key]; if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } } if (val == null) return ''; let formatted = card.key === 'RTP' ? formatRTP(val) : card.format === 'percent' ? formatPercent(val) : card.format === 'number' ? formatNumber(val) : formatCurrency(val); const bg = val < 0 && card.format !== 'percent' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : colors[i % colors.length]; return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`; }).join('') + '</div>';
 }
 
@@ -2133,18 +2164,111 @@ function parseSlotenExcel(workbook, monthlySheets) {
 }
 
 function parseBaccaratExcel(workbook, period) {
+  // 各シートを取得
   const dashSheetName = workbook.SheetNames.find(s => s.includes('ダッシュボード') || s.includes('サマリー'));
-  const dashSheet = dashSheetName ? workbook.Sheets[dashSheetName] : workbook.Sheets[workbook.SheetNames[0]];
+  const dashSheet = dashSheetName ? workbook.Sheets[dashSheetName] : null;
   const costSheet = workbook.Sheets['コスト'] || workbook.Sheets['cost'];
   const userSheet = workbook.Sheets['ユーザー・収益分析'] || workbook.Sheets['ユーザー分析'];
-  const extractedData = { 'LINE流入': 0, 'Telegram流入': 0, 'Twitter流入': 0, '合計流入': 0, '総ユーザー数': 0, '総入金額': 0, '総GGR': 0, 'コスト': 0, 'NGR': 0, '登録数': 0 };
-  if (dashSheet) { const dashData = XLSX.utils.sheet_to_json(dashSheet, { header: 1 }); dashData.forEach(row => { if (!row || row.length < 2) return; const label = String(row[0] || '').trim().toLowerCase(); const value = parseNumber(row[1]); if (value === null) return; if (label.includes('line') && label.includes('流入')) extractedData['LINE流入'] = value; else if (label.includes('telegram') && label.includes('流入')) extractedData['Telegram流入'] = value; else if ((label.includes('twitter') || label.includes('x')) && label.includes('流入')) extractedData['Twitter流入'] = value; else if (label.includes('合計') && label.includes('流入')) extractedData['合計流入'] = value; else if (label.includes('総ユーザー') || label.includes('ユーザー数')) extractedData['総ユーザー数'] = value; else if (label.includes('総入金') || (label.includes('入金') && label.includes('額'))) extractedData['総入金額'] = value; else if (label.includes('ggr') && !label.includes('ngr')) extractedData['総GGR'] = value; else if (label === 'コスト' || label === 'cost') extractedData['コスト'] = value; else if (label === 'ngr') extractedData['NGR'] = value; }); }
-  if (userSheet) { const userData = XLSX.utils.sheet_to_json(userSheet, { header: 1 }); let totalReg = 0, regColIdx = -1; userData.forEach((row, idx) => { if (!row) return; if (regColIdx < 0) { const foundIdx = row.findIndex(cell => String(cell || '').trim() === '登録'); if (foundIdx >= 0) regColIdx = foundIdx; } const firstCell = String(row[0] || '').trim(); if (firstCell === '合計' && regColIdx >= 0) { const regVal = parseNumber(row[regColIdx]); if (regVal !== null && regVal > 0) totalReg += regVal; } }); if (totalReg > 0) extractedData['登録数'] = totalReg; }
-  if (costSheet) { const costData = XLSX.utils.sheet_to_json(costSheet, { header: 1 }); costData.forEach(row => { if (!row) return; const label = String(row[0] || '').trim().toLowerCase(); if (label === '合計' || label === 'total') { const costVal = parseNumber(row[2]) || parseNumber(row[1]) || 0; if (costVal > 0) extractedData['コスト'] = costVal; } }); }
-  if (extractedData['NGR'] === 0 && (extractedData['総GGR'] > 0 || extractedData['コスト'] > 0)) extractedData['NGR'] = (extractedData['総GGR'] || 0) - (extractedData['コスト'] || 0);
-  if (extractedData['合計流入'] === 0) extractedData['合計流入'] = extractedData['LINE流入'] + extractedData['Telegram流入'] + extractedData['Twitter流入'];
+  
+  const extractedData = {
+    'LINE流入': 0, 'Telegram流入': 0, 'Twitter流入': 0, 'その他SNS流入': 0, '合計流入': 0,
+    '総ユーザー数': 0, '総入金額': 0, '平均T/O': 0, '総GGR': 0, 'コミッション': 0, 'コスト': 0, 'NGR': 0
+  };
+  
+  // ダッシュボードシートからサマリーデータを抽出
+  if (dashSheet) {
+    const dashData = XLSX.utils.sheet_to_json(dashSheet, { header: 1 });
+    dashData.forEach(row => {
+      if (!row || row.length < 2) return;
+      const label = String(row[0] || '').trim();
+      const value = parseNumber(row[1]);
+      if (value === null) return;
+      
+      // 流入数
+      if (label.includes('LINE流入')) extractedData['LINE流入'] = value;
+      else if (label.includes('Telegram流入')) extractedData['Telegram流入'] = value;
+      else if (label.includes('Twitter流入')) extractedData['Twitter流入'] = value;
+      else if (label.includes('その他SNS')) extractedData['その他SNS流入'] = value;
+      else if (label.includes('合計流入')) extractedData['合計流入'] = value;
+      // ユーザー・収益
+      else if (label.includes('総ユーザー')) extractedData['総ユーザー数'] = value;
+      else if (label.includes('総入金')) extractedData['総入金額'] = value;
+      else if (label.includes('平均T/O') || label.includes('平均TO')) extractedData['平均T/O'] = value;
+      else if (label.includes('総GGR') || (label.includes('GGR') && !label.includes('NGR'))) extractedData['総GGR'] = value;
+      else if (label.includes('コミッション')) extractedData['コミッション'] = value;
+      else if (label === 'コスト' || label === 'cost') extractedData['コスト'] = value;
+      else if (label === 'NGR' || label.includes('NGR')) extractedData['NGR'] = value;
+    });
+  }
+  
+  // ユーザー・収益分析シートから合計行を取得（ダッシュボードにない場合のフォールバック）
+  if (userSheet) {
+    const userData = XLSX.utils.sheet_to_json(userSheet, { header: 1 });
+    // ヘッダー行を探す
+    let headerIdx = -1;
+    let colMap = {};
+    userData.forEach((row, idx) => {
+      if (!row) return;
+      const first = String(row[0] || '').trim();
+      if (first === '日付' || first.includes('日付')) {
+        headerIdx = idx;
+        row.forEach((cell, colIdx) => {
+          const h = String(cell || '').trim();
+          if (h.includes('ユーザー')) colMap['users'] = colIdx;
+          else if (h.includes('入金額')) colMap['deposit'] = colIdx;
+          else if (h.includes('T/O') || h.includes('ターンオーバー')) colMap['to'] = colIdx;
+          else if (h.includes('GGR')) colMap['ggr'] = colIdx;
+        });
+      }
+      // 合計行
+      if (first === '合計') {
+        if (colMap['users'] && extractedData['総ユーザー数'] === 0) {
+          const v = parseNumber(row[colMap['users']]);
+          if (v !== null) extractedData['総ユーザー数'] = v;
+        }
+        if (colMap['deposit'] && extractedData['総入金額'] === 0) {
+          const v = parseNumber(row[colMap['deposit']]);
+          if (v !== null) extractedData['総入金額'] = v;
+        }
+        if (colMap['ggr'] && extractedData['総GGR'] === 0) {
+          const v = parseNumber(row[colMap['ggr']]);
+          if (v !== null) extractedData['総GGR'] = v;
+        }
+      }
+    });
+  }
+  
+  // コストシートから合計を取得
+  if (costSheet) {
+    const costData = XLSX.utils.sheet_to_json(costSheet, { header: 1 });
+    costData.forEach(row => {
+      if (!row) return;
+      const label = String(row[0] || '').trim();
+      if (label === '合計' || label.toLowerCase() === 'total') {
+        // 金額列（通常は列2）
+        const costVal = parseNumber(row[2]) || parseNumber(row[1]) || 0;
+        if (costVal > 0 && extractedData['コスト'] === 0) extractedData['コスト'] = costVal;
+      }
+    });
+  }
+  
+  // NGRが0の場合は計算
+  if (extractedData['NGR'] === 0 && (extractedData['総GGR'] !== 0 || extractedData['コスト'] !== 0)) {
+    extractedData['NGR'] = extractedData['総GGR'] - extractedData['コスト'];
+  }
+  
+  // 合計流入が0の場合は各SNSの合計
+  if (extractedData['合計流入'] === 0) {
+    extractedData['合計流入'] = extractedData['LINE流入'] + extractedData['Telegram流入'] + 
+                               extractedData['Twitter流入'] + extractedData['その他SNS流入'];
+  }
+  
+  // データを保存
   BUSINESSES['バカラツール'].data['全期間'] = { サマリー: extractedData };
-  showStatus(`バカラツール取込完了: 登録${extractedData['登録数']}件`);
+  
+  const ggrStr = extractedData['総GGR'] >= 0 ? `GGR ¥${Math.round(extractedData['総GGR']).toLocaleString()}` : `GGR ¥${Math.round(extractedData['総GGR']).toLocaleString()}`;
+  const ngrStr = extractedData['NGR'] >= 0 ? `NGR ¥${Math.round(extractedData['NGR']).toLocaleString()}` : `NGR ¥${Math.round(extractedData['NGR']).toLocaleString()}`;
+  showStatus(`バカラツール取込完了: ユーザー${extractedData['総ユーザー数']}人, ${ggrStr}, ${ngrStr}`);
   selectBusiness('バカラツール'); saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
@@ -2168,94 +2292,6 @@ function parseGenericExcel(workbook, period) {
 
 function addBusiness() { const name = document.getElementById('new-business-name').value.trim(); const type = document.getElementById('new-business-type').value; if (!name) { alert('事業名を入力してください'); return; } if (BUSINESSES[name]) { alert('同名の事業が存在します'); return; } BUSINESSES[name] = { data: {}, type: type }; saveBusinessData(); hideAddBusinessModal(); selectBusiness(name); }
 function deleteBusiness() { if (Object.keys(BUSINESSES).length <= 1) { alert('最後の事業は削除できません'); return; } if (confirm(`「${currentBusiness}」を削除しますか？`)) { delete BUSINESSES[currentBusiness]; saveBusinessData(); selectBusiness(Object.keys(BUSINESSES)[0]); } }
-
-// 営業報告書プロンプト生成関数
-function generateSalesReport() {
-  if (!currentBusiness || !currentPeriod) {
-    alert('事業と期間を選択してください');
-    return;
-  }
-  
-  const business = BUSINESSES[currentBusiness];
-  const periodData = business.data[currentPeriod];
-  
-  if (!periodData || !periodData.サマリー) {
-    alert('選択した期間のデータがありません');
-    return;
-  }
-  
-  const summary = periodData.サマリー;
-  const today = new Date().toLocaleDateString('ja-JP');
-  
-  // プロンプトテキストを生成
-  let prompt = `以下のデータを基に、見やすいスライド式営業報告書（PDF形式）を作成してください。\n\n`;
-  prompt += `【事業名】${currentBusiness}\n`;
-  prompt += `【期間】${currentPeriod}\n`;
-  prompt += `【作成日】${today}\n\n`;
-  
-  prompt += `【主要指標】\n`;
-  Object.keys(summary).forEach(key => {
-    const value = typeof summary[key] === 'number' ? summary[key].toLocaleString() : summary[key];
-    prompt += `- ${key}: ${value}\n`;
-  });
-  
-  // 他のセクションのデータも追加
-  const sections = ['入金方法', '出金方法', '仮想通貨', 'プロバイダー', 'ゲーム別', 'Affiliate'];
-  sections.forEach(section => {
-    if (periodData[section]) {
-      prompt += `\n【${section}】\n`;
-      Object.keys(periodData[section]).forEach(key => {
-        const value = periodData[section][key];
-        if (typeof value === 'object') {
-          prompt += `- ${key}:\n`;
-          Object.keys(value).forEach(subKey => {
-            const subValue = typeof value[subKey] === 'number' ? value[subKey].toLocaleString() : value[subKey];
-            prompt += `  - ${subKey}: ${subValue}\n`;
-          });
-        } else {
-          const displayValue = typeof value === 'number' ? value.toLocaleString() : value;
-          prompt += `- ${key}: ${displayValue}\n`;
-        }
-      });
-    }
-  });
-  
-  // 時系列データを追加（グラフ用）
-  const allPeriods = Object.keys(business.data).sort();
-  if (allPeriods.length > 1) {
-    prompt += `\n【時系列推移データ（グラフ作成用）】\n`;
-    const timeSeriesKeys = ['総入金額', 'GGR', 'NGR', '登録人数'];
-    timeSeriesKeys.forEach(key => {
-      const values = allPeriods.map(p => {
-        const val = business.data[p].サマリー?.[key];
-        return val !== undefined ? val : 0;
-      });
-      if (values.some(v => v > 0)) {
-        prompt += `- ${key}: ${allPeriods.map((p, i) => `${p}=${values[i]}`).join(', ')}\n`;
-      }
-    });
-  }
-  
-  prompt += `\n【要件】\n`;
-  prompt += `- スライド式のPDF資料として作成してください\n`;
-  prompt += `- グラフを含めて視覚的に分かりやすくしてください\n`;
-  prompt += `- 表紙、主要指標ページ、グラフページ、詳細データページを含めてください\n`;
-  prompt += `- デザインはプロフェッショナルで見やすいものにしてください\n`;
-  prompt += `- 日本語で作成してください\n`;
-  
-  // テキストファイルとしてダウンロード
-  const blob = new Blob([prompt], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `営業報告書プロンプト_${currentBusiness}_${currentPeriod}_${new Date().getTime()}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  
-  alert(`営業報告書作成用プロンプトを生成しました。\nこのテキストファイルをAI（Claude/ChatGPT）に投げると、きれいなスライド式営業報告書が生成されます。`);
-}
 </script>
 </body>
 </html>
