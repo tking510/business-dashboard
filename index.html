@@ -2169,19 +2169,13 @@ function parseGenericExcel(workbook, period) {
 function addBusiness() { const name = document.getElementById('new-business-name').value.trim(); const type = document.getElementById('new-business-type').value; if (!name) { alert('事業名を入力してください'); return; } if (BUSINESSES[name]) { alert('同名の事業が存在します'); return; } BUSINESSES[name] = { data: {}, type: type }; saveBusinessData(); hideAddBusinessModal(); selectBusiness(name); }
 function deleteBusiness() { if (Object.keys(BUSINESSES).length <= 1) { alert('最後の事業は削除できません'); return; } if (confirm(`「${currentBusiness}」を削除しますか？`)) { delete BUSINESSES[currentBusiness]; saveBusinessData(); selectBusiness(Object.keys(BUSINESSES)[0]); } }
 
-// PDF営業報告書生成関数
-async function generateSalesReport() {
+// 営業報告書プロンプト生成関数
+function generateSalesReport() {
   if (!currentBusiness || !currentPeriod) {
     alert('事業と期間を選択してください');
     return;
   }
   
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const pageWidth = 210;
-  const pageHeight = 297;
-  
-  // 日本語フォント対応のため、テキストを画像として埋め込む
   const business = BUSINESSES[currentBusiness];
   const periodData = business.data[currentPeriod];
   
@@ -2193,61 +2187,74 @@ async function generateSalesReport() {
   const summary = periodData.サマリー;
   const today = new Date().toLocaleDateString('ja-JP');
   
-  // ページ1: 表紙
-  pdf.setFontSize(28);
-  pdf.text('Sales Report', pageWidth / 2, 60, { align: 'center' });
-  pdf.setFontSize(20);
-  pdf.text(currentBusiness, pageWidth / 2, 80, { align: 'center' });
-  pdf.text(currentPeriod, pageWidth / 2, 100, { align: 'center' });
-  pdf.setFontSize(12);
-  pdf.text(`Created: ${today}`, pageWidth / 2, 120, { align: 'center' });
+  // プロンプトテキストを生成
+  let prompt = `以下のデータを基に、見やすいスライド式営業報告書（PDF形式）を作成してください。\n\n`;
+  prompt += `【事業名】${currentBusiness}\n`;
+  prompt += `【期間】${currentPeriod}\n`;
+  prompt += `【作成日】${today}\n\n`;
   
-  // ページ2: グラフをキャプチャ
-  pdf.addPage();
-  pdf.setFontSize(16);
-  pdf.text('Performance Chart', 20, 20);
+  prompt += `【主要指標】\n`;
+  Object.keys(summary).forEach(key => {
+    const value = typeof summary[key] === 'number' ? summary[key].toLocaleString() : summary[key];
+    prompt += `- ${key}: ${value}\n`;
+  });
   
-  const chartCanvas = document.getElementById('main-chart');
-  if (chartCanvas) {
-    try {
-      const chartImage = await html2canvas(chartCanvas);
-      const imgData = chartImage.toDataURL('image/png');
-      pdf.addImage(imgData, 'PNG', 20, 30, 170, 100);
-    } catch (e) {
-      console.error('Chart capture failed:', e);
-    }
-  }
-  
-  // ページ3: 主要指標
-  pdf.addPage();
-  pdf.setFontSize(16);
-  pdf.text('Key Metrics', 20, 20);
-  
-  let yPos = 40;
-  const metrics = [
-    { label: 'Revenue', key: '総入金額' },
-    { label: 'Withdrawal', key: '総出金額' },
-    { label: 'Net', key: '入出金差分' },
-    { label: 'GGR', key: 'GGR' },
-    { label: 'NGR', key: 'NGR' },
-    { label: 'Users', key: '登録人数' },
-    { label: 'Active Users', key: 'アクティブプレイ人数' }
-  ];
-  
-  pdf.setFontSize(12);
-  metrics.forEach(metric => {
-    if (summary[metric.key] !== undefined) {
-      const value = typeof summary[metric.key] === 'number' ? summary[metric.key].toLocaleString() : summary[metric.key];
-      pdf.text(`${metric.label}: ${value}`, 30, yPos);
-      yPos += 10;
+  // 他のセクションのデータも追加
+  const sections = ['入金方法', '出金方法', '仮想通貨', 'プロバイダー', 'ゲーム別', 'Affiliate'];
+  sections.forEach(section => {
+    if (periodData[section]) {
+      prompt += `\n【${section}】\n`;
+      Object.keys(periodData[section]).forEach(key => {
+        const value = periodData[section][key];
+        if (typeof value === 'object') {
+          prompt += `- ${key}:\n`;
+          Object.keys(value).forEach(subKey => {
+            const subValue = typeof value[subKey] === 'number' ? value[subKey].toLocaleString() : value[subKey];
+            prompt += `  - ${subKey}: ${subValue}\n`;
+          });
+        } else {
+          const displayValue = typeof value === 'number' ? value.toLocaleString() : value;
+          prompt += `- ${key}: ${displayValue}\n`;
+        }
+      });
     }
   });
   
-  // PDFダウンロード
-  const filename = `営業報告書_${currentBusiness}_${currentPeriod}_${new Date().getTime()}.pdf`;
-  pdf.save(filename);
+  // 時系列データを追加（グラフ用）
+  const allPeriods = Object.keys(business.data).sort();
+  if (allPeriods.length > 1) {
+    prompt += `\n【時系列推移データ（グラフ作成用）】\n`;
+    const timeSeriesKeys = ['総入金額', 'GGR', 'NGR', '登録人数'];
+    timeSeriesKeys.forEach(key => {
+      const values = allPeriods.map(p => {
+        const val = business.data[p].サマリー?.[key];
+        return val !== undefined ? val : 0;
+      });
+      if (values.some(v => v > 0)) {
+        prompt += `- ${key}: ${allPeriods.map((p, i) => `${p}=${values[i]}`).join(', ')}\n`;
+      }
+    });
+  }
   
-  alert(`営業報告書を作成しました: ${filename}`);
+  prompt += `\n【要件】\n`;
+  prompt += `- スライド式のPDF資料として作成してください\n`;
+  prompt += `- グラフを含めて視覚的に分かりやすくしてください\n`;
+  prompt += `- 表紙、主要指標ページ、グラフページ、詳細データページを含めてください\n`;
+  prompt += `- デザインはプロフェッショナルで見やすいものにしてください\n`;
+  prompt += `- 日本語で作成してください\n`;
+  
+  // テキストファイルとしてダウンロード
+  const blob = new Blob([prompt], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `営業報告書プロンプト_${currentBusiness}_${currentPeriod}_${new Date().getTime()}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  alert(`営業報告書作成用プロンプトを生成しました。\nこのテキストファイルをAI（Claude/ChatGPT）に投げると、きれいなスライド式営業報告書が生成されます。`);
 }
 </script>
 </body>
