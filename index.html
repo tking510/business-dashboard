@@ -99,6 +99,7 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
     <div class="header-actions">
       <span id="sync-status" style="font-size:12px;color:#10b981;margin-right:10px">💾 読込中...</span>
       <button class="btn btn-primary" onclick="showUploadModal()">📤 アップロード</button>
+      <button class="btn btn-primary" onclick="showReportPromptModal()" style="background:#8b5cf6">📝 営業報告書</button>
       <button class="btn btn-secondary" onclick="createShareLink()">🔗 共有リンク</button>
       <button class="btn btn-secondary" onclick="showAddBusinessModal()">➕ 事業追加</button>
       <button class="btn btn-danger" onclick="clearAllData()">🗑️</button>
@@ -222,6 +223,20 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
     <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">
       <button class="btn btn-secondary" onclick="hideAddBusinessModal()">キャンセル</button>
       <button class="btn btn-primary" onclick="addBusiness()">追加</button>
+    </div>
+  </div>
+</div>
+
+<div id="report-prompt-modal" class="modal hidden">
+  <div class="modal-content" style="max-width:800px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
+    <h3 style="margin-bottom:20px">📝 営業報告書用プロンプト</h3>
+    <div style="margin-bottom:12px;display:flex;gap:10px;align-items:center">
+      <span style="font-weight:600" id="report-business-period"></span>
+      <button class="btn btn-primary" onclick="copyReportPrompt()" style="margin-left:auto">📋 コピー</button>
+    </div>
+    <textarea id="report-prompt-text" readonly style="flex:1;min-height:400px;width:100%;padding:16px;border:1px solid #e2e8f0;border-radius:8px;font-family:monospace;font-size:13px;line-height:1.6;resize:none;background:#f8fafc"></textarea>
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="hideReportPromptModal()">閉じる</button>
     </div>
   </div>
 </div>
@@ -2321,6 +2336,106 @@ function parseGenericExcel(workbook, period) {
 
 function addBusiness() { const name = document.getElementById('new-business-name').value.trim(); const type = document.getElementById('new-business-type').value; if (!name) { alert('事業名を入力してください'); return; } if (BUSINESSES[name]) { alert('同名の事業が存在します'); return; } BUSINESSES[name] = { data: {}, type: type }; saveBusinessData(); hideAddBusinessModal(); selectBusiness(name); }
 function deleteBusiness() { if (Object.keys(BUSINESSES).length <= 1) { alert('最後の事業は削除できません'); return; } if (confirm(`「${currentBusiness}」を削除しますか？`)) { delete BUSINESSES[currentBusiness]; saveBusinessData(); selectBusiness(Object.keys(BUSINESSES)[0]); } }
+
+// ========== 営業報告書プロンプト生成 ==========
+function showReportPromptModal() {
+  const business = BUSINESSES[currentBusiness];
+  if (!business) { alert('事業を選択してください'); return; }
+  
+  let data;
+  let periodLabel;
+  if (viewMode === 'total') {
+    const result = calculateTotalsAndAverages(currentBusiness);
+    if (!result) { alert('データがありません'); return; }
+    data = result.totals;
+    periodLabel = '全期間トータル';
+  } else {
+    const periodData = business.data?.[currentPeriod];
+    data = periodData?.サマリー || periodData || {};
+    periodLabel = currentPeriod || '未選択';
+  }
+  
+  if (!data || Object.keys(data).length === 0) { alert('データがありません'); return; }
+  
+  document.getElementById('report-business-period').textContent = `${currentBusiness} - ${periodLabel}`;
+  document.getElementById('report-prompt-text').value = generateReportPrompt(currentBusiness, periodLabel, data, business.type);
+  document.getElementById('report-prompt-modal').classList.remove('hidden');
+}
+
+function hideReportPromptModal() { document.getElementById('report-prompt-modal').classList.add('hidden'); }
+
+function copyReportPrompt() {
+  const text = document.getElementById('report-prompt-text').value;
+  navigator.clipboard.writeText(text).then(() => {
+    showStatus('📋 プロンプトをコピーしました');
+  }).catch(() => {
+    document.getElementById('report-prompt-text').select();
+    document.execCommand('copy');
+    showStatus('📋 プロンプトをコピーしました');
+  });
+}
+
+function generateReportPrompt(businessName, period, data, type) {
+  const formatVal = (key, val) => {
+    if (val == null) return null;
+    if (key.includes('率') || key.includes('割合') || key === 'RTP') {
+      return (val * 100).toFixed(2) + '%';
+    }
+    if (typeof val === 'number') {
+      if (Math.abs(val) >= 1000000) return '¥' + (val / 1000000).toFixed(2) + 'M';
+      if (Math.abs(val) >= 1000) return '¥' + Math.round(val).toLocaleString();
+      return val.toLocaleString();
+    }
+    return val;
+  };
+  
+  let prompt = `以下は「${businessName}」の${period}の営業データです。このデータを元に営業報告書を作成してください。\n\n`;
+  prompt += `【事業名】${businessName}\n【期間】${period}\n\n`;
+  prompt += `【主要KPIデータ】\n`;
+  
+  // 事業タイプに応じた主要KPIの順序
+  let keyOrder = [];
+  if (type === 'konibet') {
+    keyOrder = ['登録人数', 'FTD数', '入金者数', '総入金額', '総出金額', '入出金差分', 'T/O', 'GGR', 'NGR', 'ボーナス', 'ゲームプロバイダーフィー', 'PSP手数料', 'AFF報酬', 'アクティブプレイ人数', '新規入金転移率', '平均入金額', '出金人数割合', 'T/O倍率', 'ボーナス付与率', 'GGR率', 'NGR率', 'RTP'];
+  } else if (type === 'sloten') {
+    keyOrder = ['GGR', '総入金額', '総出金額', '入出金差分', 'T/O', 'RTP', 'NGR', '登録人数', 'ログインユーザー数'];
+  } else if (type === 'baccara') {
+    keyOrder = ['Twitter', 'Instagram', 'TikTok', 'YouTube', 'LINE公式', '合計フォロワー', '総ユーザー数', '総入金額', '平均T/O', '総GGR', 'コスト', 'NGR'];
+  } else if (type === 'ads') {
+    keyOrder = ['コスト($)', 'インプレッション', 'クリック', '登録数', '入金数', 'CPA(税込)'];
+  } else {
+    keyOrder = ['T/O', 'GGR', 'NGR', '回収率', '入出金差分'];
+  }
+  
+  // 主要KPIを出力
+  keyOrder.forEach(key => {
+    const val = data[key];
+    if (val != null) {
+      prompt += `・${key}: ${formatVal(key, val)}\n`;
+    }
+  });
+  
+  // その他のKPIも出力
+  prompt += `\n【その他データ】\n`;
+  Object.keys(data).forEach(key => {
+    if (!keyOrder.includes(key) && key !== '為替レート(USD/JPY)') {
+      const val = data[key];
+      if (val != null) {
+        prompt += `・${key}: ${formatVal(key, val)}\n`;
+      }
+    }
+  });
+  
+  prompt += `\n---\n`;
+  prompt += `上記データを元に、以下の構成で営業報告書を作成してください：\n`;
+  prompt += `1. サマリー（主要指標の概要）\n`;
+  prompt += `2. 前期比較・トレンド分析（可能であれば）\n`;
+  prompt += `3. 課題と改善点\n`;
+  prompt += `4. 次期の目標・アクションプラン\n`;
+  
+  return prompt;
+}
+
 </script>
 </body>
 </html>
