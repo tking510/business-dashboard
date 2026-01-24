@@ -1271,6 +1271,7 @@ function renderSummary() {
       { key: 'TikTok', label: 'TikTok', format: 'number' },
       { key: 'YouTube', label: 'YouTube', format: 'number' },
       { key: 'LINE公式', label: 'LINE公式', format: 'number' },
+      { key: 'KICK', label: 'KICK', format: 'number' },
       { key: '合計フォロワー', label: '合計', format: 'number' }
     ];
     const bizCards = [
@@ -1292,13 +1293,13 @@ function renderSummary() {
       if (!cardHtml) return '';
       return `<div style="margin-bottom:16px"><div style="font-size:12px;color:#64748b;margin-bottom:8px;font-weight:600">${title}</div><div class="summary-grid">${cardHtml}</div></div>`;
     };
-    const followerColors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#ec4899,#db2777)','linear-gradient(135deg,#000000,#333333)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#22c55e,#16a34a)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
+    const followerColors = ['linear-gradient(135deg,#3b82f6,#1d4ed8)','linear-gradient(135deg,#ec4899,#db2777)','linear-gradient(135deg,#000000,#333333)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#22c55e,#16a34a)','linear-gradient(135deg,#4ade80,#22c55e)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
     const bizColors = ['linear-gradient(135deg,#10b981,#059669)','linear-gradient(135deg,#f59e0b,#d97706)','linear-gradient(135deg,#f97316,#ea580c)','linear-gradient(135deg,#22c55e,#16a34a)','linear-gradient(135deg,#ef4444,#dc2626)','linear-gradient(135deg,#8b5cf6,#7c3aed)'];
     container.innerHTML = renderCardGroup(followerCards, '📱 SNSフォロワー数', followerColors) + renderCardGroup(bizCards, '💰 収益', bizColors);
     return;
   }
   
-  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'ads' ? [{ key: 'コスト($)', label: 'コスト($)', format: 'number' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: 'CPA(税込)', label: 'CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : [];
+  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'ads' ? [{ key: 'コスト(税込)', label: 'コスト' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: '登録CPA', label: '登録CPA' },{ key: '入金CPA', label: '入金CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : [];
   container.innerHTML = '<div class="summary-grid">' + cards.map((card, i) => { let val = data[card.key]; if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } } if (val == null) return ''; let formatted = card.key === 'RTP' ? formatRTP(val) : card.format === 'percent' ? formatPercent(val) : card.format === 'number' ? formatNumber(val) : formatCurrency(val); const bg = val < 0 && card.format !== 'percent' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : colors[i % colors.length]; return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`; }).join('') + '</div>';
 }
 
@@ -2135,8 +2136,9 @@ function parseAdsCSV(lines, period) {
   const ctr = totals.インプレッション > 0 ? totals.クリック / totals.インプレッション : 0;
   const cvr = totals.クリック > 0 ? totals.登録 / totals.クリック : 0;
   const costYen = totals.コスト < 10000 ? totals.コスト * 150 : totals.コスト;
-  const cpaYen = totals.登録 > 0 ? costYen / totals.登録 : 0;
-  BUSINESSES['広告'].data['全期間'] = { サマリー: { 'コスト($)': totals.コスト, 'コスト(税込)': costYen, 'インプレッション': totals.インプレッション, 'クリック': totals.クリック, '登録数': totals.登録, '入金数': totals.入金, 'CTR': ctr, 'CVR': cvr, 'CPA(税込)': cpaYen } };
+  const regCpaYen = totals.登録 > 0 ? costYen / totals.登録 : 0;
+  const depCpaYen = totals.入金 > 0 ? costYen / totals.入金 : 0;
+  BUSINESSES['広告'].data['全期間'] = { サマリー: { 'コスト(税込)': costYen, 'インプレッション': totals.インプレッション, 'クリック': totals.クリック, '登録数': totals.登録, '入金数': totals.入金, 'CTR': ctr, 'CVR': cvr, '登録CPA': regCpaYen, '入金CPA': depCpaYen } };
   showStatus(`広告データ取込完了: 登録${totals.登録}件, 入金${totals.入金}件`);
   selectBusiness('広告'); saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
@@ -2188,7 +2190,7 @@ function parseBaccaratExcel(workbook, period) {
   const followerSheet = workbook.Sheets['SNSフォロワー数'] || workbook.Sheets['フォロワー数'];
   
   const extractedData = {
-    'Twitter': 0, 'Instagram': 0, 'TikTok': 0, 'YouTube': 0, 'LINE公式': 0,
+    'Twitter': 0, 'Instagram': 0, 'TikTok': 0, 'YouTube': 0, 'LINE公式': 0, 'KICK': 0,
     '総ユーザー数': 0, '総入金額': 0, '平均T/O': 0, '総GGR': 0, 'コミッション': 0, 'コスト': 0, 'NGR': 0
   };
   
@@ -2208,6 +2210,7 @@ function parseBaccaratExcel(workbook, period) {
           else if (h === 'TikTok') colMap['TikTok'] = colIdx;
           else if (h === 'YouTube') colMap['YouTube'] = colIdx;
           else if (h.includes('LINE')) colMap['LINE公式'] = colIdx;
+          else if (h === 'KICK' || h === 'Kick') colMap['KICK'] = colIdx;
         });
       }
     });
@@ -2305,7 +2308,7 @@ function parseBaccaratExcel(workbook, period) {
   
   // フォロワー数合計を計算
   extractedData['合計フォロワー'] = extractedData['Twitter'] + extractedData['Instagram'] + 
-                                   extractedData['TikTok'] + extractedData['YouTube'] + extractedData['LINE公式'];
+                                   extractedData['TikTok'] + extractedData['YouTube'] + extractedData['LINE公式'] + extractedData['KICK'];
   
   // データを保存
   BUSINESSES['バカラツール'].data['全期間'] = { サマリー: extractedData };
@@ -2400,9 +2403,9 @@ function generateReportPrompt(businessName, period, data, type) {
   } else if (type === 'sloten') {
     keyOrder = ['GGR', '総入金額', '総出金額', '入出金差分', 'T/O', 'RTP', 'NGR', '登録人数', 'ログインユーザー数'];
   } else if (type === 'baccara') {
-    keyOrder = ['Twitter', 'Instagram', 'TikTok', 'YouTube', 'LINE公式', '合計フォロワー', '総ユーザー数', '総入金額', '平均T/O', '総GGR', 'コスト', 'NGR'];
+    keyOrder = ['Twitter', 'Instagram', 'TikTok', 'YouTube', 'LINE公式', 'KICK', '合計フォロワー', '総ユーザー数', '総入金額', '平均T/O', '総GGR', 'コスト', 'NGR'];
   } else if (type === 'ads') {
-    keyOrder = ['コスト($)', 'インプレッション', 'クリック', '登録数', '入金数', 'CPA(税込)'];
+    keyOrder = ['コスト(税込)', 'インプレッション', 'クリック', '登録数', '入金数', '登録CPA', '入金CPA', 'CTR', 'CVR'];
   } else {
     keyOrder = ['T/O', 'GGR', 'NGR', '回収率', '入出金差分'];
   }
