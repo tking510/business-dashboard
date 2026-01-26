@@ -726,7 +726,8 @@ function formatRTP(val) {
   // 控除率（0.02など小さい値）の場合はRTPに変換
   let v = val;
   if (v <= 0.1) v = 1 - v; // 控除率をRTPに変換
-  v = Math.abs(v) <= 1 ? v * 100 : v;
+  // 小数表示（2未満）の場合は100倍、既に%表示（2以上）の場合はそのまま
+  v = v < 2 ? v * 100 : v;
   return v.toFixed(2) + '%';
 }
 function formatNumber(val) { if (val == null || isNaN(val)) return '-'; return Math.round(val).toLocaleString(); }
