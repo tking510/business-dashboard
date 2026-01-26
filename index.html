@@ -75,6 +75,26 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
 .crypto-card .crypto-pct{font-size:11px;color:#64748b}
 .provider-section{background:linear-gradient(135deg,#4a1d6a,#6b2d8a);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
 .provider-section .section-title{color:white}
+.daily-stats-section{background:linear-gradient(135deg,#1e3a5f,#2d5a87);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
+.daily-stats-section .section-title{color:white;margin-bottom:15px}
+.daily-stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;max-height:400px;overflow-y:auto}
+.payment-stats-section{background:linear-gradient(135deg,#2d5a47,#3d7a67);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
+.payment-stats-section .section-title{color:white;margin-bottom:15px}
+.payment-stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;max-height:500px;overflow-y:auto}
+.payment-month-card{background:rgba(255,255,255,0.1);border-radius:10px;padding:12px;backdrop-filter:blur(5px)}
+.payment-month-title{font-weight:bold;font-size:1rem;margin-bottom:10px;color:#90EE90;border-bottom:1px solid rgba(255,255,255,0.2);padding-bottom:5px}
+.payment-type-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:0.85rem}
+.payment-type-row:last-child{border-bottom:none}
+.payment-type-label{color:#b0e0b0;font-weight:500;min-width:70px}
+.payment-type-values{display:flex;gap:10px;flex-wrap:wrap}
+.payment-stat{color:white;font-size:0.8rem}
+.payment-stat-label{color:#a0d0a0;font-size:0.7rem}
+.daily-stat-card{background:rgba(255,255,255,0.1);border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.2)}
+.daily-stat-card .date{font-weight:bold;font-size:14px;margin-bottom:8px;color:#7dd3fc}
+.daily-stat-card .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}
+.daily-stat-card .stat-item{display:flex;justify-content:space-between}
+.daily-stat-card .stat-label{color:rgba(255,255,255,0.7)}
+.daily-stat-card .stat-val{font-weight:bold}
 .provider-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
 .provider-card{background:rgba(255,255,255,0.15);border-radius:10px;padding:14px;backdrop-filter:blur(10px)}
 .provider-card h5{font-size:12px;margin-bottom:8px;font-weight:600}
@@ -156,6 +176,19 @@ footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20
       <div class="list-wrapper"><div id="provider-grid" class="provider-grid"></div></div>
     </div>
   </div>
+  
+  <!-- 日次統計 -->
+  <div id="daily-stats-section" class="daily-stats-section hidden">
+    <div class="section-title">📅 日次統計（精算日別）</div>
+    <div id="daily-stats-grid" class="daily-stats-grid"></div>
+  </div>
+  
+  <!-- 着金統計 -->
+  <div id="payment-stats-section" class="payment-stats-section hidden">
+    <div class="section-title">💰 着金統計（月別）</div>
+    <div id="payment-stats-grid" class="payment-stats-grid"></div>
+  </div>
+  
   <div id="data-table" class="card">
     <div class="section-title">📋 詳細データ</div>
     <div class="table-container">
@@ -252,10 +285,10 @@ const MOTO_AMUSE_DATA = {
   '2025年5月':{サマリー:{'BK':6910039.38,'FTDW数':119,'FTDW率':0.3766,'FTD数':110,'FTD率':0.3481,'GGR':30822400,'LINE登録数':497,'LTV(GGR)':40878.51,'LTV(WIN/LOSE)':3348.2,'NGR':21494893.73,'RTP':0.9995,'T/O':5416323482.72,'WIN/LOSE':2524541,'アカウント作成数':316,'アクティブユーザー数':754,'プロバイダーフィー':9327506.27,'リスト件数':9967,'出金金額':74028096,'前月リテンション数':119,'勝利金':5413798941.72,'回収予定金額':127207474.62,'回収率(今月)':0.8335,'回収率(全体)':0.8491,'回収金額':108007299.5,'引継ぎプレイヤー数':438,'打電数':171257,'着電数':6193,'総登録数':754,'総信用枠':226200000,'平均信用枠':300000,'平均Credit単価':2056363,'総ボーナス':5100000,'平均プレイ月間':4.8,'事前清算回数':142,'事前清算金額':32000000,'通常清算回数':420,'通常清算金額':76007299,'事前清算割合':0.2962,'通常清算割合':0.7038,'事前清算件数割合':0.2527,'通常清算件数割合':0.7473},リスト種別:{'B':102,'E':88,'T':72,'S':58,'BE':45,'C':38,'紹介':32,'その他':319}}
 };
 const DSC_DATA = {
-  '2026年1月':{サマリー:{'FTDW数':12,'FTDW率':0.6,'FTD数':10,'FTD率':0.5,'FTP数':16,'FTP率':0.8,'FTW数':2,'FTW率':0.1,'GGR(WIN/LOSE)':43248155.21,'GGR(回収金額-出金金額)':30601418,'LTV(GGR)':128277.01,'LTV(WIN/LOSE)':249989.34,'NGR':20776887.34,'RTP':0.9678,'T/O':1342354453.62,'アカウント作成数':20,'アクティブユーザー数':173,'プロバイダーフィー':1415034.66,'リスト件数':15000,'出金金額':17783098,'勝利金':1299106298.41,'回収予定金額':57141822,'回収率(今月)':0.7995,'回収率(全体)':0.8467,'回収金額':45685123,'回収済金額':48384516,'総登録数':173,'総信用枠':184943000,'事前精算金額':19572494,'平均信用枠':300000,'平均Credit単価':2595000,'総ボーナス':1250000,'平均プレイ月間':5.2,'事前清算回数':32,'事前清算金額':9800000,'通常清算回数':98,'通常清算金額':25274981,'事前清算割合':0.2794,'通常清算割合':0.7206,'事前清算件数割合':0.2462,'通常清算件数割合':0.7538},リスト種別:{'B':15,'E':68,'T':8,'S':81,'その他':9},プロバイダー:{'AkibaGames':{ユーザー数:8,賭け金額:3220650,配当金額:4318045,GGR:-1097395},'PLAYTECH-LIVE':{ユーザー数:1,賭け金額:380,配当金額:184,GGR:196},'PLAYTECH-SLOT':{ユーザー数:12,賭け金額:1175730,配当金額:1190505,GGR:-14775},'KAGaming':{ユーザー数:11,賭け金額:75270,配当金額:86688,GGR:-11418},'Evolution':{ユーザー数:143,賭け金額:1181707918,配当金額:1146697218,GGR:35010699},'PlayNGo Direct':{ユーザー数:87,賭け金額:38137786,配当金額:34223341,GGR:3914444},'Pocket Games Soft':{ユーザー数:25,賭け金額:933944,配当金額:855455,GGR:78489},'CQGames':{ユーザー数:1,賭け金額:24,配当金額:5,GGR:19},'Fa Chai':{ユーザー数:9,賭け金額:163409,配当金額:206851,GGR:-43442},'Pragmatic Play':{ユーザー数:126,賭け金額:360408356,配当金額:358374541,GGR:2033814},'HabaneroGaming':{ユーザー数:5,賭け金額:80108,配当金額:60613,GGR:19495},'Booongo':{ユーザー数:11,賭け金額:467360,配当金額:333090,GGR:134270},'Gekipachi':{ユーザー数:63,賭け金額:51135658,配当金額:50406456,GGR:729202},'Nolimit City':{ユーザー数:45,賭け金額:53763110,配当金額:48232509,GGR:5530601},'HackSaw':{ユーザー数:67,賭け金額:13321570,配当金額:12155761,GGR:1165809},'Jili':{ユーザー数:16,賭け金額:314555,配当金額:291525,GGR:23029},'MicroGaming Slot':{ユーザー数:26,賭け金額:4465822,配当金額:4169092,GGR:296731},'Relax Gaming':{ユーザー数:46,賭け金額:11670075,配当金額:9757444,GGR:1912630},'AvatarUX':{ユーザー数:24,賭け金額:4043220,配当金額:3520712,GGR:522508},'QuickSpin':{ユーザー数:12,賭け金額:923170,配当金額:868459,GGR:54711},'Red Tiger':{ユーザー数:19,賭け金額:4420880,配当金額:4707284,GGR:-286404},'Blueprint Gaming':{ユーザー数:12,賭け金額:6743640,配当金額:5021676,GGR:1721964},'OctoPlay':{ユーザー数:32,賭け金額:3298300,配当金額:2632454,GGR:665846}}},
+  '2026年1月':{サマリー:{'FTDW数':12,'FTDW率':0.6,'FTD数':10,'FTD率':0.5,'FTP数':16,'FTP率':0.8,'FTW数':2,'FTW率':0.1,'GGR(WIN/LOSE)':43248155.21,'GGR(回収金額-出金金額)':30601418,'LTV(GGR)':128277.01,'LTV(WIN/LOSE)':249989.34,'NGR':20776887.34,'RTP':0.9678,'T/O':1342354453.62,'アカウント作成数':20,'アクティブユーザー数':173,'プロバイダーフィー':1415034.66,'リスト件数':15000,'出金金額':17783098,'勝利金':1299106298.41,'回収予定金額':57141822,'回収率(今月)':0.7995,'回収率(全体)':0.8467,'回収金額':45685123,'回収済金額':48384516,'総登録数':173,'総信用枠':184943000,'事前精算金額':19572494,'平均信用枠':300000,'平均Credit単価':2595000,'総ボーナス':1250000,'平均プレイ月間':5.2,'事前清算回数':32,'事前清算金額':9800000,'通常清算回数':98,'通常清算金額':25274981,'事前清算割合':0.2794,'通常清算割合':0.7206,'事前清算件数割合':0.2462,'通常清算件数割合':0.7538},リスト種別:{'B':15,'E':68,'T':8,'S':81,'その他':9},プロバイダー:{'AkibaGames':{ユーザー数:8,賭け金額:3220650,配当金額:4318045,GGR:-1097395},'PLAYTECH-LIVE':{ユーザー数:1,賭け金額:380,配当金額:184,GGR:196},'PLAYTECH-SLOT':{ユーザー数:12,賭け金額:1175730,配当金額:1190505,GGR:-14775},'KAGaming':{ユーザー数:11,賭け金額:75270,配当金額:86688,GGR:-11418},'Evolution':{ユーザー数:143,賭け金額:1181707918,配当金額:1146697218,GGR:35010699},'PlayNGo Direct':{ユーザー数:87,賭け金額:38137786,配当金額:34223341,GGR:3914444},'Pocket Games Soft':{ユーザー数:25,賭け金額:933944,配当金額:855455,GGR:78489},'CQGames':{ユーザー数:1,賭け金額:24,配当金額:5,GGR:19},'Fa Chai':{ユーザー数:9,賭け金額:163409,配当金額:206851,GGR:-43442},'Pragmatic Play':{ユーザー数:126,賭け金額:360408356,配当金額:358374541,GGR:2033814},'HabaneroGaming':{ユーザー数:5,賭け金額:80108,配当金額:60613,GGR:19495},'Booongo':{ユーザー数:11,賭け金額:467360,配当金額:333090,GGR:134270},'Gekipachi':{ユーザー数:63,賭け金額:51135658,配当金額:50406456,GGR:729202},'Nolimit City':{ユーザー数:45,賭け金額:53763110,配当金額:48232509,GGR:5530601},'HackSaw':{ユーザー数:67,賭け金額:13321570,配当金額:12155761,GGR:1165809},'Jili':{ユーザー数:16,賭け金額:314555,配当金額:291525,GGR:23029},'MicroGaming Slot':{ユーザー数:26,賭け金額:4465822,配当金額:4169092,GGR:296731},'Relax Gaming':{ユーザー数:46,賭け金額:11670075,配当金額:9757444,GGR:1912630},'AvatarUX':{ユーザー数:24,賭け金額:4043220,配当金額:3520712,GGR:522508},'QuickSpin':{ユーザー数:12,賭け金額:923170,配当金額:868459,GGR:54711},'Red Tiger':{ユーザー数:19,賭け金額:4420880,配当金額:4707284,GGR:-286404},'Blueprint Gaming':{ユーザー数:12,賭け金額:6743640,配当金額:5021676,GGR:1721964},'OctoPlay':{ユーザー数:32,賭け金額:3298300,配当金額:2632454,GGR:665846}},日次統計:{'2026/01/05':{人数:274,信用枠合計:31723000,回収金額合計:9851896,信用枠中央値:50000,回収金額中央値:50000},'2026/01/08':{人数:216,信用枠合計:25190000,回収金額合計:4896523,信用枠中央値:50000,回収金額中央値:69283},'2026/01/12':{人数:232,信用枠合計:24670000,回収金額合計:5391129,信用枠中央値:50000,回収金額中央値:40010},'2026/01/15':{人数:209,信用枠合計:26080000,回収金額合計:5483895,信用枠中央値:50000,回収金額中央値:49992},'2026/01/19':{人数:236,信用枠合計:33110000,回収金額合計:10163844,信用枠中央値:50000,回収金額中央値:49983},'2026/01/22':{人数:230,信用枠合計:19810000,回収金額合計:5636073,信用枠中央値:30000,回収金額中央値:50000},'2026/01/26':{人数:258,信用枠合計:23070000,回収金額合計:4252642,信用枠中央値:30000,回収金額中央値:49241},'2026/01/29':{人数:35,信用枠合計:5850000,回収金額合計:30000,信用枠中央値:150000,回収金額中央値:30000}}},
   '2025年12月':{サマリー:{'GGR(WIN/LOSE)':53578505.82,'GGR(回収金額-出金金額)':38616975,'LTV(GGR)':133161.98,'LTV(WIN/LOSE)':184753.47,'NGR':31242527,'RTP':0.9646,'T/O':1514244472.37,'アカウント作成数':27,'アクティブユーザー数':292,'プロバイダーフィー':7374448,'出金金額':20555338,'勝利金':1460665966.55,'回収予定金額':73458827,'回収率(全体)':0.8381,'回収金額':61567404,'総登録数':292,'総信用枠':87600000,'平均信用枠':300000,'平均Credit単価':2466666,'総ボーナス':2100000,'平均プレイ月間':4.8,'事前清算回数':55,'事前清算金額':16500000,'通常清算回数':168,'通常清算金額':45067404,'事前清算割合':0.2679,'通常清算割合':0.7321,'事前清算件数割合':0.2466,'通常清算件数割合':0.7534},リスト種別:{'B':42,'E':35,'T':28,'S':22,'BE':18,'C':15,'紹介':12,'その他':120},プロバイダー:{'AkibaGames':{ユーザー数:25,賭け金額:1203150,配当金額:833935,GGR:369215},'PLAYTECH-LIVE':{ユーザー数:2,賭け金額:71400,配当金額:74200,GGR:-2800},'PLAYTECH-SLOT':{ユーザー数:10,賭け金額:2586715,配当金額:2437998,GGR:148717},'KAGaming':{ユーザー数:17,賭け金額:400494,配当金額:256578,GGR:143916},'Evolution':{ユーザー数:206,賭け金額:1240710465,配当金額:1206271233,GGR:34439231},'PlayNGo Direct':{ユーザー数:118,賭け金額:27726576,配当金額:26283289,GGR:1443287},'Pocket Games Soft':{ユーザー数:29,賭け金額:754016,配当金額:785570,GGR:-31554},'CQGames':{ユーザー数:9,賭け金額:39338,配当金額:30337,GGR:9001},'Fa Chai':{ユーザー数:1,賭け金額:2112,配当金額:3744,GGR:-1632},'Pragmatic Play':{ユーザー数:176,賭け金額:148675871,配当金額:135985783,GGR:12690088},'HabaneroGaming':{ユーザー数:1,賭け金額:1200,配当金額:820,GGR:380},'Booongo':{ユーザー数:13,賭け金額:653690,配当金額:564865,GGR:88825},'Gekipachi':{ユーザー数:70,賭け金額:32842623,配当金額:32262060,GGR:580563},'Nolimit City':{ユーザー数:69,賭け金額:46171135,配当金額:43494771,GGR:2676364},'HackSaw':{ユーザー数:84,賭け金額:19721400,配当金額:18519993,GGR:1201407},'Jili':{ユーザー数:18,賭け金額:182421,配当金額:156923,GGR:25499},'MicroGaming Slot':{ユーザー数:25,賭け金額:1050939,配当金額:991134,GGR:59805},'Relax Gaming':{ユーザー数:61,賭け金額:11750724,配当金額:10286248,GGR:1464476},'AvatarUX':{ユーザー数:33,賭け金額:1978340,配当金額:1612138,GGR:366202},'QuickSpin':{ユーザー数:19,賭け金額:535470,配当金額:535350,GGR:120},'Red Tiger':{ユーザー数:14,賭け金額:340440,配当金額:316070,GGR:24370},'Blueprint Gaming':{ユーザー数:18,賭け金額:4971270,配当金額:5993008,GGR:-1021738},'OctoPlay':{ユーザー数:11,賭け金額:285790,配当金額:247893,GGR:37897}}},
   '2025年11月':{サマリー:{'BK':9242926.55,'FTDW数':62,'FTDW率':0.8052,'FTD数':29,'FTD率':0.3766,'FTP数':61,'FTP率':0.7922,'FTW数':33,'FTW率':0.4286,'GGR(WIN/LOSE)':64900999.09,'GGR(回収金額-出金金額)':43448785,'LINE登録数':38,'LTV(GGR)':191404.34,'LTV(WIN/LOSE)':285907.48,'NGR':33610642.28,'RTP':0.9586,'T/O':1568206349.94,'アカウント作成数':77,'アクティブユーザー数':227,'プロバイダーフィー':9838142.72,'リスト件数':14867,'出金金額':19725328,'前月リテンション数':82,'勝利金':1503305350.85,'回収予定金額':77447062,'回収率(今月)':0.7476,'回収率(全体)':0.8291,'回収金額':64213601,'引継ぎプレイヤー数':150,'打電数':10398,'着電数':1209,'総登録数':227,'総信用枠':68100000,'平均信用枠':300000,'平均Credit単価':2348275,'総ボーナス':1680000,'平均プレイ月間':4.5,'事前清算回数':42,'事前清算金額':13200000,'通常清算回数':135,'通常清算金額':51013601,'事前清算割合':0.2056,'通常清算割合':0.7944,'事前清算件数割合':0.2373,'通常清算件数割合':0.7627},リスト種別:{'B':32,'E':28,'T':22,'S':18,'BE':14,'C':12,'紹介':10,'その他':91},プロバイダー:{'AkibaGames':{ユーザー数:14,賭け金額:874500,配当金額:722300,GGR:152200},'PLAYTECH-LIVE':{ユーザー数:6,賭け金額:459500,配当金額:634340,GGR:-174840},'PLAYTECH-SLOT':{ユーザー数:8,賭け金額:992230,配当金額:1190225,GGR:-197995},'KAGaming':{ユーザー数:6,賭け金額:136519,配当金額:165438,GGR:-28919},'Evolution':{ユーザー数:177,賭け金額:1145813150,配当金額:1108399275,GGR:37413875},'PlayNGo Direct':{ユーザー数:106,賭け金額:34192568,配当金額:29308708,GGR:4883860},'Pocket Games Soft':{ユーザー数:22,賭け金額:1473350,配当金額:1308625,GGR:164725},'CQGames':{ユーザー数:1,賭け金額:45,配当金額:0,GGR:45},'Fa Chai':{ユーザー数:2,賭け金額:4682,配当金額:3441,GGR:1241},'Pragmatic Play':{ユーザー数:148,賭け金額:239811460,配当金額:227865043,GGR:11946417},'HabaneroGaming':{ユーザー数:3,賭け金額:11600,配当金額:5865,GGR:5735},'Booongo':{ユーザー数:8,賭け金額:241750,配当金額:197330,GGR:44420},'Gekipachi':{ユーザー数:74,賭け金額:28257260,配当金額:25246427,GGR:3010833},'Nolimit City':{ユーザー数:55,賭け金額:67983081,配当金額:63222889,GGR:4760192},'HackSaw':{ユーザー数:80,賭け金額:22604350,配当金額:21574449,GGR:1029901},'Jili':{ユーザー数:11,賭け金額:158380,配当金額:108224,GGR:50156},'MicroGaming Slot':{ユーザー数:19,賭け金額:3114810,配当金額:2869025,GGR:245785},'Relax Gaming':{ユーザー数:61,賭け金額:15795120,配当金額:15064432,GGR:730688},'AvatarUX':{ユーザー数:35,賭け金額:3553730,配当金額:3016957,GGR:536773},'QuickSpin':{ユーザー数:13,賭け金額:505010,配当金額:538138,GGR:-33128},'Red Tiger':{ユーザー数:7,賭け金額:129160,配当金額:145291,GGR:-16131},'Blueprint Gaming':{ユーザー数:10,賭け金額:1943495,配当金額:1594092,GGR:349403},'OctoPlay':{ユーザー数:13,賭け金額:150600,配当金額:124836,GGR:25764}}},
-  '2025年10月':{サマリー:{'GGR(WIN/LOSE)':68470005,'GGR(回収金額-出金金額)':51817553,'T/O':1549158786,'アクティブユーザー数':250,'プロバイダーフィー':6847000,'出金金額':17719827,'勝利金':1480688781,'回収率(今月)':0.7996,'回収率(全体)':0.9713,'回収金額':57282112,'回収済金額':69537380,'回収予定金額':71590836,'総信用枠':216439800,'事前精算金額':23233314,'総登録数':250},リスト種別:{'B':38,'E':32,'T':25,'S':20,'その他':135},プロバイダー:{'PLAYTECH-LIVE':{ユーザー数:1,賭け金額:2000,配当金額:5000,GGR:-3000},'KAGaming':{ユーザー数:23,賭け金額:342485,配当金額:342459,GGR:26},'Evolution':{ユーザー数:210,賭け金額:1250551232,配当金額:1205434677,GGR:45116555},'PlayNGo Direct':{ユーザー数:135,賭け金額:74525309,配当金額:68832150,GGR:5693159},'Pocket Games Soft':{ユーザー数:1,賭け金額:3000,配当金額:1384,GGR:1616},'Pragmatic Play':{ユーザー数:153,賭け金額:97400982,配当金額:86796463,GGR:10604519},'Gekipachi':{ユーザー数:108,賭け金額:45476824,配当金額:43411446,GGR:2065377},'Nolimit City':{ユーザー数:53,賭け金額:35178006,配当金額:33055633,GGR:2122373},'HackSaw':{ユーザー数:96,賭け金額:23366020,配当金額:20572866,GGR:2793154},'Jili':{ユーザー数:2,賭け金額:16650,配当金額:14505,GGR:2145},'MicroGaming Slot':{ユーザー数:44,賭け金額:4777474,配当金額:4868668,GGR:-91194},'Relax Gaming':{ユーザー数:53,賭け金額:10555732,配当金額:10554568,GGR:1164},'AvatarUX':{ユーザー数:26,賭け金額:1182220,配当金額:902295,GGR:279925},'QuickSpin':{ユーザー数:15,賭け金額:822490,配当金額:1143403,GGR:-320913},'Red Tiger':{ユーザー数:25,賭け金額:2357990,配当金額:2448377,GGR:-90387},'Blueprint Gaming':{ユーザー数:1,賭け金額:520,配当金額:52,GGR:468},'OctoPlay':{ユーザー数:16,賭け金額:452830,配当金額:438314,GGR:14516},'Booongo':{ユーザー数:12,賭け金額:1149022,配当金額:965530,GGR:183492}}},
+  '2025年10月':{サマリー:{'GGR(WIN/LOSE)':68470005,'GGR(回収金額-出金金額)':51817553,'T/O':1549158786,'アクティブユーザー数':250,'プロバイダーフィー':6847000,'出金金額':17719827,'勝利金':1480688781,'回収率(今月)':0.7996,'回収率(全体)':0.9713,'回収金額':57282112,'回収済金額':69537380,'回収予定金額':71590836,'総信用枠':216439800,'事前精算金額':23233314,'総登録数':250},リスト種別:{'B':38,'E':32,'T':25,'S':20,'その他':135},プロバイダー:{'PLAYTECH-LIVE':{ユーザー数:1,賭け金額:2000,配当金額:5000,GGR:-3000},'KAGaming':{ユーザー数:23,賭け金額:342485,配当金額:342459,GGR:26},'Evolution':{ユーザー数:210,賭け金額:1250551232,配当金額:1205434677,GGR:45116555},'PlayNGo Direct':{ユーザー数:135,賭け金額:74525309,配当金額:68832150,GGR:5693159},'Pocket Games Soft':{ユーザー数:1,賭け金額:3000,配当金額:1384,GGR:1616},'Pragmatic Play':{ユーザー数:153,賭け金額:97400982,配当金額:86796463,GGR:10604519},'Gekipachi':{ユーザー数:108,賭け金額:45476824,配当金額:43411446,GGR:2065377},'Nolimit City':{ユーザー数:53,賭け金額:35178006,配当金額:33055633,GGR:2122373},'HackSaw':{ユーザー数:96,賭け金額:23366020,配当金額:20572866,GGR:2793154},'Jili':{ユーザー数:2,賭け金額:16650,配当金額:14505,GGR:2145},'MicroGaming Slot':{ユーザー数:44,賭け金額:4777474,配当金額:4868668,GGR:-91194},'Relax Gaming':{ユーザー数:53,賭け金額:10555732,配当金額:10554568,GGR:1164},'AvatarUX':{ユーザー数:26,賭け金額:1182220,配当金額:902295,GGR:279925},'QuickSpin':{ユーザー数:15,賭け金額:822490,配当金額:1143403,GGR:-320913},'Red Tiger':{ユーザー数:25,賭け金額:2357990,配当金額:2448377,GGR:-90387},'Blueprint Gaming':{ユーザー数:1,賭け金額:520,配当金額:52,GGR:468},'OctoPlay':{ユーザー数:16,賭け金額:452830,配当金額:438314,GGR:14516},'Booongo':{ユーザー数:12,賭け金額:1149022,配当金額:965530,GGR:183492}},日次統計:{'2025/10/02':{人数:214,信用枠合計:22900000,回収金額合計:5785249,信用枠中央値:50000,回収金額中央値:50000},'2025/10/06':{人数:228,信用枠合計:23970000,回収金額合計:6044150,信用枠中央値:50000,回収金額中央値:55000},'2025/10/09':{人数:205,信用枠合計:21980000,回収金額合計:4620595,信用枠中央値:70000,回収金額中央値:69345},'2025/10/13':{人数:210,信用枠合計:24740000,回収金額合計:7704087,信用枠中央値:50000,回収金額中央値:82180},'2025/10/16':{人数:203,信用枠合計:22720000,回収金額合計:4888932,信用枠中央値:50000,回収金額中央値:100000},'2025/10/20':{人数:246,信用枠合計:29750000,回収金額合計:11225484,信用枠中央値:50000,回収金額中央値:60000},'2025/10/23':{人数:226,信用枠合計:23520000,回収金額合計:6041470,信用枠中央値:50000,回収金額中央値:77000},'2025/10/27':{人数:255,信用枠合計:26230000,回収金額合計:8145329,信用枠中央値:50000,回収金額中央値:89891},'2025/10/30':{人数:240,信用枠合計:25350000,回収金額合計:6026730,信用枠中央値:50000,回収金額中央値:50000}}},
   '2025年9月':{サマリー:{'BK':8671957.8,'FTDW数':92,'FTDW率':0.3948,'FTD数':73,'FTD率':0.3133,'FTP数':154,'FTP率':0.6609,'FTW数':19,'FTW率':0.0815,'GGR(WIN/LOSE)':74174997,'GGR(回収金額-出金金額)':40783402,'LINE登録数':161,'LTV(GGR)':137774.17,'LTV(WIN/LOSE)':248909.39,'NGR':31772784,'RTP':0.9712,'T/O':2578173994,'アカウント作成数':233,'アクティブユーザー数':298,'プロバイダーフィー':9010618,'リスト件数':14807,'出金金額':21551493,'前月リテンション数':21,'勝利金':2503998997,'回収予定金額':76698566.8,'回収率(全体)':0.8194,'回収金額':62846588,'引継ぎプレイヤー数':65,'打電数':12471,'着電数':2418,'総登録数':298,'総信用枠':89400000,'平均信用枠':300000,'平均Credit単価':1224657,'総ボーナス':2350000,'平均プレイ月間':3.9,'事前清算回数':58,'事前清算金額':15800000,'通常清算回数':175,'通常清算金額':47046588,'事前清算割合':0.2514,'通常清算割合':0.7486,'事前清算件数割合':0.2489,'通常清算件数割合':0.7511},リスト種別:{'B':45,'E':38,'T':30,'S':24,'BE':18,'C':15,'紹介':12,'その他':116},プロバイダー:{'PLAYTECH-LIVE':{ユーザー数:2,賭け金額:4500,配当金額:6700,GGR:-2200},'KAGaming':{ユーザー数:28,賭け金額:597297,配当金額:535576,GGR:61721},'Evolution':{ユーザー数:212,賭け金額:1780535416,配当金額:1744364850,GGR:36170566},'PlayNGo Direct':{ユーザー数:130,賭け金額:552421048,配当金額:533394504,GGR:19026544},'Gekipachi':{ユーザー数:131,賭け金額:66491019,配当金額:60478231,GGR:6012788},'Nolimit City':{ユーザー数:52,賭け金額:12717952,配当金額:11605309,GGR:1112643},'HackSaw':{ユーザー数:63,賭け金額:8920150,配当金額:8217079,GGR:703071},'MicroGaming Slot':{ユーザー数:28,賭け金額:916985,配当金額:777681,GGR:139304},'Relax Gaming':{ユーザー数:68,賭け金額:46361346,配当金額:52270335,GGR:-5908989},'AvatarUX':{ユーザー数:42,賭け金額:2183590,配当金額:1735098,GGR:448492},'QuickSpin':{ユーザー数:14,賭け金額:955830,配当金額:788987,GGR:166843},'Red Tiger':{ユーザー数:23,賭け金額:1196900,配当金額:1213117,GGR:-16217},'OctoPlay':{ユーザー数:12,賭け金額:253130,配当金額:225418,GGR:27712},'CQ9':{ユーザー数:1,賭け金額:300,配当金額:0,GGR:300},'Pragmatic Play':{ユーザー数:188,賭け金額:104376118,配当金額:88176809,GGR:16199309},'Booongo':{ユーザー数:8,賭け金額:130770,配当金額:80842,GGR:49928},'Pocket Games Soft':{ユーザー数:1,賭け金額:90,配当金額:42,GGR:48}}},
   '2025年8月':{サマリー:{'GGR(WIN/LOSE)':14211509,'T/O':611319598,'アクティブユーザー数':150,'プロバイダーフィー':1421151,'出金金額':8500000,'勝利金':597108089,'回収率(全体)':0.78,'回収金額':28000000,'総登録数':150},リスト種別:{'B':22,'E':18,'T':15,'S':12,'その他':83},プロバイダー:{'PLAYTECH-LIVE':{ユーザー数:1,賭け金額:50000,配当金額:50000,GGR:0},'KAGaming':{ユーザー数:21,賭け金額:269865,配当金額:245637,GGR:24228},'Evolution':{ユーザー数:99,賭け金額:525713306,配当金額:516839020,GGR:8874285},'PlayNGo Direct':{ユーザー数:56,賭け金額:33094368,配当金額:34387169,GGR:-1292801},'Gekipachi':{ユーザー数:54,賭け金額:16271098,配当金額:16202874,GGR:68223},'Nolimit City':{ユーザー数:14,賭け金額:2833304,配当金額:2671721,GGR:161583},'MicroGaming Slot':{ユーザー数:13,賭け金額:4507189,配当金額:4508674,GGR:-1485},'Relax Gaming':{ユーザー数:12,賭け金額:1049438,配当金額:1111862,GGR:-62424},'AvatarUX':{ユーザー数:6,賭け金額:853520,配当金額:860640,GGR:-7120},'QuickSpin':{ユーザー数:9,賭け金額:102520,配当金額:86301,GGR:16219},'Red Tiger':{ユーザー数:7,賭け金額:174360,配当金額:154584,GGR:19776},'OctoPlay':{ユーザー数:5,賭け金額:817740,配当金額:755932,GGR:61808},'Pragmatic Play':{ユーザー数:54,賭け金額:25310095,配当金額:19076604,GGR:6233491},'Booongo':{ユーザー数:5,賭け金額:31550,配当金額:20322,GGR:11228},'JILI':{ユーザー数:1,賭け金額:9982,配当金額:4372,GGR:5610},'Pocket Games Soft':{ユーザー数:9,賭け金額:230263,配当金額:130374,GGR:99889}}},
   '2025年7月':{サマリー:{'GGR(WIN/LOSE)':5743545,'T/O':84146078,'アクティブユーザー数':120,'プロバイダーフィー':574354,'出金金額':5200000,'勝利金':78402533,'回収率(全体)':0.75,'回収金額':18000000,'総登録数':120},リスト種別:{'B':18,'E':15,'T':12,'S':10,'その他':65},プロバイダー:{'KAGaming':{ユーザー数:6,賭け金額:33625,配当金額:6826,GGR:26799},'Evolution':{ユーザー数:86,賭け金額:63520408,配当金額:60030624,GGR:3489784},'PlayNGo Direct':{ユーザー数:40,賭け金額:4286512,配当金額:4342845,GGR:-56333},'Gekipachi':{ユーザー数:29,賭け金額:1811878,配当金額:1624348,GGR:187530},'Nolimit City':{ユーザー数:10,賭け金額:2550120,配当金額:2503696,GGR:46424},'Relax Gaming':{ユーザー数:8,賭け金額:1378140,配当金額:1440598,GGR:-62458},'AvatarUX':{ユーザー数:4,賭け金額:380050,配当金額:263438,GGR:116612},'QuickSpin':{ユーザー数:6,賭け金額:138260,配当金額:113920,GGR:24340},'Red Tiger':{ユーザー数:5,賭け金額:24810,配当金額:23590,GGR:1220},'CQ9':{ユーザー数:1,賭け金額:300,配当金額:50,GGR:250},'Pragmatic Play':{ユーザー数:54,賭け金額:10015118,配当金額:8050264,GGR:1964854},'JILI':{ユーザー数:2,賭け金額:1028,配当金額:170,GGR:858},'Pocket Games Soft':{ユーザー数:3,賭け金額:5829,配当金額:2164,GGR:3665}}}
@@ -860,7 +893,7 @@ function setViewMode(mode) {
   document.getElementById('period-selector').classList.toggle('hidden', mode === 'total');
   document.getElementById('totals-section').classList.toggle('hidden', mode !== 'total');
   if (mode === 'total') renderTotalsSection();
-  renderSummary(); renderCryptoSection(); renderGameSection(); renderProviderSection();
+  renderSummary(); renderCryptoSection(); renderGameSection(); renderProviderSection(); renderDailyStatsSection(); renderPaymentStatsSection();
 }
 
 // ========== トータル・平均計算 ==========
@@ -1099,6 +1132,150 @@ function renderProviderSection() {
   }
 }
 
+// ========== 日次統計セクション ==========
+function renderDailyStatsSection() {
+  const section = document.getElementById('daily-stats-section');
+  const container = document.getElementById('daily-stats-grid');
+  const business = BUSINESSES[currentBusiness];
+  
+  let dailyStats = null;
+  
+  if (viewMode === 'total') {
+    // 全期間：全ての期間の日次統計を集計
+    const allStats = {};
+    const periods = Object.keys(business?.data || {});
+    periods.forEach(period => {
+      const periodStats = business.data[period]?.日次統計;
+      if (periodStats) {
+        Object.entries(periodStats).forEach(([date, stats]) => {
+          if (!allStats[date]) allStats[date] = { 人数: 0, 信用枠合計: 0, 回収金額合計: 0, 信用枠中央値: 0, 回収金額中央値: 0 };
+          allStats[date].人数 += stats.人数 || 0;
+          allStats[date].信用枠合計 += stats.信用枠合計 || 0;
+          allStats[date].回収金額合計 += stats.回収金額合計 || 0;
+        });
+      }
+    });
+    if (Object.keys(allStats).length > 0) dailyStats = allStats;
+  } else {
+    const periodData = business?.data?.[currentPeriod];
+    dailyStats = periodData?.日次統計;
+  }
+  
+  if (!dailyStats || Object.keys(dailyStats).length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+  
+  let html = '';
+  const sortedDates = Object.keys(dailyStats).sort();
+  
+  sortedDates.forEach(date => {
+    const s = dailyStats[date];
+    // 日付を見やすく変換（2025/10/02 → 10/2）
+    const dateParts = date.split('/');
+    const shortDate = dateParts.length === 3 ? `${parseInt(dateParts[1])}/${parseInt(dateParts[2])}` : date;
+    
+    html += `
+      <div class="daily-stat-card">
+        <div class="date">📅 ${shortDate}</div>
+        <div class="stats">
+          <div class="stat-item"><span class="stat-label">人数</span><span class="stat-val">${s.人数}人</span></div>
+          <div class="stat-item"><span class="stat-label">信用枠計</span><span class="stat-val">¥${(s.信用枠合計/10000).toFixed(0)}万</span></div>
+          <div class="stat-item"><span class="stat-label">回収金額</span><span class="stat-val">¥${(s.回収金額合計/10000).toFixed(0)}万</span></div>
+          <div class="stat-item"><span class="stat-label">信用枠中央値</span><span class="stat-val">¥${((s.信用枠中央値 || 0)/10000).toFixed(0)}万</span></div>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+// ========== 着金統計セクション ==========
+function renderPaymentStatsSection() {
+  const section = document.getElementById('payment-stats-section');
+  const container = document.getElementById('payment-stats-grid');
+  const business = BUSINESSES[currentBusiness];
+  
+  const paymentStats = business?.data?.['着金統計'];
+  
+  if (!paymentStats || Object.keys(paymentStats).length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+  section.classList.remove('hidden');
+  
+  // 月別にデータを整理
+  const monthlyData = {};
+  const paymentTypes = Object.keys(paymentStats);
+  
+  paymentTypes.forEach(type => {
+    const typeStats = paymentStats[type];
+    Object.entries(typeStats).forEach(([month, stats]) => {
+      if (!monthlyData[month]) monthlyData[month] = {};
+      monthlyData[month][type] = stats;
+    });
+  });
+  
+  // 月をソート（新しい順）
+  const sortedMonths = Object.keys(monthlyData).sort((a, b) => {
+    const parseMonth = (m) => {
+      const match = m.match(/(\d{4})年(\d{1,2})月/);
+      return match ? parseInt(match[1]) * 100 + parseInt(match[2]) : 0;
+    };
+    return parseMonth(b) - parseMonth(a);
+  });
+  
+  let html = '';
+  const typeColors = { 'EC': '#4fc3f7', 'Paypay': '#ff6b6b', '仮想通貨': '#ffd93d', '個人': '#6bcb77', 'その他': '#c0c0c0' };
+  
+  sortedMonths.forEach(month => {
+    const data = monthlyData[month];
+    html += `<div class="payment-month-card">`;
+    html += `<div class="payment-month-title">📆 ${month}</div>`;
+    
+    // 月の合計を計算
+    let monthTotal = { 人数: new Set(), 回数: 0, 金額: 0 };
+    
+    paymentTypes.forEach(type => {
+      const stats = data[type];
+      if (!stats) return;
+      
+      const color = typeColors[type] || '#ffffff';
+      html += `
+        <div class="payment-type-row">
+          <span class="payment-type-label" style="color:${color}">${type}</span>
+          <div class="payment-type-values">
+            <div class="payment-stat"><span class="payment-stat-label">人数</span> ${stats.人数}人</div>
+            <div class="payment-stat"><span class="payment-stat-label">回数</span> ${stats.回数}回</div>
+            <div class="payment-stat"><span class="payment-stat-label">金額</span> ¥${(stats.金額合計/10000).toFixed(1)}万</div>
+            <div class="payment-stat"><span class="payment-stat-label">中央値</span> ¥${(stats.中央値/10000).toFixed(1)}万</div>
+          </div>
+        </div>
+      `;
+      
+      monthTotal.回数 += stats.回数;
+      monthTotal.金額 += stats.金額合計;
+    });
+    
+    // 月合計行
+    html += `
+      <div class="payment-type-row" style="border-top:2px solid rgba(255,255,255,0.3);margin-top:8px;padding-top:8px">
+        <span class="payment-type-label" style="color:#90EE90;font-weight:bold">合計</span>
+        <div class="payment-type-values">
+          <div class="payment-stat"><span class="payment-stat-label">回数</span> ${monthTotal.回数}回</div>
+          <div class="payment-stat"><span class="payment-stat-label">金額</span> ¥${(monthTotal.金額/10000).toFixed(1)}万</div>
+        </div>
+      </div>
+    `;
+    
+    html += `</div>`;
+  });
+  
+  container.innerHTML = html;
+}
+
 // ========== 継続KPI推移グラフ ==========
 function renderRetentionChart() {
   const section = document.getElementById('retention-chart-section');
@@ -1199,9 +1376,9 @@ function renderRetentionChart() {
 
 // ========== メイン描画 ==========
 function renderTabs() { const container = document.getElementById('business-tabs'); container.innerHTML = Object.keys(BUSINESSES).map(name => `<button class="tab ${name === currentBusiness ? 'active' : ''}" onclick="selectBusiness('${name}')">${name}</button>`).join('') + '<button class="btn btn-danger" onclick="deleteBusiness()" style="margin-left:auto">🗑️</button>'; }
-function selectBusiness(name) { currentBusiness = name; const business = BUSINESSES[name], data = business?.data || {}, periods = sortPeriods(Object.keys(data)); currentPeriod = periods[0] || null; renderTabs(); renderPeriodSelector(periods); if (viewMode === 'total') renderTotalsSection(); renderSummary(); renderKPISections(); renderCryptoSection(); renderGameSection(); renderProviderSection(); renderChart(); renderRetentionChart(); renderTable(); }
+function selectBusiness(name) { currentBusiness = name; const business = BUSINESSES[name], data = business?.data || {}, periods = sortPeriods(Object.keys(data)); currentPeriod = periods[0] || null; renderTabs(); renderPeriodSelector(periods); if (viewMode === 'total') renderTotalsSection(); renderSummary(); renderKPISections(); renderCryptoSection(); renderGameSection(); renderProviderSection(); renderDailyStatsSection(); renderPaymentStatsSection(); renderChart(); renderRetentionChart(); renderTable(); }
 function renderPeriodSelector(periods) { const container = document.getElementById('period-selector'); if (periods.length === 0) { container.innerHTML = '<span style="color:#94a3b8;font-size:13px">データをアップロードしてください</span>'; return; } container.innerHTML = periods.map(p => `<button class="period-btn ${p === currentPeriod ? 'active' : ''}" onclick="selectPeriod('${p}')">${p}</button>`).join('') + `<button class="btn btn-danger" style="padding:4px 10px;font-size:11px" onclick="deletePeriod()">期間削除</button>`; }
-function selectPeriod(period) { currentPeriod = period; renderPeriodSelector(sortPeriods(Object.keys(BUSINESSES[currentBusiness]?.data || {}))); renderSummary(); renderKPISections(); renderCryptoSection(); renderGameSection(); renderProviderSection(); renderTable(); }
+function selectPeriod(period) { currentPeriod = period; renderPeriodSelector(sortPeriods(Object.keys(BUSINESSES[currentBusiness]?.data || {}))); renderSummary(); renderKPISections(); renderCryptoSection(); renderGameSection(); renderProviderSection(); renderDailyStatsSection(); renderPaymentStatsSection(); renderTable(); }
 function deletePeriod() { const business = BUSINESSES[currentBusiness], periods = Object.keys(business?.data || {}); if (periods.length <= 1) { alert('最後の期間は削除できません'); return; } if (confirm(`「${currentPeriod}」を削除しますか？`)) { delete business.data[currentPeriod]; saveBusinessData(); selectBusiness(currentBusiness); } }
 
 function renderSummary() {
@@ -1542,6 +1719,10 @@ function handleCSV(text, period, uploadType, filename) {
   // SAM顧客管理シートの検出
   const isCustomerManagement = fn.includes('顧客管理シート') || (allText.includes('事前精算金額') && allText.includes('回収率') && allText.includes('信用枠金額'));
   
+  // 着金確認シートの検出
+  const isPaymentConfirm = fn.includes('着金') || fn.includes('ec着金') || fn.includes('paypay') || fn.includes('仮想通貨') || fn.includes('個人着金') || 
+    (allText.includes('着金確認') && (allText.includes('入金額') || allText.includes('入金日')));
+  
   // Konibet日次KPIシート（日本語フォーマット）の検出
   // 複数のパターンに対応
   const isKonibetDaily = (allText.includes('名目') && allText.includes('登録') && allText.includes('ggr') && allText.includes('ngr')) ||
@@ -1557,6 +1738,7 @@ function handleCSV(text, period, uploadType, filename) {
     if (isKonibetDaily) { parseKonibetDailyCSV(lines, period, fn); return; }
     if (isKonibet) { parseKonibetCSV(lines, period, fn); return; }
     if (isSloten) { parseSlotenCSV(lines, period, fn); return; }
+    if (isPaymentConfirm) { parsePaymentConfirmCSV(lines, period, fn, filename); return; }
     if (isCustomerManagement) { parseCustomerManagementCSV(lines, period, fn); return; }
     if (isCustomerList) { parseCustomerListCSV(lines, period, fn); return; }
     if (isUncollected) { parseUncollectedCSV(lines, period, fn); return; }
@@ -2104,8 +2286,8 @@ function parseDelayedCSV(lines, period, filename) {
 // SAM顧客管理シート用パーサー
 function parseCustomerManagementCSV(lines, period, filename) {
   const fn = filename.toLowerCase();
-  // ファイル名末尾にDがあればDSC
-  const isDSC = fn.includes('d.csv') || fn.includes('シートd') || filename.includes('D.csv') || filename.includes('月D');
+  // ファイル名末尾にDがあればDSC、なければAMUSE
+  const isDSC = fn.includes('d.csv') || fn.includes('月d.csv') || filename.includes('D.csv') || filename.match(/月D\.csv$/i) || filename.match(/\d月D\./i);
   const target = isDSC ? 'DSC' : '元amuse';
   
   // ファイル名から期間を抽出（例: "SAM顧客管理シート_-_2025年10月D.csv"）
@@ -2136,7 +2318,6 @@ function parseCustomerManagementCSV(lines, period, filename) {
   for (let i = 0; i < lines.length; i++) {
     const row = lines[i];
     if (!row) continue;
-    // 「合計」を含む行を探す（最初の合計）
     for (let j = 0; j < Math.min(row.length, 10); j++) {
       const cell = String(row[j] || '').trim();
       if (cell === '合計') {
@@ -2147,14 +2328,8 @@ function parseCustomerManagementCSV(lines, period, filename) {
     if (totalRow) break;
   }
   
-  if (!totalRow) {
-    showStatus('合計行が見つかりませんでした', true);
-    return;
-  }
-  
   const extracted = {};
   
-  // 合計行からデータを抽出
   const parseYen = (val) => {
     if (!val) return null;
     const s = String(val).replace(/[¥￥,\s]/g, '').replace(/%/g, '');
@@ -2162,22 +2337,84 @@ function parseCustomerManagementCSV(lines, period, filename) {
     return isNaN(n) ? null : n;
   };
   
-  // ヘッダーで特定したカラムからデータを取得
-  if (colMap['事前精算金額'] !== undefined) extracted['事前精算金額'] = parseYen(totalRow[colMap['事前精算金額']]);
-  if (colMap['今月分回収額'] !== undefined) extracted['回収金額'] = parseYen(totalRow[colMap['今月分回収額']]);
-  if (colMap['回収率(今月)'] !== undefined) {
-    const rate = parseYen(totalRow[colMap['回収率(今月)']]);
-    if (rate !== null) extracted['回収率(今月)'] = rate > 1 ? rate / 100 : rate;
+  if (totalRow) {
+    if (colMap['事前精算金額'] !== undefined) extracted['事前精算金額'] = parseYen(totalRow[colMap['事前精算金額']]);
+    if (colMap['今月分回収額'] !== undefined) extracted['回収金額'] = parseYen(totalRow[colMap['今月分回収額']]);
+    if (colMap['回収率(今月)'] !== undefined) {
+      const rate = parseYen(totalRow[colMap['回収率(今月)']]);
+      if (rate !== null) extracted['回収率(今月)'] = rate > 1 ? rate / 100 : rate;
+    }
+    if (colMap['回収率(全体)'] !== undefined) {
+      const rate = parseYen(totalRow[colMap['回収率(全体)']]);
+      if (rate !== null) extracted['回収率(全体)'] = rate > 1 ? rate / 100 : rate;
+    }
+    if (colMap['信用枠金額'] !== undefined) extracted['総信用枠'] = parseYen(totalRow[colMap['信用枠金額']]);
+    if (colMap['回収予定金額'] !== undefined) extracted['回収予定金額'] = parseYen(totalRow[colMap['回収予定金額']]);
+    if (colMap['回収済金額'] !== undefined) extracted['回収済金額'] = parseYen(totalRow[colMap['回収済金額']]);
+    if (colMap['出金済金額'] !== undefined) extracted['出金金額'] = parseYen(totalRow[colMap['出金済金額']]);
+    if (colMap['差分'] !== undefined) extracted['GGR(回収金額-出金金額)'] = parseYen(totalRow[colMap['差分']]);
   }
-  if (colMap['回収率(全体)'] !== undefined) {
-    const rate = parseYen(totalRow[colMap['回収率(全体)']]);
-    if (rate !== null) extracted['回収率(全体)'] = rate > 1 ? rate / 100 : rate;
+  
+  // 詳細ヘッダー行を探す（KYCで始まる行）
+  let detailStart = -1;
+  let detailColMap = {};
+  for (let i = 0; i < lines.length; i++) {
+    const row = lines[i];
+    if (row && String(row[0] || '').trim() === 'KYC') {
+      detailStart = i;
+      row.forEach((cell, idx) => {
+        const h = String(cell || '').trim();
+        if (h === '精算日') detailColMap['精算日'] = idx;
+        else if (h === '信用枠') detailColMap['信用枠'] = idx;
+        else if (h === '回収完了金額') detailColMap['回収完了金額'] = idx;
+        else if (h === '回収金額') detailColMap['回収金額詳細'] = idx;
+      });
+      break;
+    }
   }
-  if (colMap['信用枠金額'] !== undefined) extracted['総信用枠'] = parseYen(totalRow[colMap['信用枠金額']]);
-  if (colMap['回収予定金額'] !== undefined) extracted['回収予定金額'] = parseYen(totalRow[colMap['回収予定金額']]);
-  if (colMap['回収済金額'] !== undefined) extracted['回収済金額'] = parseYen(totalRow[colMap['回収済金額']]);
-  if (colMap['出金済金額'] !== undefined) extracted['出金金額'] = parseYen(totalRow[colMap['出金済金額']]);
-  if (colMap['差分'] !== undefined) extracted['GGR(回収金額-出金金額)'] = parseYen(totalRow[colMap['差分']]);
+  
+  // 日次統計を集計
+  const dailyStats = {};
+  if (detailStart >= 0 && detailColMap['精算日'] !== undefined) {
+    for (let i = detailStart + 1; i < lines.length; i++) {
+      const row = lines[i];
+      if (!row || row.length < 12) continue;
+      
+      let date = String(row[detailColMap['精算日']] || '').trim();
+      // 正規の日付形式のみ（次サイクルなどは除外）
+      if (!date || date.includes('次サイクル') || !date.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) continue;
+      
+      const credit = parseYen(row[detailColMap['信用枠']]) || 0;
+      const collection = parseYen(row[detailColMap['回収完了金額']]) || 0;
+      
+      if (!dailyStats[date]) {
+        dailyStats[date] = { 人数: 0, 信用枠合計: 0, 回収金額合計: 0, 信用枠リスト: [], 回収金額リスト: [] };
+      }
+      
+      dailyStats[date].人数++;
+      dailyStats[date].信用枠合計 += credit;
+      dailyStats[date].回収金額合計 += collection;
+      if (credit > 0) dailyStats[date].信用枠リスト.push(credit);
+      if (collection > 0) dailyStats[date].回収金額リスト.push(collection);
+    }
+    
+    // 中央値を計算
+    Object.keys(dailyStats).forEach(date => {
+      const s = dailyStats[date];
+      s.信用枠リスト.sort((a, b) => a - b);
+      s.回収金額リスト.sort((a, b) => a - b);
+      s.信用枠中央値 = s.信用枠リスト.length > 0 ? 
+        (s.信用枠リスト.length % 2 === 0 ? 
+          (s.信用枠リスト[s.信用枠リスト.length/2-1] + s.信用枠リスト[s.信用枠リスト.length/2]) / 2 :
+          s.信用枠リスト[Math.floor(s.信用枠リスト.length/2)]) : 0;
+      s.回収金額中央値 = s.回収金額リスト.length > 0 ?
+        (s.回収金額リスト.length % 2 === 0 ?
+          (s.回収金額リスト[s.回収金額リスト.length/2-1] + s.回収金額リスト[s.回収金額リスト.length/2]) / 2 :
+          s.回収金額リスト[Math.floor(s.回収金額リスト.length/2)]) : 0;
+      delete s.信用枠リスト;
+      delete s.回収金額リスト;
+    });
+  }
   
   // 既存データとマージ
   if (!BUSINESSES[target].data[periodName]) {
@@ -2185,7 +2422,133 @@ function parseCustomerManagementCSV(lines, period, filename) {
   }
   Object.assign(BUSINESSES[target].data[periodName].サマリー, extracted);
   
-  showStatus(`${target} ${periodName} 顧客管理データ取込完了: 回収金額 ¥${(extracted['回収金額'] || 0).toLocaleString()}`);
+  // 日次統計を追加
+  if (Object.keys(dailyStats).length > 0) {
+    BUSINESSES[target].data[periodName].日次統計 = dailyStats;
+  }
+  
+  const dailyCount = Object.keys(dailyStats).length;
+  showStatus(`${target} ${periodName} 顧客管理データ取込完了: 回収金額 ¥${(extracted['回収金額'] || 0).toLocaleString()}、日次統計 ${dailyCount}日分`);
+  selectBusiness(target); saveBusinessData(); setTimeout(hideUploadModal, 1500);
+}
+
+// 着金確認シート用パーサー（EC着金、Paypay、仮想通貨、個人）
+function parsePaymentConfirmCSV(lines, period, fnLower, filename) {
+  // ファイル名末尾にDがあればDSC、なければAMUSE
+  const isDSC = fnLower.includes('d.csv') || fnLower.includes('着金確認d') || fnLower.includes('着金d') || 
+    filename.includes('D.csv') || filename.match(/D\.csv$/i);
+  const target = isDSC ? 'DSC' : '元amuse';
+  
+  // 着金種別を判定
+  let paymentType = '';
+  if (fnLower.includes('ec') || fnLower.includes('ｅｃ')) paymentType = 'EC';
+  else if (fnLower.includes('paypay')) paymentType = 'Paypay';
+  else if (fnLower.includes('仮想通貨')) paymentType = '仮想通貨';
+  else if (fnLower.includes('個人')) paymentType = '個人';
+  else paymentType = 'その他';
+  
+  const parseYen = (val) => {
+    if (!val) return null;
+    const s = String(val).replace(/[¥￥,\s"]/g, '');
+    const n = parseFloat(s);
+    return isNaN(n) ? null : n;
+  };
+  
+  const parseDate = (val) => {
+    if (!val) return null;
+    const s = String(val).trim();
+    // 2025/03/10 形式
+    let match = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (match) return { year: parseInt(match[1]), month: parseInt(match[2]), day: parseInt(match[3]) };
+    // 2/20/2025 形式（米国式）
+    match = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (match) return { year: parseInt(match[3]), month: parseInt(match[1]), day: parseInt(match[2]) };
+    // 3/16 形式（年なし）- 2025年と仮定
+    match = s.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+    if (match) return { year: 2025, month: parseInt(match[1]), day: parseInt(match[2]) };
+    return null;
+  };
+  
+  // 月別統計を集計
+  const monthlyStats = {};
+  let totalCount = 0;
+  let totalAmount = 0;
+  
+  // データ行を直接検出（ヘッダーに依存しない）
+  for (let i = 0; i < lines.length; i++) {
+    const row = lines[i];
+    if (!row || row.length < 5) continue;
+    
+    let dateInfo = null;
+    let amount = null;
+    let phone = '';
+    
+    if (paymentType === 'EC') {
+      // EC着金: TEL(0), 顧客名(1), 担当者(2), 日付(3), 入金額(4)
+      dateInfo = parseDate(row[3]);
+      amount = parseYen(row[4]);
+      phone = String(row[0] || '').replace(/[\s\-]/g, '');
+    } else if (paymentType === 'Paypay') {
+      // Paypay: 入金先(0), 電話番号(1), 振込人名(2), 担当者名(3), 入金額(4), 入金日(5)
+      dateInfo = parseDate(row[5]);
+      amount = parseYen(row[4]);
+      phone = String(row[1] || '').replace(/[\s\-]/g, '');
+    } else if (paymentType === '個人') {
+      // 個人: 入金先(0), 電話番号(1), 振込人名(2), 担当者名(3), 入金額(4), 入金日(5)
+      dateInfo = parseDate(row[5]);
+      amount = parseYen(row[4]);
+      phone = String(row[1] || '').replace(/[\s\-]/g, '');
+    } else if (paymentType === '仮想通貨') {
+      // 仮想通貨: 入金/出金(0), 支払日時(1), 電話番号(2), 名前(3), ..., 入金額(8)
+      const entryType = String(row[0] || '').trim();
+      if (entryType !== '入金') continue;
+      dateInfo = parseDate(row[1]);
+      amount = parseYen(row[8]);
+      phone = String(row[2] || '').replace(/[\s\-]/g, '');
+    }
+    
+    // 有効なデータかチェック
+    if (!dateInfo || !amount || amount <= 0) continue;
+    // 電話番号が数字で始まるかチェック（ヘッダー行除外）
+    if (phone && !phone.match(/^0\d/)) continue;
+    
+    // 月キーを作成
+    const monthKey = `${dateInfo.year}年${dateInfo.month}月`;
+    
+    if (!monthlyStats[monthKey]) {
+      monthlyStats[monthKey] = { 人数Set: new Set(), 回数: 0, 金額合計: 0, 金額リスト: [] };
+    }
+    
+    if (phone) monthlyStats[monthKey].人数Set.add(phone);
+    monthlyStats[monthKey].回数++;
+    monthlyStats[monthKey].金額合計 += amount;
+    monthlyStats[monthKey].金額リスト.push(amount);
+    
+    totalCount++;
+    totalAmount += amount;
+  }
+  
+  // 中央値を計算してSetをカウントに変換
+  Object.keys(monthlyStats).forEach(month => {
+    const s = monthlyStats[month];
+    s.人数 = s.人数Set.size;
+    delete s.人数Set;
+    
+    s.金額リスト.sort((a, b) => a - b);
+    const len = s.金額リスト.length;
+    s.中央値 = len > 0 ?
+      (len % 2 === 0 ? (s.金額リスト[len/2-1] + s.金額リスト[len/2]) / 2 : s.金額リスト[Math.floor(len/2)]) : 0;
+    delete s.金額リスト;
+  });
+  
+  // データを格納
+  if (!BUSINESSES[target].data['着金統計']) {
+    BUSINESSES[target].data['着金統計'] = {};
+  }
+  BUSINESSES[target].data['着金統計'][paymentType] = monthlyStats;
+  
+  const monthCount = Object.keys(monthlyStats).length;
+  showStatus(`${target} ${paymentType}着金取込完了: ${totalCount}件, ¥${totalAmount.toLocaleString()}, ${monthCount}ヶ月分`);
   selectBusiness(target); saveBusinessData(); setTimeout(hideUploadModal, 1500);
 }
 
