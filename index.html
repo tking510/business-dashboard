@@ -976,7 +976,20 @@ function renderCryptoSection() {
   let depositTotal = 0;
   let withdrawTotal = 0;
   
-  if (viewMode === 'total') {
+  // 着金統計の仮想通貨データを優先的に使用
+  const paymentCrypto = business?.data?.['着金統計']?.['仮想通貨'];
+  
+  if (paymentCrypto && Object.keys(paymentCrypto).length > 0) {
+    // 着金統計から銘柄別データを集計（全月合算）
+    cryptoData = {};
+    Object.entries(paymentCrypto).forEach(([coin, monthlyData]) => {
+      if (!cryptoData[coin]) cryptoData[coin] = { 件数: 0, 金額: 0 };
+      Object.values(monthlyData).forEach(stats => {
+        cryptoData[coin].件数 += stats.回数 || 0;
+        cryptoData[coin].金額 += stats.金額合計 || 0;
+      });
+    });
+  } else if (viewMode === 'total') {
     // 全期間：全ての期間の仮想通貨データを集計
     const allCrypto = {};
     const periods = Object.keys(business?.data || {});
@@ -1004,7 +1017,7 @@ function renderCryptoSection() {
   section.classList.remove('hidden');
   
   // 円グラフ用データ
-  const labels = [], values = [], colors = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+  const labels = [], values = [], colors = ['#26a17b', '#f7931a', '#627eea', '#23292f', '#eb0029', '#8b5cf6', '#ec4899'];
   let html = '';
   
   if (cryptoData && Object.keys(cryptoData).length > 0) {
