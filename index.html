@@ -643,15 +643,24 @@ function renderTotalsSection() {
     { key: 'NGR', label: 'NGR', type: 'total' }
   ] : type === 'konibet' ? [
     { key: '登録人数', label: '登録人数', type: 'total', format: 'number' },
+    { key: 'ログインユーザー数', label: 'ログイン数', type: 'total', format: 'number' },
     { key: 'FTD数', label: 'FTD数', type: 'total', format: 'number' },
+    { key: '初回入金額', label: '初回入金額', type: 'total' },
     { key: '入金者数', label: '入金者数', type: 'total', format: 'number' },
-    { key: '総入金額', label: '入金額', type: 'total' },
+    { key: '総入金額', label: '総入金額', type: 'total' },
     { key: '出金者数', label: '出金者数', type: 'total', format: 'number' },
-    { key: '総出金額', label: '出金額', type: 'total' },
+    { key: '総出金額', label: '総出金額', type: 'total' },
     { key: '入出金差分', label: '入出金差分', type: 'total' },
+    { key: '残高', label: '残高', type: 'total' },
+    { key: 'アクティブプレイ人数（ユニーク）', label: 'アクティブ人数', type: 'total', format: 'number' },
     { key: 'T/O(リアルのみ)', alt: ['T/O'], label: 'T/O', type: 'total' },
+    { key: '勝利金(リアルのみ)', label: '勝利金', type: 'total' },
     { key: 'GGR', label: 'GGR', type: 'total' },
     { key: 'ボーナス', label: 'ボーナス', type: 'total' },
+    { key: 'ゲームボーナス', label: 'ゲームボーナス', type: 'total' },
+    { key: 'ゲームフィー', label: 'ゲームフィー', type: 'total' },
+    { key: 'PSP手数料', label: 'PSP手数料', type: 'total' },
+    { key: 'AFF報酬', label: 'AFF報酬', type: 'total' },
     { key: 'NGR', label: 'NGR', type: 'total' },
     { key: 'RTP', label: 'RTP', type: 'avg', format: 'rtp' }
   ] : [];
@@ -1277,7 +1286,7 @@ function renderSummary() {
     return;
   }
   
-  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'ads' ? [{ key: 'コスト(税込)', label: 'コスト' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: '登録CPA', label: '登録CPA' },{ key: '入金CPA', label: '入金CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : [];
+  let cards = type === 'samExcel' ? [{ key: 'T/O', label: 'T/O' },{ key: 'GGR(WIN/LOSE)', alt: ['GGR','WIN/LOSE'], label: 'GGR' },{ key: 'NGR', label: 'NGR' },{ key: '回収率(全体)', alt: ['回収率'], label: '回収率', format: 'percent' },{ key: 'GGR(回収金額-出金金額)', label: '入出金差分' }] : type === 'sloten' ? [{ key: 'GGR', label: 'GGR' },{ key: '総入金額', label: '総入金額' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: '登録人数', label: '登録人数', format: 'number' }] : type === 'konibet' ? [{ key: '登録人数', label: '登録人数', format: 'number' },{ key: 'ログインユーザー数', label: 'ログイン数', format: 'number' },{ key: 'FTD数', label: 'FTD数', format: 'number' },{ key: '初回入金額', label: '初回入金額' },{ key: '入金者数', label: '入金者数', format: 'number' },{ key: '総入金額', label: '総入金額' },{ key: '出金者数', label: '出金者数', format: 'number' },{ key: '総出金額', label: '総出金額' },{ key: '入出金差分', label: '入出金差分' },{ key: '残高', label: '残高' },{ key: 'アクティブプレイ人数（ユニーク）', label: 'アクティブ人数', format: 'number' },{ key: 'T/O(リアルのみ)', label: 'T/O' },{ key: '勝利金(リアルのみ)', label: '勝利金' },{ key: 'RTP', label: 'RTP', format: 'percent' },{ key: 'GGR', label: 'GGR' },{ key: 'ボーナス', label: 'ボーナス' },{ key: 'ゲームボーナス', label: 'ゲームボーナス' },{ key: 'ゲームフィー', label: 'ゲームフィー' },{ key: 'PSP手数料', label: 'PSP手数料' },{ key: 'AFF報酬', label: 'AFF報酬' },{ key: 'NGR', label: 'NGR' }] : type === 'ads' ? [{ key: 'コスト(税込)', label: 'コスト' },{ key: 'インプレッション', label: 'IMP', format: 'number' },{ key: 'クリック', label: 'クリック', format: 'number' },{ key: '登録数', label: '登録', format: 'number' },{ key: '入金数', label: '入金', format: 'number' },{ key: '登録CPA', label: '登録CPA' },{ key: '入金CPA', label: '入金CPA' }] : type === 'agent' ? [{ key: '入金合計', label: '入金合計' },{ key: '出金合計', label: '出金合計' },{ key: '収益合計', label: '収益合計' },{ key: 'NGR', label: 'NGR' }] : [];
   container.innerHTML = '<div class="summary-grid">' + cards.map((card, i) => { let val = data[card.key]; if (val == null && card.alt) { for (const k of card.alt) { if (data[k] != null) { val = data[k]; break; } } } if (val == null) return ''; let formatted = card.key === 'RTP' ? formatRTP(val) : card.format === 'percent' ? formatPercent(val) : card.format === 'number' ? formatNumber(val) : formatCurrency(val); const bg = val < 0 && card.format !== 'percent' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : colors[i % colors.length]; return `<div class="summary-card" style="background:${bg}"><h3>${card.label}</h3><div class="value">${formatted}</div></div>`; }).join('') + '</div>';
 }
 
@@ -1445,7 +1454,7 @@ function renderChart() {
   if (chartInstance) chartInstance.destroy();
   if (periods.length === 0) { ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); return; }
   const type = business.type || 'samExcel';
-  let datasets = type === 'samExcel' ? [{ label: 'GGR', data: periods.map(p => { const d = data[p]?.サマリー || data[p] || {}; return d['GGR(WIN/LOSE)'] || d['GGR'] || d['WIN/LOSE'] || 0; }), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: 'NGR', data: periods.map(p => (data[p]?.サマリー?.['NGR'] || data[p]?.['NGR'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }] : type === 'sloten' ? [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['GGR'] || data[p]?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: '入出金差分', data: periods.map(p => (data[p]?.サマリー?.['入出金差分'] || data[p]?.['入出金差分'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }] : type === 'konibet' ? [{ label: '入金額', data: periods.map(p => (data[p]?.サマリー?.['入金額'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: 'NGR', data: periods.map(p => (data[p]?.サマリー?.['NGR'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' },{ label: 'ターンオーバー', data: periods.map(p => (data[p]?.サマリー?.['ターンオーバー'] || 0) / 10), backgroundColor: 'rgba(245,158,11,0.5)', hidden: true }] : [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['総GGR'] || data[p]?.サマリー?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' }];
+  let datasets = type === 'samExcel' ? [{ label: 'GGR', data: periods.map(p => { const d = data[p]?.サマリー || data[p] || {}; return d['GGR(WIN/LOSE)'] || d['GGR'] || d['WIN/LOSE'] || 0; }), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: 'NGR', data: periods.map(p => (data[p]?.サマリー?.['NGR'] || data[p]?.['NGR'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }] : type === 'sloten' ? [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['GGR'] || data[p]?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: '入出金差分', data: periods.map(p => (data[p]?.サマリー?.['入出金差分'] || data[p]?.['入出金差分'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' }] : type === 'konibet' ? [{ label: '入金額', data: periods.map(p => (data[p]?.サマリー?.['総入金額'] || data[p]?.サマリー?.['入金額'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' },{ label: 'NGR', data: periods.map(p => (data[p]?.サマリー?.['NGR'] || 0)), backgroundColor: 'rgba(16,185,129,0.7)' },{ label: '入出金差分', data: periods.map(p => (data[p]?.サマリー?.['入出金差分'] || 0)), backgroundColor: 'rgba(245,158,11,0.7)' }] : [{ label: 'GGR', data: periods.map(p => (data[p]?.サマリー?.['総GGR'] || data[p]?.サマリー?.['GGR'] || 0)), backgroundColor: 'rgba(59,130,246,0.7)' }];
   chartInstance = new Chart(ctx, { type: 'bar', data: { labels: periods, datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '¥' + (v / 1000000).toFixed(0) + 'M' } } } } });
 }
 
