@@ -536,10 +536,13 @@ async function saveToCloud() {
         body: JSON.stringify(toSave)
       });
       
-      if (!response.ok) throw new Error('保存失敗');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`保存失敗: ${response.status} - ${errorText}`);
+      }
       
       const result = await response.json();
-      const newBinId = result.id || result.url?.split('/').pop();
+      const newBinId = result.id || result.token || result.url?.split('/').pop();
       
       if (newBinId) {
         localStorage.setItem('npointBinId', newBinId);
