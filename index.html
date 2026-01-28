@@ -656,7 +656,7 @@ function initializeData() {
   } 
   selectBusiness(currentBusiness); 
 }
-document.addEventListener('DOMContentLoaded', () => { initializeData(); renderTabs(); setupDragDrop(); });
+document.addEventListener('DOMContentLoaded', () => { initializeData(); loadFromLocalStorage(); renderTabs(); setupDragDrop(); });
 
 // ========== 表示モード ==========
 function setViewMode(mode) {
@@ -1566,7 +1566,9 @@ function toggleExchangeRate() { const type = document.getElementById('upload-typ
 function showAddBusinessModal() { document.getElementById('add-business-modal').classList.remove('hidden'); }
 function hideAddBusinessModal() { document.getElementById('add-business-modal').classList.add('hidden'); }
 function setupDragDrop() { const zone = document.getElementById('upload-zone'); zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); }); zone.addEventListener('dragleave', () => zone.classList.remove('dragover')); zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFileUpload(e.dataTransfer.files[0]); }); }
-function showStatus(msg, isError = false) { const s = document.getElementById('upload-status'); s.style.display = 'block'; s.style.background = isError ? '#fee2e2' : '#dcfce7'; s.style.color = isError ? '#dc2626' : '#16a34a'; s.textContent = msg; }
+function showStatus(msg, isError = false) { const s = document.getElementById('upload-status'); s.style.display = 'block'; s.style.background = isError ? '#fee2e2' : '#dcfce7'; s.style.color = isError ? '#dc2626' : '#16a34a'; s.textContent = msg; if (!isError) { saveToLocalStorage(); } }
+function saveToLocalStorage() { try { const dataToSave = { kpi: window.kpi || {}, timestamp: new Date().toISOString() }; localStorage.setItem('dashboardData', JSON.stringify(dataToSave)); console.log('Data saved to localStorage'); } catch (e) { console.error('Failed to save to localStorage:', e); } }
+function loadFromLocalStorage() { try { const saved = localStorage.getItem('dashboardData'); if (saved) { const data = JSON.parse(saved); if (data.kpi) { window.kpi = data.kpi; renderDashboard(); console.log('Data loaded from localStorage'); } } } catch (e) { console.error('Failed to load from localStorage:', e); } }
 
 // ========== ファイルアップロード ==========
 function handleFileUpload(file) {
