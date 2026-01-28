@@ -483,49 +483,121 @@ function getShareDataFromURL() {
   return null;
 }
 
-function createShareLink() {
-  try {
-    updateSyncStatus('リンク作成中...');
-    // 全データを共有（DEFAULT含む）
-    const toShare = {};
-    Object.keys(BUSINESSES).forEach(key => {
-      toShare[key] = BUSINESSES[key];
-    });
-    
-    const json = JSON.stringify(toShare);
-    const compressed = LZString.compressToEncodedURIComponent(json);
-    const baseUrl = window.location.href.split('#')[0].split('?')[0];
-    const shareUrl = baseUrl + '#data=' + compressed;
-    
-    if (shareUrl.length > 100000) {
-      alert('データが大きすぎます。\n一部の期間を削除してから共有してください。');
-      updateSyncStatus('データ過大', true);
-      return;
-    }
-    
-    window.history.replaceState({}, '', shareUrl);
-    updateSyncStatus('共有リンク作成済');
-    
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        alert('✅ 共有リンクをコピーしました！\n\nURL長: ' + shareUrl.length + '文字');
-      }).catch(() => {
-        prompt('共有リンク（コピーしてください）:', shareUrl);
-      });
-    } else {
-      prompt('共有リンク（コピーしてください）:', shareUrl);
-    }
-  } catch (e) {
-    console.error('createShareLink error:', e);
-    updateSyncStatus('エラー', true);
-    alert('共有リンクの作成に失敗しました。\nエラー: ' + e.message);
+async function createShareLink() {
+  const binId = localStorage.getItem('npointBinId');
+  
+  if (!binId) {
+    alert('まず「💾 クラウド保存」ボタンでデータを保存してください。');
+    return;
+  }
+  
+  const shareUrl = `${window.location.origin}${window.location.pathname}?bin=${binId}`;
+  
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(shareUrl);
+    alert(`✅ 共有リンクをコピーしました！\n\n${shareUrl}`);
+  } else {
+    prompt('共有リンク（コピーしてください）:', shareUrl);
   }
 }
 
 function showShareURL() { createShareLink(); }
-function saveToCloud() { }
-function loadCloudData() { return {}; }
-function clearCloudData() { }
+
+// npoint.io統合機能
+async function saveToCloud() {
+  try {
+    updateSyncStatus('クラウド保存中...');
+    
+    const toSave = {};
+    Object.keys(BUSINESSES).forEach(key => {
+      toSave[key] = BUSINESSES[key];
+    });
+    
+    const binId = localStorage.getItem('npointBinId');
+    
+    if (binId) {
+      // 既存のbinを更新
+      const response = await fetch(`https://api.npoint.io/${binId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toSave)
+      });
+      
+      if (!response.ok) throw new Error('保存失敗');
+      
+      updateSyncStatus('クラウド保存完了');
+      alert('✅ データをクラウドに保存しました！');
+    } else {
+      // 新規bin作成
+      const response = await fetch('https://api.npoint.io/docs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toSave)
+      });
+      
+      if (!response.ok) throw new Error('保存失敗');
+      
+      const result = await response.json();
+      const newBinId = result.id || result.url?.split('/').pop();
+      
+      if (newBinId) {
+        localStorage.setItem('npointBinId', newBinId);
+        updateSyncStatus('クラウド保存完了');
+        
+        const shareUrl = `${window.location.origin}${window.location.pathname}?bin=${newBinId}`;
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+          alert(`✅ データをクラウドに保存しました！\n\n共有リンクをコピーしました：\n${shareUrl}`);
+        } else {
+          prompt('共有リンク（コピーしてください）:', shareUrl);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('saveToCloud error:', e);
+    updateSyncStatus('保存エラー', true);
+    alert('クラウド保存に失敗しました。\nエラー: ' + e.message);
+  }
+}
+
+async function loadCloudData() {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const binId = urlParams.get('bin') || localStorage.getItem('npointBinId');
+    
+    if (!binId) return {};
+    
+    updateSyncStatus('クラウド読込中...');
+    
+    const response = await fetch(`https://api.npoint.io/${binId}`);
+    
+    if (!response.ok) {
+      updateSyncStatus('読込エラー', true);
+      return {};
+    }
+    
+    const data = await response.json();
+    
+    // binIdを保存
+    localStorage.setItem('npointBinId', binId);
+    
+    updateSyncStatus('クラウド同期済');
+    return data;
+  } catch (e) {
+    console.error('loadCloudData error:', e);
+    updateSyncStatus('読込エラー', true);
+    return {};
+  }
+}
+
+function clearCloudData() {
+  if (confirm('クラウドデータをクリアしますか？\n（ローカルのbin ID情報のみ削除されます）')) {
+    localStorage.removeItem('npointBinId');
+    updateSyncStatus('クリア完了');
+    alert('✅ クラウドデータ情報をクリアしました。\nページをリロードしてください。');
+  }
+}
 function mergeWithDefault(sharedData) { const merged = JSON.parse(JSON.stringify(DEFAULT_BUSINESSES)); Object.keys(sharedData).forEach(key => { if (merged[key]) { merged[key].data = { ...merged[key].data, ...(sharedData[key].data || {}) }; merged[key].type = sharedData[key].type || merged[key].type; } else merged[key] = sharedData[key]; }); return merged; }
 function saveBusinessData() { 
   try { 
