@@ -485,7 +485,7 @@ function getShareDataFromURL() {
 }
 
 async function createShareLink() {
-  const binId = localStorage.getItem('npointBinId');
+  const binId = localStorage.getItem('jsonbinId');
   
   if (!binId) {
     alert('まず「💾 クラウド保存」ボタンでデータを保存してください。');
@@ -504,7 +504,7 @@ async function createShareLink() {
 
 function showShareURL() { createShareLink(); }
 
-// npoint.io統合機能
+// JSONBin.io統合機能
 async function saveToCloud() {
   try {
     updateSyncStatus('クラウド保存中...');
@@ -514,12 +514,12 @@ async function saveToCloud() {
       toSave[key] = BUSINESSES[key];
     });
     
-    const binId = localStorage.getItem('npointBinId');
+    const binId = localStorage.getItem('jsonbinId');
     
     if (binId) {
       // 既存のbinを更新
-      const response = await fetch(`https://api.npoint.io/${binId}`, {
-        method: 'POST',
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(toSave)
       });
@@ -530,7 +530,7 @@ async function saveToCloud() {
       alert('✅ データをクラウドに保存しました！');
     } else {
       // 新規bin作成
-      const response = await fetch('https://api.npoint.io/docs', {
+      const response = await fetch('https://api.jsonbin.io/v3/b', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(toSave)
@@ -542,10 +542,10 @@ async function saveToCloud() {
       }
       
       const result = await response.json();
-      const newBinId = result.id || result.token || result.url?.split('/').pop();
+      const newBinId = result.metadata?.id;
       
       if (newBinId) {
-        localStorage.setItem('npointBinId', newBinId);
+        localStorage.setItem('jsonbinId', newBinId);
         updateSyncStatus('クラウド保存完了');
         
         const shareUrl = `${window.location.origin}${window.location.pathname}?bin=${newBinId}`;
@@ -568,23 +568,24 @@ async function saveToCloud() {
 async function loadCloudData() {
   try {
     const urlParams = new URLSearchParams(window.location.search);
-    const binId = urlParams.get('bin') || localStorage.getItem('npointBinId');
+    const binId = urlParams.get('bin') || localStorage.getItem('jsonbinId');
     
     if (!binId) return {};
     
     updateSyncStatus('クラウド読込中...');
     
-    const response = await fetch(`https://api.npoint.io/${binId}`);
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`);
     
     if (!response.ok) {
       updateSyncStatus('読込エラー', true);
       return {};
     }
     
-    const data = await response.json();
+    const result = await response.json();
+    const data = result.record || result;
     
     // binIdを保存
-    localStorage.setItem('npointBinId', binId);
+    localStorage.setItem('jsonbinId', binId);
     
     updateSyncStatus('クラウド同期済');
     return data;
@@ -597,7 +598,7 @@ async function loadCloudData() {
 
 function clearCloudData() {
   if (confirm('クラウドデータをクリアしますか？\n（ローカルのbin ID情報のみ削除されます）')) {
-    localStorage.removeItem('npointBinId');
+    localStorage.removeItem('jsonbinId');
     updateSyncStatus('クリア完了');
     alert('✅ クラウドデータ情報をクリアしました。\nページをリロードしてください。');
   }
