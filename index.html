@@ -485,21 +485,27 @@ function getShareDataFromURL() {
 }
 
 async function createShareLink() {
-  const binId = localStorage.getItem('jsonbinId');
-  
-  if (!binId) {
-    alert('まず「💾 クラウド保存」ボタンでデータを保存してください。');
-    return;
+  try {
+    const toShare = {};
+    Object.keys(BUSINESSES).forEach(key => {
+      toShare[key] = BUSINESSES[key];
+    });
+    
+    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(toShare));
+    const shareUrl = `${window.location.origin}${window.location.pathname}#data=${compressed}`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(shareUrl);
+      alert(`✅ 共有リンクをコピーしました!\n\n${shareUrl}`);
+    } else {
+      prompt('共有リンク（コピーしてください）:', shareUrl);
+    }
+  } catch (e) {
+    console.error('createShareLink error:', e);
+    alert('共有リンクの生成に失敗しました。\nエラー: ' + e.message);
   }
-  
-  const shareUrl = `${window.location.origin}${window.location.pathname}?bin=${binId}`;
-  
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    await navigator.clipboard.writeText(shareUrl);
-    alert(`✅ 共有リンクをコピーしました！\n\n${shareUrl}`);
-  } else {
-    prompt('共有リンク（コピーしてください）:', shareUrl);
-  }
+}
+
 }
 
 function showShareURL() { createShareLink(); }
