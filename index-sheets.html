@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>事業別ダッシュボード - Google Sheets連携版</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;min-height:100vh}
+.container{max-width:1400px;margin:0 auto;padding:20px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:16px}
+.header h1{font-size:24px;color:#1e293b}
+.header-actions{display:flex;gap:10px;flex-wrap:wrap}
+.card{background:white;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:20px;margin-bottom:20px}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.tab{padding:10px 18px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.2s;background:#e2e8f0;color:#475569}
+.tab:hover{background:#cbd5e1}
+.tab.active{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white}
+.btn{padding:10px 20px;border-radius:10px;border:none;cursor:pointer;font-weight:600;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white}
+.btn-secondary{background:#f1f5f9;color:#475569}
+.btn-success{background:linear-gradient(135deg,#10b981,#059669);color:white}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.summary-card{border-radius:12px;padding:14px;color:white;background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
+.summary-card h3{font-size:10px;opacity:0.9;margin-bottom:4px;text-transform:uppercase}
+.summary-card .value{font-size:18px;font-weight:700}
+.chart-container{height:300px;margin:20px 0}
+.period-selector{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.period-btn{padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;background:#f1f5f9;color:#64748b;transition:all 0.2s}
+.period-btn.active{background:#3b82f6;color:white}
+.period-btn:hover{background:#e2e8f0}
+.hidden{display:none!important}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.kpi-item{background:#f8fafc;border-radius:10px;padding:12px}
+.kpi-item .label{font-size:10px;color:#64748b;margin-bottom:4px}
+.kpi-item .val{font-size:16px;font-weight:700;color:#1e293b}
+.kpi-item .val.negative{color:#dc2626}
+footer{text-align:center;color:#94a3b8;font-size:11px;margin-top:30px;padding:20px}
+.loading{text-align:center;padding:40px;color:#64748b}
+.loading .spinner{width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:16px;border-radius:12px;margin-bottom:20px}
+.success-box{background:#f0fdf4;border:1px solid #bbf7d0;color:#16a34a;padding:16px;border-radius:12px;margin-bottom:20px}
+.config-section{background:linear-gradient(135deg,#1e3a5f,#2d5a87);border-radius:16px;padding:20px;margin-bottom:20px;color:white}
+.config-section h3{margin-bottom:16px}
+.config-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.config-card{background:rgba(255,255,255,0.1);border-radius:10px;padding:12px}
+.config-card h4{font-size:12px;margin-bottom:8px;color:#7dd3fc}
+.config-card .status{font-size:11px;padding:4px 8px;border-radius:4px;display:inline-block}
+.config-card .status.ok{background:#10b981;color:white}
+.config-card .status.error{background:#ef4444;color:white}
+.config-card .status.loading{background:#f59e0b;color:white}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #e2e8f0}
+th{background:#f8fafc;font-weight:600;color:#64748b;position:sticky;top:0}
+tr:hover{background:#f8fafc}
+.text-right{text-align:right}
+.text-green{color:#16a34a}
+.text-red{color:#dc2626}
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📊 事業別ダッシュボード <span style="font-size:14px;background:#10b981;color:white;padding:2px 8px;border-radius:4px;margin-left:8px">Google Sheets連携</span></h1>
+    <div class="header-actions">
+      <span id="sync-status" style="font-size:12px;color:#f59e0b;margin-right:10px">🔄 読込中...</span>
+      <button class="btn btn-success" onclick="reloadAllSheets()">🔄 データ更新</button>
+      <button class="btn btn-secondary" onclick="showConfigModal()">⚙️ 設定</button>
+    </div>
+  </div>
+  
+  <div id="loading-section" class="loading">
+    <div class="spinner"></div>
+    <p>Google Sheetsからデータを読み込んでいます...</p>
+  </div>
+  
+  <div id="main-content" class="hidden">
+    <div class="tabs" id="business-tabs"></div>
+    <div id="period-selector" class="period-selector"></div>
+    <div id="summary-section"></div>
+    
+    <div class="card">
+      <div style="font-size:16px;font-weight:600;color:#1e293b;margin-bottom:16px">📈 推移グラフ</div>
+      <div class="chart-container"><canvas id="main-chart"></canvas></div>
+    </div>
+    
+    <div id="detail-section" class="card">
+      <div style="font-size:16px;font-weight:600;color:#1e293b;margin-bottom:16px">📋 詳細データ</div>
+      <div id="detail-grid" class="kpi-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 設定モーダル -->
+<div id="config-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000">
+  <div style="background:white;border-radius:16px;padding:30px;max-width:800px;width:90%;max-height:90vh;overflow-y:auto">
+    <h3 style="margin-bottom:20px">⚙️ Google Sheets設定</h3>
+    <div id="config-status"></div>
+    <div class="config-grid" id="sheets-config"></div>
+    <div style="margin-top:20px;padding:16px;background:#fefce8;border-radius:8px;font-size:13px">
+      <strong>📌 シートの公開設定が必要です：</strong>
+      <ol style="margin-top:8px;padding-left:20px">
+        <li>Google Sheetsを開く</li>
+        <li>ファイル → 共有 → ウェブに公開</li>
+        <li>「ドキュメント全体」と「ウェブページ」を選択</li>
+        <li>「公開」をクリック</li>
+      </ol>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="hideConfigModal()">閉じる</button>
+      <button class="btn btn-primary" onclick="reloadAllSheets()">🔄 再読み込み</button>
+    </div>
+  </div>
+</div>
+
+<footer>収益管理ダッシュボード - Google Sheets連携版 | データは各Sheetsからリアルタイム取得</footer>
+
+<script>
+// ========== Google Sheets設定 ==========
+// tabs: 'auto' = 自動でタブ一覧を取得して「YYYY年M月」形式のタブを読み込む
+const SHEET_CONFIGS = {
+  'スロ天': {
+    id: '1oGnetFNtGd1ZB-A9YkzzfqIU4Bxh3djsABeEX_bHl8M',
+    tabs: 'auto',  // 自動検出（YYYY年M月形式のタブを全て読み込む）
+    type: 'sloten',
+    parser: parseSloten
+  },
+  'Konibet': {
+    id: '1-6_ZOBYcExVxdsJj0Aiu1K7QqrYpkGzyTobGcuVnD9Y',
+    tabs: 'auto',  // 自動検出
+    type: 'konibet',
+    parser: parseKonibet
+  },
+  'AMUSEVIP': {
+    id: '1vYc4iTJ16E7R6SUnGhwdB4aOJULuweZOJUwnvK3B2Ug',
+    tabs: ['エージェント'],
+    type: 'agent',
+    parser: parseAgent
+  },
+  '元amuse': {
+    id: '1wj2a21VfGFvS4eCO4u_5PvZai2CmU-eZh69niVQTluw',
+    tabs: ['新未回収シート', '【自動】遅れ回収', 'キャッシュバック・ボーナス', '顧客リスト'],
+    type: 'samExcel',
+    parser: parseAmuse
+  },
+  'DSC': {
+    id: '1wj2a21VfGFvS4eCO4u_5PvZai2CmU-eZh69niVQTluw',
+    tabs: ['新未回収シートD', '【自動】遅れ回収D', 'キャッシュバック・ボーナスD', '顧客リストD'],
+    type: 'samExcel',
+    parser: parseDSC
+  },
+  '広告': {
+    id: '15n4rYUmd0v4k7WyMItGufco1S1_-LSzPi0C0AHmadV0',
+    tabs: 'auto',
+    type: 'ads',
+    parser: parseAds
+  },
+  'バカラツール': {
+    id: '1YWm3E-lkjqSfhC8YQUugGwTClhEkOK0PJGQ-V1YTCr0',
+    tabs: 'auto',
+    type: 'baccara',
+    parser: parseBaccarat
+  }
+};
+
+// ========== データ格納 ==========
+let BUSINESSES = {};
+let currentBusiness = 'スロ天';
+let currentPeriod = null;
+let chartInstance = null;
+let sheetStatus = {};
+
+// ========== ユーティリティ ==========
+function parseNumber(val) {
+  if (val === undefined || val === null || val === '' || val === '-') return null;
+  if (typeof val === 'number') return val;
+  let cleaned = String(val).replace(/[¥￥$,、"\s]/g, '').trim();
+  if (cleaned.endsWith('%')) cleaned = cleaned.replace(/%$/, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+function formatCurrency(val) {
+  if (val == null || isNaN(val)) return '-';
+  const abs = Math.abs(val), sign = val < 0 ? '-' : '';
+  if (abs >= 100000000) return sign + '¥' + (abs / 100000000).toFixed(2) + '億';
+  if (abs >= 10000) return sign + '¥' + Math.round(abs / 10000).toLocaleString() + '万';
+  return sign + '¥' + Math.round(abs).toLocaleString();
+}
+
+function formatPercent(val) {
+  if (val == null || isNaN(val)) return '-';
+  let v = Math.abs(val) <= 1 ? val * 100 : val;
+  return v.toFixed(2) + '%';
+}
+
+function formatNumber(val) {
+  if (val == null || isNaN(val)) return '-';
+  return Math.round(val).toLocaleString();
+}
+
+function sortPeriods(periods) {
+  return [...periods].sort((a, b) => {
+    const mA = a.match(/(\d{4})年(\d{1,2})月/), mB = b.match(/(\d{4})年(\d{1,2})月/);
+    if (mA && mB) {
+      const yA = parseInt(mA[1]), monA = parseInt(mA[2]);
+      const yB = parseInt(mB[1]), monB = parseInt(mB[2]);
+      return (yB * 12 + monB) - (yA * 12 + monA);
+    }
+    return b.localeCompare(a);
+  });
+}
+
+// ========== Google Sheetsデータ取得 ==========
+
+// シートのタブ一覧を取得
+async function fetchSheetTabs(sheetId) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+  
+  try {
+    // シートのHTMLからタブ名を抽出する代わりに、
+    // 一般的な月名パターンを生成（過去3年分）
+    const tabs = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    // 過去3年 + 今月まで
+    for (let y = currentYear - 3; y <= currentYear; y++) {
+      const maxMonth = (y === currentYear) ? currentMonth : 12;
+      for (let m = 1; m <= maxMonth; m++) {
+        tabs.push(`${y}年${m}月`);
+      }
+    }
+    
+    return tabs;
+  } catch (error) {
+    console.error('Tab fetch error:', error);
+    return [];
+  }
+}
+
+async function fetchSheetData(sheetId, tabName) {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
+  
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+    
+    // Google Vizクエリのレスポンスをパース
+    const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\);?$/);
+    if (!jsonMatch) throw new Error('Invalid response format');
+    
+    const data = JSON.parse(jsonMatch[1]);
+    if (data.status === 'error') throw new Error(data.errors?.[0]?.message || 'Sheet error');
+    
+    // テーブルデータを2次元配列に変換
+    const rows = [];
+    const cols = data.table.cols.map(c => c.label || '');
+    rows.push(cols);
+    
+    data.table.rows.forEach(row => {
+      const rowData = row.c.map(cell => {
+        if (!cell) return null;
+        return cell.v !== undefined ? cell.v : cell.f || null;
+      });
+      rows.push(rowData);
+    });
+    
+    return rows;
+  } catch (error) {
+    // タブが存在しない場合は静かに失敗
+    if (error.message.includes('error') || error.message.includes('Invalid')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+// ========== パーサー関数 ==========
+function parseSloten(rows, tabName) {
+  // タブ名は「YYYY年M月」形式
+  const match = tabName.match(/(\d{4})年(\d{1,2})月/);
+  if (!match) return null;
+  
+  const periodName = `${match[1]}年${parseInt(match[2])}月`;
+  const summary = {};
+  
+  // 行をスキャンしてKPIを抽出
+  rows.forEach((row, idx) => {
+    if (row && row[0] && row[1] !== null && row[1] !== undefined) {
+      const key = String(row[0]).trim().split('/')[0].trim();  // スラッシュ以降を削除
+      const val = parseNumber(row[1]);
+      
+      if (val !== null && key && !key.startsWith('#') && !key.startsWith('0.')) {
+        summary[key] = val;
+      }
+    }
+  });
+  
+  // LTV計算（アクティブベース）
+  const activeUsers = summary['アクティブプレイ人数（ユニーク）'] || summary['アクティブプレイ人数'] || 1;
+  const ggr = summary['GGR'] || 0;
+  const depositDiff = summary['入出金差分'] || 0;
+  
+  if (activeUsers > 0 && ggr > 0) {
+    summary['GGRLTV'] = Math.round(ggr / activeUsers * 100) / 100;
+  }
+  if (activeUsers > 0 && depositDiff !== 0) {
+    summary['入出金差分LTV'] = Math.round(depositDiff / activeUsers * 100) / 100;
+  }
+  
+  return { periodName, data: { 'サマリー': summary } };
+}
+
+function parseKonibet(rows, tabName) {
+  const results = {};
+  let currentMonth = null;
+  
+  rows.forEach((row, idx) => {
+    // 月を検出（YYYY/MM形式など）
+    const dateStr = String(row[0] || '');
+    const dateMatch = dateStr.match(/(\d{4})[\/\-](\d{1,2})/);
+    
+    if (dateMatch) {
+      const year = dateMatch[1];
+      const month = parseInt(dateMatch[2]);
+      currentMonth = `${year}年${month}月`;
+      
+      if (!results[currentMonth]) {
+        results[currentMonth] = { 'サマリー': {} };
+      }
+    }
+    
+    // データ行を処理
+    if (currentMonth && row[0] && row[1] !== null) {
+      const key = String(row[0]).trim();
+      const val = parseNumber(row[1]);
+      
+      if (val !== null) {
+        // 累計を加算
+        if (!results[currentMonth]['サマリー'][key]) {
+          results[currentMonth]['サマリー'][key] = 0;
+        }
+        results[currentMonth]['サマリー'][key] += val;
+      }
+    }
+  });
+  
+  return results;
+}
+
+function parseAgent(rows, tabName) {
+  const results = {};
+  
+  rows.forEach((row, idx) => {
+    if (idx === 0) return; // ヘッダースキップ
+    
+    // 期間を検出
+    const dateStr = String(row[0] || '');
+    const dateMatch = dateStr.match(/(\d{4})[年\/\-](\d{1,2})/);
+    
+    if (dateMatch) {
+      const periodName = `${dateMatch[1]}年${parseInt(dateMatch[2])}月`;
+      
+      if (!results[periodName]) {
+        results[periodName] = { 'サマリー': {} };
+      }
+      
+      // カラムからデータを取得
+      const summary = results[periodName]['サマリー'];
+      if (row[1]) summary['入金合計'] = (summary['入金合計'] || 0) + parseNumber(row[1]);
+      if (row[2]) summary['出金合計'] = (summary['出金合計'] || 0) + parseNumber(row[2]);
+      if (row[3]) summary['収益合計'] = (summary['収益合計'] || 0) + parseNumber(row[3]);
+      if (row[4]) summary['ローリング報酬'] = (summary['ローリング報酬'] || 0) + parseNumber(row[4]);
+    }
+  });
+  
+  return results;
+}
+
+function parseAmuse(rows, tabName) {
+  // 複数タブからのデータを統合
+  const results = {};
+  
+  rows.forEach((row, idx) => {
+    if (idx === 0) return;
+    
+    const dateStr = String(row[0] || '');
+    const dateMatch = dateStr.match(/(\d{4})[年\/\-](\d{1,2})/);
+    
+    if (dateMatch) {
+      const periodName = `${dateMatch[1]}年${parseInt(dateMatch[2])}月`;
+      
+      if (!results[periodName]) {
+        results[periodName] = { 'サマリー': {} };
+      }
+      
+      // タブに応じたデータ抽出
+      if (tabName.includes('未回収')) {
+        if (row[1]) results[periodName]['サマリー']['残未回収金額'] = parseNumber(row[1]);
+      } else if (tabName.includes('遅れ')) {
+        if (row[1]) results[periodName]['サマリー']['遅れ回収金額'] = parseNumber(row[1]);
+      } else if (tabName.includes('ボーナス')) {
+        if (row[1]) results[periodName]['サマリー']['ボーナス'] = parseNumber(row[1]);
+      }
+    }
+  });
+  
+  return results;
+}
+
+function parseDSC(rows, tabName) {
+  return parseAmuse(rows, tabName); // 同じ形式
+}
+
+function parseAds(rows, tabName) {
+  const results = {};
+  const headers = rows[0] || [];
+  
+  rows.forEach((row, idx) => {
+    if (idx === 0) return;
+    
+    const dateStr = String(row[0] || '');
+    const dateMatch = dateStr.match(/(\d{4})[年\/\-](\d{1,2})/);
+    
+    if (dateMatch) {
+      const periodName = `${dateMatch[1]}年${parseInt(dateMatch[2])}月`;
+      
+      if (!results[periodName]) {
+        results[periodName] = { 'サマリー': {} };
+      }
+      
+      headers.forEach((header, i) => {
+        if (i > 0 && row[i] !== null) {
+          const key = String(header).trim();
+          const val = parseNumber(row[i]);
+          if (val !== null) {
+            if (!results[periodName]['サマリー'][key]) {
+              results[periodName]['サマリー'][key] = 0;
+            }
+            results[periodName]['サマリー'][key] += val;
+          }
+        }
+      });
+    }
+  });
+  
+  return results;
+}
+
+function parseBaccarat(rows, tabName) {
+  return parseAds(rows, tabName); // 同じ形式
+}
+
+// ========== 全シート読み込み ==========
+async function loadAllSheets() {
+  document.getElementById('loading-section').classList.remove('hidden');
+  document.getElementById('main-content').classList.add('hidden');
+  
+  const statusEl = document.getElementById('sync-status');
+  statusEl.textContent = '🔄 読込中...';
+  statusEl.style.color = '#f59e0b';
+  
+  let successCount = 0;
+  let errorCount = 0;
+  
+  for (const [businessName, config] of Object.entries(SHEET_CONFIGS)) {
+    sheetStatus[businessName] = { status: 'loading', message: '読込中...' };
+    
+    try {
+      BUSINESSES[businessName] = { data: {}, type: config.type };
+      
+      // タブ一覧を決定
+      let tabs = config.tabs;
+      if (tabs === 'auto') {
+        // 自動検出: 過去3年分の月タブを試行
+        tabs = await fetchSheetTabs(config.id);
+      }
+      
+      let loadedCount = 0;
+      
+      for (const tab of tabs) {
+        try {
+          const rows = await fetchSheetData(config.id, tab);
+          
+          if (rows && rows.length > 1) {
+            const parsed = config.parser(rows, tab);
+            
+            if (parsed) {
+              if (parsed.periodName) {
+                // 単一期間のデータ
+                BUSINESSES[businessName].data[parsed.periodName] = parsed.data;
+                loadedCount++;
+              } else if (typeof parsed === 'object') {
+                // 複数期間のデータ
+                const addedCount = Object.keys(parsed).length;
+                Object.assign(BUSINESSES[businessName].data, parsed);
+                loadedCount += addedCount;
+              }
+            }
+          }
+        } catch (tabError) {
+          // 存在しないタブは静かにスキップ
+          console.debug(`Tab ${tab} not found or error:`, tabError.message);
+        }
+      }
+      
+      const periodCount = Object.keys(BUSINESSES[businessName].data).length;
+      if (periodCount > 0) {
+        sheetStatus[businessName] = { status: 'ok', message: `${periodCount}期間` };
+        successCount++;
+      } else {
+        sheetStatus[businessName] = { status: 'error', message: 'データなし' };
+        errorCount++;
+      }
+    } catch (error) {
+      sheetStatus[businessName] = { status: 'error', message: error.message };
+      errorCount++;
+    }
+  }
+  
+  document.getElementById('loading-section').classList.add('hidden');
+  document.getElementById('main-content').classList.remove('hidden');
+  
+  if (errorCount === 0) {
+    statusEl.textContent = `✅ 全${successCount}シート読込完了`;
+    statusEl.style.color = '#10b981';
+  } else if (successCount > 0) {
+    statusEl.textContent = `⚠️ ${successCount}成功 / ${errorCount}エラー`;
+    statusEl.style.color = '#f59e0b';
+  } else {
+    statusEl.textContent = `❌ 読込失敗 - シートを公開してください`;
+    statusEl.style.color = '#ef4444';
+  }
+  
+  renderTabs();
+  selectBusiness(currentBusiness);
+}
+
+async function reloadAllSheets() {
+  await loadAllSheets();
+}
+
+// ========== UI関数 ==========
+function renderTabs() {
+  const container = document.getElementById('business-tabs');
+  container.innerHTML = Object.keys(BUSINESSES).map(name => {
+    const isActive = name === currentBusiness;
+    const status = sheetStatus[name];
+    const statusIcon = status?.status === 'ok' ? '✅' : status?.status === 'error' ? '❌' : '⏳';
+    return `<button class="tab ${isActive ? 'active' : ''}" onclick="selectBusiness('${name}')">${statusIcon} ${name}</button>`;
+  }).join('');
+}
+
+function selectBusiness(name) {
+  currentBusiness = name;
+  const business = BUSINESSES[name];
+  
+  if (!business || !business.data) {
+    document.getElementById('summary-section').innerHTML = '<div class="error-box">データがありません</div>';
+    return;
+  }
+  
+  const periods = sortPeriods(Object.keys(business.data).filter(k => k !== '着金統計'));
+  currentPeriod = periods[0] || null;
+  
+  renderTabs();
+  renderPeriodSelector(periods);
+  renderSummary();
+  renderChart();
+  renderDetail();
+}
+
+function renderPeriodSelector(periods) {
+  const container = document.getElementById('period-selector');
+  container.innerHTML = periods.map(p => 
+    `<button class="period-btn ${p === currentPeriod ? 'active' : ''}" onclick="selectPeriod('${p}')">${p}</button>`
+  ).join('');
+}
+
+function selectPeriod(period) {
+  currentPeriod = period;
+  document.querySelectorAll('.period-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === period);
+  });
+  renderSummary();
+  renderDetail();
+}
+
+function renderSummary() {
+  const container = document.getElementById('summary-section');
+  const business = BUSINESSES[currentBusiness];
+  
+  if (!business || !currentPeriod || !business.data[currentPeriod]) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  const periodData = business.data[currentPeriod];
+  const summary = periodData?.サマリー || periodData || {};
+  const type = business.type;
+  
+  // タイプに応じた主要KPIを定義
+  let mainKPIs = [];
+  
+  if (type === 'sloten') {
+    mainKPIs = [
+      { key: 'GGR', label: 'GGR', format: 'currency' },
+      { key: '総入金額', label: '総入金額', format: 'currency' },
+      { key: '総出金額', label: '総出金額', format: 'currency' },
+      { key: '入出金差分', label: '入出金差分', format: 'currency' },
+      { key: '登録人数', label: '登録人数', format: 'number' },
+      { key: 'RTP', label: 'RTP', format: 'percent' }
+    ];
+  } else if (type === 'konibet') {
+    mainKPIs = [
+      { key: 'GGR', label: 'GGR', format: 'currency' },
+      { key: 'NGR', label: 'NGR', format: 'currency' },
+      { key: '総入金額', label: '総入金額', format: 'currency' },
+      { key: '登録人数', label: '登録人数', format: 'number' },
+      { key: 'FTD数', label: 'FTD数', format: 'number' },
+      { key: 'RTP', label: 'RTP', format: 'percent' }
+    ];
+  } else if (type === 'agent') {
+    mainKPIs = [
+      { key: '入金合計', label: '入金合計', format: 'currency' },
+      { key: '出金合計', label: '出金合計', format: 'currency' },
+      { key: '収益合計', label: '収益合計', format: 'currency' },
+      { key: 'ローリング報酬', label: 'ローリング', format: 'currency' }
+    ];
+  } else if (type === 'ads') {
+    mainKPIs = [
+      { key: 'コスト', label: 'コスト', format: 'currency' },
+      { key: 'インプレッション', label: 'IMP', format: 'number' },
+      { key: 'クリック', label: 'クリック', format: 'number' },
+      { key: '登録数', label: '登録', format: 'number' }
+    ];
+  } else {
+    mainKPIs = [
+      { key: 'GGR(WIN/LOSE)', alt: ['GGR'], label: 'GGR', format: 'currency' },
+      { key: 'NGR', label: 'NGR', format: 'currency' },
+      { key: '回収金額', label: '回収金額', format: 'currency' },
+      { key: 'RTP', label: 'RTP', format: 'percent' }
+    ];
+  }
+  
+  const cards = mainKPIs.map(kpi => {
+    let val = summary[kpi.key];
+    if (val === undefined && kpi.alt) {
+      for (const altKey of kpi.alt) {
+        if (summary[altKey] !== undefined) {
+          val = summary[altKey];
+          break;
+        }
+      }
+    }
+    
+    let formatted;
+    if (val === undefined || val === null) {
+      formatted = '-';
+    } else if (kpi.format === 'currency') {
+      formatted = formatCurrency(val);
+    } else if (kpi.format === 'percent') {
+      formatted = formatPercent(val);
+    } else {
+      formatted = formatNumber(val);
+    }
+    
+    return `<div class="summary-card"><h3>${kpi.label}</h3><div class="value">${formatted}</div></div>`;
+  }).join('');
+  
+  container.innerHTML = `<div class="summary-grid">${cards}</div>`;
+}
+
+function renderChart() {
+  const business = BUSINESSES[currentBusiness];
+  if (!business || !business.data) return;
+  
+  const periods = sortPeriods(Object.keys(business.data).filter(k => k !== '着金統計')).reverse();
+  
+  // GGRまたは主要指標を取得
+  const ggrKey = business.type === 'sloten' || business.type === 'konibet' ? 'GGR' : 'GGR(WIN/LOSE)';
+  const values = periods.map(p => {
+    const summary = business.data[p]?.サマリー || business.data[p] || {};
+    return summary[ggrKey] || summary['GGR'] || summary['収益合計'] || 0;
+  });
+  
+  const ctx = document.getElementById('main-chart').getContext('2d');
+  
+  if (chartInstance) chartInstance.destroy();
+  
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: periods,
+      datasets: [{
+        label: 'GGR',
+        data: values,
+        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+        borderColor: '#3b82f6',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => formatCurrency(v) }
+        }
+      }
+    }
+  });
+}
+
+function renderDetail() {
+  const container = document.getElementById('detail-grid');
+  const business = BUSINESSES[currentBusiness];
+  
+  if (!business || !currentPeriod || !business.data[currentPeriod]) {
+    container.innerHTML = '<p style="color:#64748b">データがありません</p>';
+    return;
+  }
+  
+  const periodData = business.data[currentPeriod];
+  const summary = periodData?.サマリー || periodData || {};
+  
+  container.innerHTML = Object.entries(summary).map(([key, val]) => {
+    let formatted;
+    if (typeof val === 'number') {
+      if (key.includes('率') || key === 'RTP') {
+        formatted = formatPercent(val);
+      } else if (val > 10000 || key.includes('金額') || key.includes('GGR') || key.includes('NGR')) {
+        formatted = formatCurrency(val);
+      } else {
+        formatted = formatNumber(val);
+      }
+    } else {
+      formatted = String(val);
+    }
+    
+    const isNegative = typeof val === 'number' && val < 0;
+    return `<div class="kpi-item"><div class="label">${key}</div><div class="val ${isNegative ? 'negative' : ''}">${formatted}</div></div>`;
+  }).join('');
+}
+
+// ========== 設定モーダル ==========
+function showConfigModal() {
+  document.getElementById('config-modal').classList.remove('hidden');
+  document.getElementById('config-modal').style.display = 'flex';
+  renderConfigStatus();
+}
+
+function hideConfigModal() {
+  document.getElementById('config-modal').classList.add('hidden');
+  document.getElementById('config-modal').style.display = 'none';
+}
+
+function renderConfigStatus() {
+  const container = document.getElementById('sheets-config');
+  
+  container.innerHTML = Object.entries(SHEET_CONFIGS).map(([name, config]) => {
+    const status = sheetStatus[name] || { status: 'unknown', message: '未読込' };
+    const statusClass = status.status === 'ok' ? 'ok' : status.status === 'error' ? 'error' : 'loading';
+    
+    return `
+      <div class="config-card">
+        <h4>${name}</h4>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;word-break:break-all">
+          ID: ${config.id.substring(0, 20)}...
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">
+          タブ: ${config.tabs.join(', ')}
+        </div>
+        <span class="status ${statusClass}">${status.message}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// ========== 初期化 ==========
+document.addEventListener('DOMContentLoaded', () => {
+  loadAllSheets();
+});
+
+// モーダル外クリックで閉じる
+document.getElementById('config-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'config-modal') hideConfigModal();
+});
+</script>
+</body>
+</html>
